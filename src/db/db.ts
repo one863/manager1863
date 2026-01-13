@@ -15,6 +15,13 @@ export interface Player {
   morale: number; marketValue: number; wage: number; isStarter?: boolean;
 }
 
+export interface StaffMember {
+  id?: number; saveId: number; teamId: number; name: string;
+  role: 'COACH' | 'SCOUT' | 'PHYSICAL_TRAINER';
+  skill: number; // 1-100
+  wage: number;
+}
+
 export interface Team {
   id?: number; saveId: number; name: string; leagueId: number;
   managerName?: string; 
@@ -26,11 +33,19 @@ export interface Team {
   stadiumName: string; stadiumCapacity: number; stadiumLevel: number;
   sponsorName?: string; sponsorIncome?: number; sponsorExpiryDate?: Date;
   tacticType: TeamRatings['tacticType']; 
-  formation: '2-3-5' | '4-4-2' | '4-3-3' | '5-3-2' | '3-5-2'; // NOUVEAU
+  formation: '2-3-5' | '4-4-2' | '4-3-3' | '5-3-2' | '3-5-2'; 
   version: number;
   seasonGoal?: 'CHAMPION' | 'PROMOTION' | 'MID_TABLE' | 'AVOID_RELEGATION';
   seasonGoalStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
+  
+  // Suivi des travaux
   stadiumUpgradeEndDay?: number;
+  stadiumProject?: {
+    type: 'UPGRADE' | 'NEW_STADIUM';
+    targetCapacity: number;
+    targetName?: string;
+  };
+
   trainingEndDay?: number;
   trainingFocus?: 'PHYSICAL' | 'TECHNICAL';
 }
@@ -90,12 +105,13 @@ class Manager1863DB extends Dexie {
   gameState!: Table<GameStateData>;
   news!: Table<NewsArticle>;
   history!: Table<SeasonHistory>;
+  staff!: Table<StaffMember>; // NOUVEAU
 
   constructor() {
     super('Manager1863_Storage');
 
-    // Passage à la version 12 pour les formations
-    this.version(12).stores({
+    // Passage à la version 14 pour le staff
+    this.version(14).stores({
       players: '++id, saveId, teamId, [saveId+teamId], [saveId+position], skill, isStarter',
       teams: '++id, saveId, leagueId, [saveId+leagueId]',
       leagues: '++id, saveId',
@@ -104,6 +120,7 @@ class Manager1863DB extends Dexie {
       gameState: 'saveId',
       news: '++id, saveId, day, [saveId+day]',
       history: '++id, saveId, teamId, seasonYear',
+      staff: '++id, saveId, teamId, [saveId+teamId]' // NOUVEAU
     });
 
     this.on('versionchange', (event) => {
@@ -114,7 +131,7 @@ class Manager1863DB extends Dexie {
 }
 
 export const db = new Manager1863DB();
-export const CURRENT_DATA_VERSION = 12;
+export const CURRENT_DATA_VERSION = 14;
 
 const SALT = 'victoria-era-football-1863';
 export async function computeSaveHash(saveId: number): Promise<string> {

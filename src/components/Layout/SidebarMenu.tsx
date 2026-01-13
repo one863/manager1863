@@ -3,7 +3,11 @@ import {
   Dumbbell, 
   Building2, 
   Coins, 
-  LogOut 
+  LogOut,
+  Users2,
+  ShoppingCart,
+  LayoutDashboard,
+  X
 } from 'lucide-preact';
 
 interface SidebarMenuProps {
@@ -17,28 +21,63 @@ export function SidebarMenu({ currentView, onNavigate, onQuit, onClose }: Sideba
   return (
     <>
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-[2px] z-40 transition-opacity animate-fade-in"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[3px] z-[60] transition-opacity animate-fade-in"
         onClick={onClose}
       />
       <div
-        className="absolute top-16 left-4 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden animate-slide-up"
+        className="absolute top-0 left-0 h-full w-72 bg-paper shadow-2xl border-r border-gray-200 z-[70] overflow-hidden animate-slide-right flex flex-col"
       >
-        <div className="p-2 space-y-1">
+        {/* Header du Menu */}
+        <div className="p-6 bg-accent text-white flex justify-between items-center shadow-md">
+           <div>
+              <h2 className="text-xl font-serif font-black tracking-tight leading-none">1863</h2>
+              <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Football Association</p>
+           </div>
+           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+              <X size={24} />
+           </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 mt-2">
           <MenuLink
-            icon={CalendarIcon}
-            label="Calendrier"
-            active={currentView === 'calendar'}
-            onClick={() => onNavigate('calendar')}
+            icon={LayoutDashboard}
+            label="Bureau du Président"
+            active={currentView === 'dashboard'}
+            onClick={() => onNavigate('dashboard')}
+          />
+          
+          <div className="pt-2 pb-1 px-4 text-[9px] font-black text-ink-light uppercase tracking-[0.2em] opacity-50">Gestion Sportive</div>
+          
+          <MenuLink
+            icon={Users2}
+            label="Effectif & Tactique"
+            active={currentView === 'squad'}
+            onClick={() => onNavigate('squad')}
           />
           <MenuLink
             icon={Dumbbell}
-            label="Entraînement"
+            label="Académie & Staff"
             active={currentView === 'training'}
             onClick={() => onNavigate('training')}
           />
           <MenuLink
+            icon={ShoppingCart}
+            label="Marché des Transferts"
+            active={currentView === 'transfers'}
+            onClick={() => onNavigate('transfers')}
+          />
+          <MenuLink
+            icon={CalendarIcon}
+            label="Calendrier & Résultats"
+            active={currentView === 'calendar'}
+            onClick={() => onNavigate('calendar')}
+          />
+
+          <div className="pt-4 pb-1 px-4 text-[9px] font-black text-ink-light uppercase tracking-[0.2em] opacity-50">Institution</div>
+          
+          <MenuLink
             icon={Building2}
-            label="Infrastructures"
+            label="Infrastructures & Stade"
             active={currentView === 'club'}
             onClick={() => onNavigate('club')}
           />
@@ -48,14 +87,20 @@ export function SidebarMenu({ currentView, onNavigate, onQuit, onClose }: Sideba
             active={currentView === 'finances'}
             onClick={() => onNavigate('finances')}
           />
-          <div className="border-t border-gray-100 my-1" />
+          
+          <div className="border-t border-gray-100 my-4" />
+          
           <button
             onClick={onQuit}
-            className="w-full flex items-center gap-3 p-3 text-red-600 hover:bg-red-50 transition-colors rounded-lg font-bold text-sm"
+            className="w-full flex items-center gap-4 p-4 text-red-600 hover:bg-red-50 transition-colors rounded-2xl font-black text-xs uppercase tracking-widest"
           >
             <LogOut size={18} />
             Quitter la partie
           </button>
+        </div>
+
+        <div className="p-6 text-center border-t border-gray-100 bg-paper-dark/30">
+           <p className="text-[10px] text-ink-light italic opacity-50 font-serif">"The game is nothing without the supporters"</p>
         </div>
       </div>
     </>
@@ -66,10 +111,10 @@ function MenuLink({ icon: Icon, label, active, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 p-3 transition-colors rounded-lg text-sm font-medium ${active ? 'bg-accent/10 text-accent font-bold' : 'text-ink hover:bg-gray-50'}`}
+      className={`w-full flex items-center gap-4 p-4 transition-all rounded-2xl text-sm font-bold active:scale-95 ${active ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-ink hover:bg-paper-dark'}`}
     >
-      <Icon size={18} />
-      {label}
+      <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+      <span className="flex-1 text-left tracking-tight">{label}</span>
     </button>
   );
 }

@@ -3,76 +3,62 @@ import { clamp, randomInt, getRandomElement } from '@/utils/math';
 import { NewsService } from './news-service';
 
 export const ClubService = {
-  /**
-   * Gère les mises à jour quotidiennes du club (stade, finances passives, etc.)
-   */
   async processDailyUpdates(teamId: number, saveId: number, currentDay: number, currentDate: Date) {
     const team = await db.teams.get(teamId);
     if (!team) return;
 
-    // 1. Fin des travaux du stade
-    if (team.stadiumUpgradeEndDay && team.stadiumUpgradeEndDay <= currentDay) {
-      const newLevel = team.stadiumLevel + 1;
-      const newCapacity = team.stadiumCapacity + 400;
+    // Traitement fin de chantier
+    if (team.stadiumUpgradeEndDay && team.stadiumUpgradeEndDay <= currentDay && team.stadiumProject) {
+      const project = team.stadiumProject;
       
-      await db.teams.update(teamId, {
-        stadiumLevel: newLevel,
-        stadiumCapacity: newCapacity,
-        stadiumUpgradeEndDay: undefined
-      });
+      let updateData: any = {
+        stadiumUpgradeEndDay: undefined,
+        stadiumProject: undefined
+      };
+
+      if (project.type === 'UPGRADE') {
+        updateData.stadiumLevel = (team.stadiumLevel || 1) + 1;
+        updateData.stadiumCapacity = project.targetCapacity;
+      } else if (project.type === 'NEW_STADIUM') {
+        updateData.stadiumLevel = 1;
+        updateData.stadiumCapacity = project.targetCapacity;
+        updateData.stadiumName = project.targetName;
+      }
+
+      await db.teams.update(teamId, updateData);
 
       await NewsService.addNews(saveId, {
         day: currentDay,
         date: currentDate,
-        title: "TRAVAUX TERMINÉS",
-        content: `Les nouvelles tribunes de ${team.stadiumName} sont enfin prêtes ! La capacité est désormais de ${newCapacity} places.`,
+        title: project.type === 'NEW_STADIUM' ? "INAUGURATION DU STADE" : "TRAVAUX TERMINÉS",
+        content: project.type === 'NEW_STADIUM' 
+          ? `Le ruban est coupé ! Bienvenue au ${project.targetName}, notre nouveau foyer de ${project.targetCapacity} places.`
+          : `L'agrandissement de ${team.stadiumName} est fini. Nous pouvons désormais accueillir ${project.targetCapacity} supporters.`,
         type: 'CLUB',
-        importance: 2
+        importance: 3
       });
     }
 
-    // 2. Récupération quotidienne des joueurs (Énergie & Condition)
     await this.processDailyPlayerUpdates(saveId, teamId);
   },
 
-  /**
-   * Gère la récupération naturelle des joueurs chaque jour.
-   */
   async processDailyPlayerUpdates(saveId: number, teamId: number) {
     const players = await db.players.where('[saveId+teamId]').equals([saveId, teamId]).toArray();
-    
     for (const player of players) {
-      // Récupération naturelle : +5 énergie, +2 condition (jusqu'à 100)
       const energyGain = 5;
       const conditionGain = 2;
-      
       const newEnergy = clamp(player.energy + energyGain, 0, 100);
       const newCondition = clamp(player.condition + conditionGain, 0, 100);
-      
-      // Moral : Tendance à revenir vers 50 (neutre) si pas d'événements
       let newMorale = player.morale;
       if (player.morale > 55) newMorale -= 1;
       else if (player.morale < 45) newMorale += 1;
-
-      await db.players.update(player.id!, {
-        energy: newEnergy,
-        condition: newCondition,
-        morale: newMorale
-      });
+      await db.players.update(player.id!, { energy: newEnergy, condition: newCondition, morale: newMorale });
     }
   },
 
-  async updateDynamicsAfterMatch(
-    teamId: number,
-    myScore: number,
-    oppScore: number,
-    isHome: boolean,
-    saveId: number,
-    date: Date,
-  ) {
+  async updateDynamicsAfterMatch(teamId: number, myScore: number, oppScore: number, isHome: boolean, saveId: number, date: Date) {
     const team = await db.teams.get(teamId);
     if (!team) return;
-
     const isWin = myScore > oppScore;
     const isDraw = myScore === oppScore;
     const goalDiff = myScore - oppScore;
@@ -80,7 +66,7 @@ export const ClubService = {
     let repChange = isWin ? 1 + clamp(goalDiff, 0, 3) : isDraw ? 0 : -1;
     const newReputation = clamp(team.reputation + repChange, 1, 100);
 
-    let fanChange = isWin ? randomInt(5, 15) + (isHome ? 5 : 0) : isDraw ? randomInt(-2, 5) : randomInt(-10, -2);
+    let fanChange = isWin ? randomInt(10, 25) + (isHome ? 10 : 0) : isDraw ? randomInt(-2, 5) : randomInt(-10, -2);
     fanChange = Math.round(fanChange * (1 + newReputation / 100));
     const newFanCount = Math.max(10, team.fanCount + fanChange);
 
@@ -90,57 +76,60 @@ export const ClubService = {
     let ticketIncome = 0;
     if (isHome) {
       const attendance = Math.min(team.fanCount, team.stadiumCapacity);
-      ticketIncome = Math.round(attendance * 0.1);
+      ticketIncome = Math.round(attendance * 0.15); // Prix billet légèrement augmenté
     }
 
     let sponsorIncome = 0;
     if (team.sponsorName && team.sponsorExpiryDate && new Date(team.sponsorExpiryDate) > date) {
       sponsorIncome = team.sponsorIncome || 0;
     } else if (team.sponsorName) {
-      await NewsService.addNews(saveId, {
-        day: 0, date, 
-        title: 'CONTRAT DE SPONSORING TERMINÉ',
-        content: `Le contrat avec ${team.sponsorName} est terminé.`,
-        type: 'SPONSOR', importance: 2,
-      });
+      await NewsService.addNews(saveId, { day: 0, date, title: 'SPONSOR PARTI', content: `Le contrat avec ${team.sponsorName} est fini.`, type: 'SPONSOR', importance: 2 });
       await db.teams.update(teamId, { sponsorName: undefined, sponsorIncome: 0 });
     }
 
     const totalIncome = ticketIncome + sponsorIncome;
-    await db.teams.update(teamId, {
-      reputation: newReputation,
-      fanCount: newFanCount,
-      confidence: newConfidence,
-      budget: team.budget + totalIncome,
-    });
-
+    await db.teams.update(teamId, { reputation: newReputation, fanCount: newFanCount, confidence: newConfidence, budget: team.budget + totalIncome });
     return { repChange, fanChange, confChange, totalIncome };
   },
 
-  async upgradeStadium(teamId: number, currentDay: number) {
+  async startStadiumProject(teamId: number, currentDay: number, type: 'UPGRADE' | 'NEW_STADIUM', customName?: string) {
     const team = await db.teams.get(teamId);
     if (!team) return { success: false, error: 'Club non trouvé' };
-    if (team.stadiumUpgradeEndDay) return { success: false, error: 'Travaux déjà en cours' };
+    if (team.stadiumUpgradeEndDay) return { success: false, error: 'Chantier déjà en cours' };
 
-    const cost = team.stadiumLevel * 500;
+    let cost = 0;
+    let duration = 0;
+    let targetCapacity = 0;
+
+    if (type === 'UPGRADE') {
+      cost = (team.stadiumLevel || 1) * (team.stadiumLevel || 1) * 1000;
+      duration = 30;
+      targetCapacity = team.stadiumCapacity + 1000;
+    } else {
+      cost = 10000;
+      duration = 60;
+      targetCapacity = 10000;
+    }
+
     if (team.budget < cost) return { success: false, error: 'Budget insuffisant' };
 
     await db.teams.update(teamId, {
-      stadiumUpgradeEndDay: currentDay + 14,
-      budget: team.budget - cost
+      stadiumUpgradeEndDay: currentDay + duration,
+      budget: team.budget - cost,
+      stadiumProject: {
+        type,
+        targetCapacity,
+        targetName: customName || `${team.name} Arena`
+      }
     });
 
-    return { success: true, endDay: currentDay + 14 };
+    return { success: true, endDay: currentDay + duration };
   },
 
   async checkSacking(teamId: number, saveId: number, date: Date) {
     const team = await db.teams.get(teamId);
     if (team && team.confidence <= 0) {
-      await NewsService.addNews(saveId, {
-        day: 0, date, title: 'RUPTURE DE CONTRAT',
-        content: `Le conseil d'administration de ${team.name} a décidé de se séparer de vous.`,
-        type: 'CLUB', importance: 3,
-      });
+      await NewsService.addNews(saveId, { day: 0, date, title: 'CONTRAT ROMPU', content: `Le board a décidé de vous licencier.`, type: 'CLUB', importance: 3 });
       return true;
     }
     return false;
@@ -154,22 +143,14 @@ export const ClubService = {
       { name: "The Gentleman's Hat Shop", baseIncome: 10, durationMonths: 24 },
       { name: 'Iron Bridge Foundries', baseIncome: 30, durationMonths: 3 },
     ];
-
-    return historicalSponsors
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .map((s) => {
-        const expiryDate = new Date(currentDate);
-        expiryDate.setMonth(expiryDate.getMonth() + s.durationMonths);
-        return { ...s, income: Math.round(s.baseIncome * (reputation / 50)), expiryDate };
-      });
+    return historicalSponsors.sort(() => 0.5 - Math.random()).slice(0, 3).map((s) => {
+      const expiryDate = new Date(currentDate);
+      expiryDate.setMonth(expiryDate.getMonth() + s.durationMonths);
+      return { ...s, income: Math.round(s.baseIncome * (reputation / 50)), expiryDate };
+    });
   },
 
   async signSponsor(teamId: number, offer: any) {
-    await db.teams.update(teamId, {
-      sponsorName: offer.name,
-      sponsorIncome: offer.income,
-      sponsorExpiryDate: offer.expiryDate,
-    });
+    await db.teams.update(teamId, { sponsorName: offer.name, sponsorIncome: offer.income, sponsorExpiryDate: offer.expiryDate });
   },
 };

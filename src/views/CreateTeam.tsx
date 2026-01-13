@@ -25,6 +25,8 @@ const CLUB_COLORS = [
   { name: 'Gris & Bleu', primary: '#6b7280', secondary: '#1e40af' },
   { name: 'Rose & Noir', primary: '#ec4899', secondary: '#171717' },
   { name: 'Menthe & Marine', primary: '#2dd4bf', secondary: '#1e3a8a' },
+  { name: 'Rubis & Noir', primary: '#be123c', secondary: '#171717' }, // Nouveau
+  { name: 'Émeraude & Or', primary: '#065f46', secondary: '#facc15' }, // Nouveau
 ];
 
 export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated: () => void; onCancel: () => void }) {
@@ -134,7 +136,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
                     <button
                       key={i}
                       onClick={() => setSelectedColor(c)}
-                      className={`group relative aspect-square rounded-lg transition-all active:scale-95 border ${selectedColor.name === c.name ? 'border-accent ring-2 ring-accent/20 scale-110 z-10' : 'border-gray-200 hover:border-gray-300'}`}
+                      className={`group relative aspect-square rounded-lg transition-all active:scale-95 border ${selectedColor.name === c.name ? 'border-accent ring-2 ring-accent/20 scale-110 z-10 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}
                     >
                        <div className="h-full w-full rounded-md overflow-hidden flex flex-col">
                           <div className="flex-1" style={{ backgroundColor: c.primary }}></div>
