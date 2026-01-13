@@ -4,11 +4,15 @@ import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
 import PlayerCard from '@/components/PlayerCard';
 import PlayerAvatar from '@/components/PlayerAvatar';
-import { Check, Star, Settings2, Target, Shield, Zap, TrendingUp, Users, HeartPulse, UserPlus, Layout } from 'lucide-preact';
+import { Check, Star, Settings2, Target, Shield, Zap, TrendingUp, Users, HeartPulse, Layout } from 'lucide-preact';
 import Button from '@/components/Common/Button';
 
 const FORMATIONS: Record<string, { GK: number, DEF: number, MID: number, FWD: number }> = {
+  '1-1-8': { GK: 1, DEF: 1, MID: 1, FWD: 8 },
+  '1-2-7': { GK: 1, DEF: 1, MID: 2, FWD: 7 },
+  '2-2-6': { GK: 1, DEF: 2, MID: 2, FWD: 6 },
   '2-3-5': { GK: 1, DEF: 2, MID: 3, FWD: 5 }, // Formation historique de 1863
+  'WM':    { GK: 1, DEF: 3, MID: 4, FWD: 3 },
   '4-4-2': { GK: 1, DEF: 4, MID: 4, FWD: 2 },
   '4-3-3': { GK: 1, DEF: 4, MID: 3, FWD: 3 },
   '5-3-2': { GK: 1, DEF: 5, MID: 3, FWD: 2 },
@@ -64,40 +68,6 @@ export default function Squad() {
   const updateFormation = async (formation: Team['formation']) => {
     if (!userTeamId) return;
     await db.teams.update(userTeamId, { formation });
-    loadData();
-  };
-
-  const useAssistantAdvice = async () => {
-    if (!userTeamId || !team) return;
-    const formationKey = team.formation || '2-3-5';
-    const req = FORMATIONS[formationKey];
-    
-    // 1. Reset tous les titulaires
-    const playerIds = players.map(p => p.id!);
-    await db.players.where('id').anyOf(playerIds).modify({ isStarter: false });
-
-    // 2. Sélectionner les meilleurs pour chaque poste requis
-    const newStarters: number[] = [];
-    const availablePlayers = [...players].sort((a, b) => b.skill - a.skill);
-
-    const pickBest = (pos: 'GK' | 'DEF' | 'MID' | 'FWD', count: number) => {
-      let picked = 0;
-      for (let i = 0; i < availablePlayers.length && picked < count; i++) {
-        const p = availablePlayers[i];
-        if (p.position === pos && !newStarters.includes(p.id!)) {
-          newStarters.push(p.id!);
-          picked++;
-        }
-      }
-    };
-
-    pickBest('GK', req.GK);
-    pickBest('DEF', req.DEF);
-    pickBest('MID', req.MID);
-    pickBest('FWD', req.FWD);
-
-    // 3. Appliquer
-    await db.players.where('id').anyOf(newStarters).modify({ isStarter: true });
     loadData();
   };
 
@@ -178,12 +148,7 @@ export default function Squad() {
                 </span>
               </div>
             </div>
-            <button 
-              onClick={useAssistantAdvice}
-              className="flex items-center gap-1.5 bg-paper-dark hover:bg-gray-200 px-3 py-2 rounded-lg border border-gray-300 text-[10px] font-black text-ink-light uppercase transition-all active:scale-95 shadow-sm"
-            >
-              <UserPlus size={14} className="text-accent" /> Conseil de l'Adjoint
-            </button>
+            {/* Bouton adjoint supprimé selon demande */}
           </div>
 
           <div className="space-y-5">

@@ -1,60 +1,55 @@
-# ⚽ Manager 1863 | Moteur de Football Stochastique
+# 1863 Football Manager
 
-**Manager 1863** est un jeu de gestion de football ultra-léger développé avec **Preact** et **Zustand**, conçu pour offrir une profondeur tactique inspirée de *Football Manager* et l'accessibilité de *Hattrick*.
+## Project Overview
 
-Le projet repose sur une architecture de simulation moderne qui dépasse la simple opposition attaque/défense pour modéliser le football comme un cycle perpétuel de transitions.
+**1863 Football Manager** is a retro-style football management simulation game designed for mobile devices (via Capacitor) and web browsers.
 
----
+The "1863" brand evokes the heritage of football, referencing the year the Football Association was founded, though the game itself is set in a modern simulation environment with fictional leagues and players.
 
-## 🧠 Architecture du Moteur : Le Cycle Tactique Intégral
+It offers a nostalgic yet modern user experience, focusing on quick, engaging gameplay sessions typical of mobile gaming, while retaining the depth expected of the management genre.
 
-Contrairement aux moteurs classiques, Manager 1863 décompose chaque match en **20 cycles de jeu** basés sur 5 moments structurels clés :
+## Key Features
 
-1. **Organisation Offensive** : Utilisation des demi-espaces et des corridors pour contourner le bloc adverse.
-2. **Transition Défensive** : Gestion de la *Rest-Defense* pour empêcher les contres après une perte de balle.
-3. **Organisation Défensive** : Structure du bloc et déclenchement du pressing.
-4. **Transition Offensive** : Exploitation de la *Rest-Attack* et de la *Vista* des milieux.
-5. **Coups de Pied Arrêtés (CPA)** : Moments de rupture gérés par des spécialistes (type James Ward-Prowse).
+*   **Retro Aesthetic:** A clean, paper-textured UI inspired by classic football press and vintage ledgers, modernized with smooth animations and responsive design.
+*   **Procedural World:** Every new game generates a unique football world with leagues, clubs, and thousands of players with distinct attributes.
+*   **Tactical Engine:** Set formations (2-3-5, WM, etc.), instructions, and watch matches unfold via a simulated commentary engine.
+*   **Live Match Experience:** Follow matches in real-time with a dynamic scoreboard and text-based commentary.
+*   **Transfer Market:** Scout, buy, and sell players to build your dream squad.
+*   **Club Management:** Manage finances, stadium upgrades, and board expectations.
+*   **Cross-Platform:** Built with React/Preact and Capacitor for seamless deployment on iOS, Android, and Web.
 
+## Tech Stack
 
+*   **Core:** React (via Preact for performance), TypeScript, Vite.
+*   **State Management:** Zustand.
+*   **Database:** Dexie.js (IndexedDB wrapper) for robust, offline-capable local storage.
+*   **Styling:** Tailwind CSS.
+*   **Mobile:** Capacitor.
+*   **Icons:** Lucide-React.
 
----
+## Development Setup
 
-## 🛠️ Caractéristiques Techniques
+1.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
 
-- **Framework :** Preact (Ultra-léger, performance maximale).
-- **Gestion d'état :** Zustand (Store réactif pour le score et les événements).
-- **Base de données :** Dexie.js (Persistance locale pour une expérience "Coût Zéro" sans serveur).
-- **Visuels :** Avatars procéduraux via *Multiavatar* et icônes SVG *Lucide*.
-- **Algorithme :** Formule cubique de probabilité $P = \frac{Atk^3}{Atk^3 + Def^3}$ pour des résultats réalistes.
+2.  **Run Development Server:**
+    ```bash
+    npm run dev
+    ```
 
----
+3.  **Build for Production:**
+    ```bash
+    npm run build
+    ```
 
-## 📋 Rôles Tactiques Implémentés
+## Architecture Highlights
 
-Le jeu intègre des rôles modernes qui influencent dynamiquement les probabilités de chaque cycle :
-- **Regista** : Maître du tempo et des transitions.
-- **Mezzala** : Créateur d'espaces dans les demi-espaces.
-- **Inverted Wing-Back** : Latéral renforçant le milieu en phase de possession.
-- **Sweeper-Keeper** : Gardien participant à la relance.
+*   **Service Layer:** Business logic is encapsulated in services (e.g., `MatchService`, `TransferService`) to keep components clean.
+*   **Simulation Worker:** Intensive tasks like simulating match days for other leagues run in a Web Worker to prevent UI blocking.
+*   **Data-Driven:** The game relies heavily on procedural generation, ensuring high replayability.
 
----
+## License
 
-## 🚀 Installation & Développement (IDX)
-
-Ce projet est optimisé pour **Google IDX**. Pour personnaliser votre environnement :
-
-1. Modifiez le fichier `.idx/dev.nix` pour ajouter des outils ou extensions.
-2. Lancez le serveur de développement : `npm run dev`.
-3. Consultez la [documentation IDX](https://developers.google.com/idx/guides/customize-idx-env) pour plus d'infos.
-
----
-
-## 🗺️ Roadmap
-- [ ] Générateur de joueurs procédural par profils.
-- [ ] Système de championnat à 38 journées (Algorithme de Berger).
-- [ ] Interface de coaching en temps réel pour les phases de transition.
-- [ ] Historique des confrontations via Dexie.
-
----
-*Propulsé par la passion du football et l'analyse tactique moderne.*
+MIT

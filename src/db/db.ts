@@ -33,7 +33,7 @@ export interface Team {
   stadiumName: string; stadiumCapacity: number; stadiumLevel: number;
   sponsorName?: string; sponsorIncome?: number; sponsorExpiryDate?: Date;
   tacticType: TeamRatings['tacticType']; 
-  formation: '2-3-5' | '4-4-2' | '4-3-3' | '5-3-2' | '3-5-2'; 
+  formation: '2-3-5' | '4-4-2' | '4-3-3' | '5-3-2' | '3-5-2' | '1-1-8' | '1-2-7' | '2-2-6' | 'WM'; 
   version: number;
   seasonGoal?: 'CHAMPION' | 'PROMOTION' | 'MID_TABLE' | 'AVOID_RELEGATION';
   seasonGoalStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';

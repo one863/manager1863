@@ -5,6 +5,7 @@ import { NewsService } from '@/services/news-service';
 import { ClubService } from '@/services/club-service';
 import { generateSeasonFixtures } from '@/data/league-templates';
 import { randomInt, clamp } from '@/utils/math';
+import { FORMATIONS } from '@/engine/tactics';
 import i18next from 'i18next';
 
 const simulationWorker = new Worker(
@@ -42,6 +43,82 @@ export const MatchService = {
       .first();
 
     return !!match;
+  },
+
+  async autoSelectStarters(saveId: number, teamId: number, currentPlayers: Player[]) {
+    // 1. Check if we need to fill gaps
+    const currentStarters = currentPlayers.filter(p => p.isStarter);
+    if (currentStarters.length >= 11) return;
+
+    // 2. Fetch Context (Coach & Formation)
+    const [coach, team] = await Promise.all([
+      db.staff.where('[saveId+teamId]').equals([saveId, teamId]).and(s => s.role === 'COACH').first(),
+      db.teams.get(teamId)
+    ]);
+
+    const coachSkill = coach ? coach.skill : 50; // Default average if no coach
+    const formationKey = team?.formation || '2-3-5';
+    const req = FORMATIONS[formationKey] || FORMATIONS['2-3-5'];
+
+    // 3. Prepare pools
+    const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+    currentStarters.forEach(p => { if (counts[p.position] !== undefined) counts[p.position]++; });
+
+    const needed = {
+        GK: Math.max(0, req.GK - counts.GK),
+        DEF: Math.max(0, req.DEF - counts.DEF),
+        MID: Math.max(0, req.MID - counts.MID),
+        FWD: Math.max(0, req.FWD - counts.FWD)
+    };
+    
+    let available = currentPlayers.filter(p => !p.isStarter);
+    const newStartersIds: number[] = [];
+
+    const pickForPos = (pos: 'GK' | 'DEF' | 'MID' | 'FWD', count: number) => {
+        let candidates = available.filter(p => p.position === pos).sort((a, b) => b.skill - a.skill);
+        // Fallback: if not enough candidates of correct position, take anyone sorted by skill
+        if (candidates.length < count) {
+            const others = available.filter(p => p.position !== pos).sort((a, b) => b.skill - a.skill);
+            candidates = [...candidates, ...others];
+        }
+
+        for (let i = 0; i < count; i++) {
+            if (candidates.length === 0) break;
+            
+            // Coach Logic: Pick based on skill/competence
+            // Lower skill = wider range of players to pick from (potentially worse ones)
+            const errorMargin = Math.max(0.05, 1 - (coachSkill / 100)); 
+            const maxIndex = Math.min(candidates.length - 1, Math.floor(candidates.length * errorMargin));
+            const pickIndex = randomInt(0, maxIndex);
+            
+            const picked = candidates[pickIndex];
+            newStartersIds.push(picked.id!);
+            
+            // Remove from available and candidates
+            available = available.filter(p => p.id !== picked.id);
+            candidates.splice(pickIndex, 1);
+        }
+    };
+
+    pickForPos('GK', needed.GK);
+    pickForPos('DEF', needed.DEF);
+    pickForPos('MID', needed.MID);
+    pickForPos('FWD', needed.FWD);
+
+    // If still < 11, fill with whatever remains
+    while (newStartersIds.length + currentStarters.length < 11 && available.length > 0) {
+         const p = available[0];
+         newStartersIds.push(p.id!);
+         available.shift();
+    }
+
+    // Update DB and currentPlayers array in place
+    if (newStartersIds.length > 0) {
+        await db.players.where('id').anyOf(newStartersIds).modify({ isStarter: true });
+        currentPlayers.forEach(p => {
+            if (newStartersIds.includes(p.id!)) p.isStarter = true;
+        });
+    }
   },
 
   async simulateDayByDay(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
@@ -92,6 +169,14 @@ export const MatchService = {
     if (userMatch) {
       const homePlayers = await db.players.where('[saveId+teamId]').equals([saveId, userMatch.homeTeamId]).toArray();
       const awayPlayers = await db.players.where('[saveId+teamId]').equals([saveId, userMatch.awayTeamId]).toArray();
+      
+      // AUTO-SELECT for User Team (Coach Logic)
+      if (userMatch.homeTeamId === userTeamId) {
+          await this.autoSelectStarters(saveId, userTeamId, homePlayers);
+      } else if (userMatch.awayTeamId === userTeamId) {
+          await this.autoSelectStarters(saveId, userTeamId, awayPlayers);
+      }
+
       const [homeT, awayT] = await Promise.all([db.teams.get(userMatch.homeTeamId), db.teams.get(userMatch.awayTeamId)]);
       
       const matchData = {
@@ -196,7 +281,7 @@ export const MatchService = {
     const team = await db.teams.get(teamId);
     if (!team) return;
     let pts = team.points || 0;
-    if (goalsFor > goalsAgainst) pts += 2;
+    if (goalsFor > goalsAgainst) pts += 3; // VICTOIRE = 3 POINTS
     else if (goalsFor === goalsAgainst) pts += 1;
     await db.teams.update(teamId, { matchesPlayed: (team.matchesPlayed || 0) + 1, points: pts });
   },

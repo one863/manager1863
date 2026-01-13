@@ -1,4 +1,4 @@
-import { db, Team, League, Player, NewsArticle } from '@/db/db';
+import { db, Team, League, Player, NewsArticle, StaffMember } from '@/db/db';
 import { generateSquad } from './squad-generator';
 import { randomInt, getRandomElement } from '@/utils/math';
 
@@ -199,6 +199,16 @@ export const WorldGenerator = {
 
         // Le joueur commence à 35, donc il sera dans le haut du panier de sa division (25-35)
         await generateSquad(saveId, userTeamId, 35);
+
+        // Ajout d'un entraîneur adjoint moyen/faible (Skill 30-40) pour faire les choix tactiques douteux
+        await db.staff.add({
+            saveId,
+            teamId: userTeamId,
+            name: 'Archibald Helper',
+            role: 'COACH',
+            skill: randomInt(30, 40),
+            wage: 5
+        } as StaffMember);
       }
     }
 

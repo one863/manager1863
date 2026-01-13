@@ -1,79 +1,94 @@
-# 📜 1863 FOOTBALL - Plan de Conception (Blueprint)
+# BLUEPRINT - 1863 Football Manager
 
-## 🎯 Objectif du Projet
-Créer une simulation de club de football **légère**, **rapide** et **optimisée pour mobile**, sous la marque **1863 FOOTBALL**. L'application est conçue comme une **Progressive Web App (PWA)** pour offrir une expérience fluide et "native" sur smartphone, sans nécessiter de serveur distant pour la logique ou le stockage.
+## 1. Vision & Core Concept
+**"1863"** is a minimalist yet deep football management game. It combines the addictive "one more turn" loop of classic manager games with a modern, mobile-first UX. 
+*Note: "1863" is the brand name referencing the birth of modern football rules, but the simulation takes place in a generic timeline, allowing for modern tactics and league structures.*
 
----
+### Pillars
+1.  **Immediacy:** Fast loading, quick day simulation, instant feedback.
+2.  **Clarity:** Information is presented clearly without spreadsheets overload. "Easy to learn, hard to master".
+3.  **Atmosphere:** A distinct visual identity (paper, ink, typography) that stands out from the generic glossy look of competitors.
 
-## 🏗️ Pile Technique (Stack)
+## 2. Technical Architecture
 
-- **Framework :** [Preact](https://preactjs.com/) (Haute performance, alternative ultra-légère à React).
-- **Gestion d'État :** [Zustand](https://docs.pmnd.rs/zustand/) (Minimaliste, rapide et scalable).
-- **Base de Données & Persistance :** [Dexie.js](https://dexie.org/) (Wrapper pour IndexedDB) incluant :
-    - Versioning robuste du schéma.
-    - Migrations automatiques des données.
-    - Hachage d'intégrité anti-triche (SHA-256).
-- **Style :** [Tailwind CSS](https://tailwindcss.com/) avec un thème personnalisé "Papier & Encre".
-- **Linter & Formatter :** [Biome](https://biomejs.dev/) (Remplaçant ultra-fast d'ESLint/Prettier).
-- **Icônes :** [Lucide-Preact](https://lucide.dev/guide/preact).
-- **PWA :** [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) pour le support hors-ligne et l'installation sur écran d'accueil.
-- **Internationalisation :** [i18next](https://www.i18next.com/) pour le support multilingue (FR/EN implémentés).
-- **Mobile Natif :** [Capacitor](https://capacitorjs.com/) pour l'encapsulation native optionnelle (iOS/Android).
+### Stack
+*   **Framework:** Preact (lighter than React, ideal for mobile).
+*   **Language:** TypeScript (strict mode).
+*   **Build Tool:** Vite.
+*   **Storage:** IndexedDB via Dexie.js (Critical for storing large save files locally).
+*   **State:** Zustand (Global UI state) + React Query (optional, for async data, mostly direct Dexie hooks used).
+*   **Styling:** Tailwind CSS.
+*   **Wrapper:** Capacitor (for iOS/Android build).
 
----
+### Data Model (Dexie/IndexedDB)
+*   `saves`: Meta-data about save slots.
+*   `gameState`: Current date, user ID, difficulty, global flags.
+*   `leagues`: League structures, tiers.
+*   `teams`: Club data (name, colors, stadium, reputation).
+*   `players`: Player attributes, contract, stats (The heaviest table).
+*   `matches`: Fixtures, results, historical data.
+*   `news`: Inbox messages.
 
-## 🛠️ Principes Fondamentaux d'Architecture
+## 3. Core Loops
 
-### 1. Local-First & Mode Hors-ligne
-Tout s'exécute dans le navigateur de l'utilisateur. Aucun traitement côté serveur n'est requis pour la logique de jeu ou le stockage, garantissant des temps de chargement instantanés et une confidentialité totale.
+### The "Day" Loop
+1.  **Morning:** Check Inbox (News, Transfer offers, Injuries).
+2.  **Action:** Adjust tactics, training, or market activity.
+3.  **Advance:** Click "Continue".
+4.  **Simulation:** 
+    *   Simulate other matches (background worker).
+    *   Simulate world events (transfers, injuries).
+    *   **If Match Day:** Trigger Match Engine.
 
-### 2. Intégrité & Sécurité des Données
-- **Auto-Versioning :** Dexie gère les mises à jour du schéma IndexedDB.
-- **Système de Réparation :** Une couche de migration applicative personnalisée garantit que les anciennes sauvegardes restent compatibles avec les nouvelles règles du jeu.
-- **Redondance :** Snapshots JSON automatiques via un service de backup dédié (`backup-service.ts`).
-- **Portabilité :** Système intégré d'Export/Import JSON pour migrer les sauvegardes entre navigateurs ou appareils.
+### The Match Engine
+*   **Type:** Text-based + Visualizer (Probability based, not physics based).
+*   **Logic:** 
+    *   Compare Team Ratings (Defense vs Attack, Midfield Control).
+    *   Inject Randomness (Home advantage, Morale, Form).
+    *   Generate Events (Goal, Card, Substitution, Injury) based on time slices (e.g., every 5 mins).
 
-### 3. Identité Visuelle
-- **Avatars Procéduraux :** Pas d'images lourdes ; chaque joueur possède une chaîne "DNA" qui génère un avatar SVG unique (`PlayerAvatar.tsx`).
-- **Thématique :** Palette de couleurs inspirée des vieux journaux et du cuir (Identité de marque 1863 FOOTBALL).
+## 4. UI/UX Structure
 
----
+### Views
+*   **Dashboard (Hub):** Next match info, league standing summary, board confidence.
+*   **Squad:** Player list, line-up selector, fitness/morale status.
+*   **Tactics:** Formation picker (2-3-5, WM, etc.), team instructions.
+*   **League:** Full table, fixtures, top scorers.
+*   **Transfers:** Search players, negotiate contracts, scout reports.
+*   **Club:** Finances, Staff, Stadium.
 
-## 🕹️ Mécaniques de Jeu (Implémentées)
+### Design System
+*   **Colors:** Off-white/Cream (Paper), Dark Blue/Black (Ink), Gold/Red (Accents).
+*   **Typography:** Serif for headings (Classic feel), Sans-serif for data/tables (Readability).
+*   **Components:** Cards, Lists, Modals (Overlays), Toast Notifications.
 
-### 📈 Services & Logique métier
-- **Match Service :** Gestion de la programmation et du déroulement des matchs par cycles de jours.
-- **Club Service :** Gestion du budget, des sponsors et de l'identité du club (Présidence).
-- **Transfer Service :** Marché des transferts dynamique.
-- **Training Service :** Système de progression des joueurs par cycles hebdomadaires.
-- **News Service :** Système de notifications et actualités mondiales.
+## 5. Development Phases
 
-### 🏟️ Moteur de Simulation (`src/engine`)
-- **Simulator :** Moteur probabiliste à 12 actions par match.
-- **Tactics :** Prise en compte des formations (ex: 2-3-5, 4-4-2) et des styles de jeu (Pressing, Contre-attaque).
-- **Live Match :** Visualisation en temps réel avec commentaires textuels et effets visuels (Flash But).
+### Phase 1: Foundation (Done)
+*   Project setup (Vite, Tailwind).
+*   Database schema design (Dexie).
+*   Basic Data Generators (Players, Teams).
+*   Basic UI Shell.
 
-### 👤 Gestion des Joueurs
-- **Générateur :** Création procédurale de joueurs avec noms et talents variés.
-- **Progression :** Système d'entraînement influençant les attributs (Vitesse, Force, Tir, etc.) et gestion de l'énergie.
+### Phase 2: Core Gameplay (Current)
+*   Squad Management (Drag & Drop or Click-to-select).
+*   Basic Match Simulation (Result generation).
+*   League Table logic (Points calculation).
+*   Calendar progression.
 
----
+### Phase 3: Depth
+*   Transfer Market logic (Bidding AI).
+*   Economy (Wages, Ticket sales).
+*   Player Development (Training, Aging).
+*   News & Narrative system.
 
-## 📱 Fonctionnalités PWA & Mobile
-- **Affichage Standalone :** Suppression de la barre d'adresse.
-- **Support Natif :** Configuration Capacitor prête pour un déploiement sur les stores.
-- **Optimisation Mobile :** Interface tactile pensée "mobile-first", protection contre l'overscroll.
+### Phase 4: Polish & Mobile
+*   Save/Load system.
+*   Animations (Transitions, Match events).
+*   Capacitor integration.
+*   Performance profiling.
 
----
-
-## 🚀 État Actuel & Roadmap
-- ✅ Base de données IndexedDB & Migrations (v12)
-- ✅ Moteur de match (Live & Report)
-- ✅ Marché des transferts & Budget
-- ✅ Entraînement par cycles & Récupération quotidienne
-- ✅ Système de News & Dépêches
-- ✅ Système de Calendrier & Saisons Linéaires (Saison X, Jour Y)
-- 📅 **Prochaines étapes :**
-    - Expansion du marché des transferts (Recherche ciblée).
-    - Approfondissement des mécaniques de présidence.
-    - Système de succès (Achievements).
+## 6. Future Considerations
+*   Multiple Save slots.
+*   Editor / Database customization.
+*   Achievements system.

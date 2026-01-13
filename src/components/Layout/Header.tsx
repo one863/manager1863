@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { Menu, X, ChevronRight, Loader2 } from 'lucide-preact';
+import { Menu, X, ChevronRight, Loader2, Trophy, Tent } from 'lucide-preact';
 import { useGameStore } from '@/store/gameSlice';
+import { useEffect, useState } from 'preact/hooks';
+import { MatchService } from '@/services/match-service';
 
 interface HeaderProps {
   currentDate: Date;
@@ -12,6 +14,7 @@ interface HeaderProps {
 }
 
 export function Header({ 
+  currentDate,
   isProcessing, 
   showOverlay, 
   isMenuOpen, 
@@ -21,6 +24,20 @@ export function Header({
   const { t } = useTranslation();
   const season = useGameStore(state => state.season);
   const day = useGameStore(state => state.day);
+  const currentSaveId = useGameStore(state => state.currentSaveId);
+  const userTeamId = useGameStore(state => state.userTeamId);
+  
+  const [hasMatchToday, setHasMatchToday] = useState(false);
+
+  useEffect(() => {
+    const checkMatch = async () => {
+        if (currentSaveId && userTeamId) {
+            const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, currentDate, userTeamId);
+            setHasMatchToday(hasMatch);
+        }
+    };
+    checkMatch();
+  }, [currentDate, currentSaveId, userTeamId]);
 
   return (
     <header className="bg-paper-dark p-4 border-b border-gray-300 flex justify-between items-center sticky top-0 z-30">
@@ -46,10 +63,17 @@ export function Header({
         <button
           onClick={onContinue}
           disabled={isProcessing || showOverlay}
-          className="bg-accent text-white font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:scale-100"
+          className={`
+            text-white font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 
+            hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:scale-100
+            ${hasMatchToday ? 'bg-orange-600' : 'bg-accent'}
+          `}
+          title={hasMatchToday ? "Match aujourd'hui" : "Jour suivant"}
         >
           {isProcessing || showOverlay ? (
             <Loader2 size={16} className="animate-spin" />
+          ) : hasMatchToday ? (
+             <Tent size={18} strokeWidth={2} />
           ) : (
             <ChevronRight size={18} strokeWidth={3} />
           )}
