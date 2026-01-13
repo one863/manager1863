@@ -12,8 +12,10 @@ export default {
         grass: 'rgb(var(--color-grass) / <alpha-value>)',
       },
       fontFamily: {
-        serif: ['"Playfair Display"', 'Georgia', 'serif'],
-        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        // Optimisation : Utilisation exclusive de polices système pour une performance maximale (0ms latency)
+        // Look "Journal du 19ème siècle" assuré par Georgia/Times
+        serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
@@ -27,7 +29,7 @@ export default {
         },
         slideUp: {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
+          '100%': { opacity: '1' },
         },
         progressIndefinite: {
           '0%': { marginLeft: '-50%' },

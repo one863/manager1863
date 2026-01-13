@@ -25,10 +25,30 @@ body {
   @apply bg-paper text-ink font-sans transition-colors duration-300;
   /* Pour éviter le "bounce" sur mobile */
   overscroll-behavior-y: none;
+  /* Rendre le tap highlight transparent sur mobile */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Optimisation de la lisibilité sur mobile */
 input,
-button {
+button,
+select {
   touch-action: manipulation;
+}
+
+/* Safe Area Utilities pour iPhone X+ */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Scrollbar masquée mais fonctionnelle */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

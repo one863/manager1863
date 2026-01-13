@@ -116,7 +116,7 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (view: any) => 
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => onNavigate?.('news')} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:border-accent group">
           <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors"><Newspaper size={18} /></div>
-          <span className="text-xs font-bold text-ink uppercase tracking-tighter">Gazette</span>
+          <span className="text-xs font-bold text-ink uppercase tracking-tighter">Presse</span>
         </button>
         <button onClick={() => onNavigate?.('transfers')} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:border-accent group">
           <div className="p-2 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-600 group-hover:text-white transition-colors"><ShoppingCart size={18} /></div>

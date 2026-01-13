@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'preact/hooks';
 import { db, CURRENT_DATA_VERSION } from '@/db/db';
-import { generateLeagueStructure } from '@/data/league-templates';
-import { generateTeamSquad } from '@/data/players-generator';
+import { WorldGenerator } from '@/data/world-generator';
 import Button from '@/components/Common/Button';
-import Card from '@/components/Common/Card';
 import { useTranslation } from 'react-i18next';
 import { Scroll, Palette, Shield, User, Check } from 'lucide-preact';
 import { useGameStore } from '@/store/gameSlice';
 
 const CLUB_COLORS = [
+  { name: 'Noir & Blanc', primary: '#171717', secondary: '#ffffff' },
   { name: 'Rouge & Blanc', primary: '#ef4444', secondary: '#ffffff' },
   { name: 'Bleu & Blanc', primary: '#3b82f6', secondary: '#ffffff' },
   { name: 'Vert & Blanc', primary: '#22c55e', secondary: '#ffffff' },
-  { name: 'Noir & Blanc', primary: '#171717', secondary: '#ffffff' },
   { name: 'Violet & Blanc', primary: '#a855f7', secondary: '#ffffff' },
   { name: 'Jaune & Bleu', primary: '#eab308', secondary: '#1e40af' },
   { name: 'Ciel & Marine', primary: '#7dd3fc', secondary: '#1e3a8a' },
@@ -25,8 +23,8 @@ const CLUB_COLORS = [
   { name: 'Gris & Bleu', primary: '#6b7280', secondary: '#1e40af' },
   { name: 'Rose & Noir', primary: '#ec4899', secondary: '#171717' },
   { name: 'Menthe & Marine', primary: '#2dd4bf', secondary: '#1e3a8a' },
-  { name: 'Rubis & Noir', primary: '#be123c', secondary: '#171717' }, // Nouveau
-  { name: 'Émeraude & Or', primary: '#065f46', secondary: '#facc15' }, // Nouveau
+  { name: 'Rubis & Noir', primary: '#be123c', secondary: '#171717' },
+  { name: 'Émeraude & Or', primary: '#065f46', secondary: '#facc15' },
 ];
 
 export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated: () => void; onCancel: () => void }) {
@@ -49,34 +47,50 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
     setIsCreating(true);
 
     try {
-      const teamId = await db.teams.add({
-        saveId: slotId,
-        name: teamName,
-        presidentName: managerName,
-        primaryColor: selectedColor.primary,
-        secondaryColor: selectedColor.secondary,
-        budget: 1000,
-        reputation: 50,
-        fanCount: 150,
-        confidence: 80,
-        stadiumName: `${teamName} Ground`,
-        stadiumCapacity: 800,
-        stadiumLevel: 1,
-        tacticType: 'NORMAL',
-        version: CURRENT_DATA_VERSION
+      // Nettoyage préalable du slot
+      await db.transaction('rw', [db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, db.news, db.history], async () => {
+         await Promise.all([
+             db.saveSlots.delete(slotId), 
+             db.gameState.delete(slotId), 
+             db.players.where('saveId').equals(slotId).delete(), 
+             db.teams.where('saveId').equals(slotId).delete(), 
+             db.matches.where('saveId').equals(slotId).delete(), 
+             db.news.where('saveId').equals(slotId).delete(), 
+             db.history.where('saveId').equals(slotId).delete()
+         ]);
       });
 
-      const squad = generateTeamSquad(50);
-      const playersToInsert = squad.map(p => ({ ...p, saveId: slotId, teamId: teamId as number }));
-      await db.players.bulkAdd(playersToInsert);
-
-      await generateLeagueStructure(slotId, teamId as number, teamName);
+      // Génération du monde (5 divisions)
+      const teamId = await WorldGenerator.generateWorld(
+        slotId, 
+        teamName, 
+        managerName, 
+        selectedColor.primary, 
+        selectedColor.secondary
+      );
+      
+      // On doit générer les matchs pour la division du joueur (et les autres si possible, mais au moins celle du joueur)
+      // generateWorld ne lance pas generateSeasonFixtures. On doit le faire ici pour la ligue du joueur.
+      const userTeam = await db.teams.get(teamId);
+      if (userTeam) {
+          // On génère le calendrier pour TOUTES les ligues du saveId
+          // Pour l'instant, le moteur ne simule que les matchs de la ligue courante dans MatchService.checkSeasonEnd
+          // Pour la cohérence, générons le calendrier de la division du joueur.
+          // Idéalement, on génère pour toutes les divisions pour avoir un univers vivant.
+          const leagues = await db.leagues.where('saveId').equals(slotId).toArray();
+          const { generateSeasonFixtures } = await import('@/data/league-templates'); // Lazy import
+          
+          for (const league of leagues) {
+             const teamsInLeague = await db.teams.where('leagueId').equals(league.id!).primaryKeys();
+             await generateSeasonFixtures(slotId, league.id!, teamsInLeague as number[]);
+          }
+      }
 
       const date = new Date('1863-09-01');
       await db.saveSlots.put({ id: slotId, managerName, teamName, presidentName: managerName, season: 1, day: 1, lastPlayedDate: new Date() });
-      await db.gameState.put({ saveId: slotId, season: 1, day: 1, currentDate: date, userTeamId: teamId as number, version: CURRENT_DATA_VERSION, isGameOver: false });
+      await db.gameState.put({ saveId: slotId, season: 1, day: 1, currentDate: date, userTeamId: teamId, version: CURRENT_DATA_VERSION, isGameOver: false });
 
-      await initializeStore(slotId, date, teamId as number, managerName, teamName);
+      await initializeStore(slotId, date, teamId, managerName, teamName);
       onGameCreated();
     } catch (e) {
       console.error("Creation error", e);

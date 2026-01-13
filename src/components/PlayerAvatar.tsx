@@ -1,32 +1,46 @@
 import { h } from 'preact';
+import { useMemo } from 'preact/hooks';
+import { memo } from 'preact/compat';
 
 interface PlayerAvatarProps {
   dna: string;
   size?: number;
   className?: string;
+  onClick?: () => void;
 }
 
-export default function PlayerAvatar({
+const PlayerAvatar = memo(({
   dna,
   size = 48,
   className = '',
-}: PlayerAvatarProps) {
-  // Parsing du DNA : "skin-hair-facial-eyes"
-  const [skinIdx, hairIdx, facialIdx, eyesIdx] = dna.split('-').map(Number);
+  onClick
+}: PlayerAvatarProps) => {
+  // Mémorisation des caractéristiques visuelles basées sur le DNA
+  const { skin, hair, facialIdx, hairIdx, eyesIdx } = useMemo(() => {
+    // Parsing du DNA : "skin-hair-facial-eyes"
+    // Utilisation d'une valeur par défaut robuste si le DNA est malformé
+    const parts = dna ? dna.split('-') : ['0', '0', '0', '0'];
+    const [skinIdx, hIdx, fIdx, eIdx] = parts.map(n => parseInt(n, 10) || 0);
 
-  // Palettes de couleurs
-  const skins = ['#f8d5c2', '#e0ac69', '#8d5524', '#c68642'];
-  const hairColors = [
-    '#4b3020',
-    '#2c1e14',
-    '#d6b67d',
-    '#913312',
-    '#000000',
-    '#6b6b6b',
-  ];
+    // Palettes de couleurs constantes (définies hors du render ou ici si légères)
+    const skins = ['#f8d5c2', '#e0ac69', '#8d5524', '#c68642'];
+    const hairColors = [
+      '#4b3020',
+      '#2c1e14',
+      '#d6b67d',
+      '#913312',
+      '#000000',
+      '#6b6b6b',
+    ];
 
-  const skin = skins[skinIdx % skins.length];
-  const hair = hairColors[hairIdx % hairColors.length];
+    return {
+      skin: skins[skinIdx % skins.length],
+      hair: hairColors[hIdx % hairColors.length],
+      facialIdx: fIdx,
+      hairIdx: hIdx,
+      eyesIdx: eIdx
+    };
+  }, [dna]);
 
   return (
     <svg
@@ -35,6 +49,7 @@ export default function PlayerAvatar({
       viewBox="0 0 100 100"
       className={`rounded-full bg-paper-dark border border-gray-300 ${className}`}
       xmlns="http://www.w3.org/2000/svg"
+      onClick={onClick}
     >
       {/* Cou */}
       <rect x="40" y="70" width="20" height="20" fill={skin} />
@@ -55,7 +70,7 @@ export default function PlayerAvatar({
         d="M 48 45 Q 50 52 52 45"
         stroke="#333"
         fill="none"
-        stroke-width="1"
+        strokeWidth="1"
       />
 
       {/* Bouche */}
@@ -63,7 +78,7 @@ export default function PlayerAvatar({
         d="M 42 65 Q 50 70 58 65"
         stroke="#333"
         fill="none"
-        stroke-width="1.5"
+        strokeWidth="1.5"
       />
 
       {/* Pilosité faciale (Moustache/Barbe 19ème siècle) */}
@@ -82,14 +97,14 @@ export default function PlayerAvatar({
               <path
                 d="M 15 40 Q 20 60 30 70"
                 stroke={hair}
-                stroke-width="6"
+                strokeWidth="6"
                 fill="none"
               />{' '}
               {/* Favoris */}
               <path
                 d="M 85 40 Q 80 60 70 70"
                 stroke={hair}
-                stroke-width="6"
+                strokeWidth="6"
                 fill="none"
               />
             </g>
@@ -118,8 +133,9 @@ export default function PlayerAvatar({
         {hairIdx === 5 && (
           <path d="M 15 40 Q 10 10 30 5 Q 50 0 70 5 Q 90 10 85 40 Z" />
         )}{' '}
-        {/* Chapeau/Haut de forme possible ? Non, restons sur cheveux */}
       </g>
     </svg>
   );
-}
+});
+
+export default PlayerAvatar;

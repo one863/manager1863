@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'preact/hooks';
-import MainMenu from '@/views/MainMenu';
-import GameLayout from '@/views/GameLayout';
-import CreateTeam from '@/views/CreateTeam';
-import LoadGame from '@/views/LoadGame';
+import { Suspense, lazy } from 'preact/compat';
 import { useGameStore } from '@/store/gameSlice';
 import { db } from '@/db/db';
 
+// Lazy loading des vues principales
+const MainMenu = lazy(() => import('@/views/MainMenu'));
+const GameLayout = lazy(() => import('@/views/GameLayout'));
+const CreateTeam = lazy(() => import('@/views/CreateTeam'));
+const LoadGame = lazy(() => import('@/views/LoadGame'));
+
 type AppState = 'menu' | 'create' | 'load' | 'game' | 'initializing';
+
+const LoadingScreen = () => (
+  <div className="h-screen bg-paper flex items-center justify-center font-serif italic text-ink-light">
+    Chargement...
+  </div>
+);
 
 export function App() {
   const [appState, setAppState] = useState<AppState>('initializing');
@@ -58,11 +67,12 @@ export function App() {
     return <div className="h-screen bg-paper flex items-center justify-center font-serif italic text-ink-light">Chargement des archives...</div>;
   }
 
-  switch (appState) {
-    case 'menu': return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;
-    case 'create': return <CreateTeam onGameCreated={handleGameCreated} onCancel={handleCancel} />;
-    case 'load': return <LoadGame onGameLoaded={handleGameLoaded} onCancel={handleCancel} />;
-    case 'game': return <GameLayout onQuit={handleQuit} />;
-    default: return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;
-  }
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      {appState === 'menu' && <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />}
+      {appState === 'create' && <CreateTeam onGameCreated={handleGameCreated} onCancel={handleCancel} />}
+      {appState === 'load' && <LoadGame onGameLoaded={handleGameLoaded} onCancel={handleCancel} />}
+      {appState === 'game' && <GameLayout onQuit={handleQuit} />}
+    </Suspense>
+  );
 }

@@ -79,9 +79,9 @@ export default function ClubManagement() {
       <div className="text-center space-y-1 px-4 mt-2">
         <h2 className="text-2xl font-serif font-bold text-ink leading-tight tracking-tight">{team.name}</h2>
         <div className="flex items-center justify-center gap-2 text-ink-light italic text-xs">
-          <span className="font-serif">Depuis 1863</span>
+          <span className="font-serif">Fondation : 1863</span>
           <span className="w-1.5 h-1.5 bg-accent/20 rounded-full"></span>
-          <span>Président {team.presidentName || team.managerName}</span>
+          <span>Président : {team.presidentName || team.managerName}</span>
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export default function ClubManagement() {
           <Users className="text-accent mb-4" size={28} />
           <div className="space-y-0.5">
             <span className="block text-2xl font-black text-ink tracking-tighter">{team.fanCount || 0}</span>
-            <span className="block text-[9px] uppercase text-ink-light font-black tracking-widest opacity-60">Supporters</span>
+            <span className="block text-[9px] uppercase text-ink-light font-black tracking-widest opacity-60">Fans</span>
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export default function ClubManagement() {
           <Star className="text-yellow-500 mb-4" size={28} />
           <div className="space-y-0.5">
             <span className="block text-2xl font-black text-ink tracking-tighter">{team.reputation || 0}</span>
-            <span className="block text-[9px] uppercase text-ink-light font-black tracking-widest opacity-60">Réputation</span>
+            <span className="block text-[9px] uppercase text-ink-light font-black tracking-widest opacity-60">Reputation</span>
           </div>
         </div>
       </div>

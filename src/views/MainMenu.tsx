@@ -1,5 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import Button from '@/components/Common/Button';
+import { useEffect, useState } from 'preact/hooks';
+import { CloudService } from '@/services/cloud-service';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/config/firebase';
+import { Cloud, LogOut, LogIn } from 'lucide-preact';
 
 export default function MainMenu({
   onNewGame,
@@ -9,13 +14,63 @@ export default function MainMenu({
   onLoadGame: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (!auth) return; // Si Firebase n'est pas configuré, on ne fait rien
+    
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
   };
 
+  const handleLogin = async () => {
+    try {
+      if (CloudService.isAvailable()) {
+        await CloudService.login();
+      } else {
+        alert("Le service Cloud n'est pas configuré.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleLogout = async () => {
+    await CloudService.logout();
+  };
+
+  const isCloudAvailable = CloudService.isAvailable();
+
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper items-center justify-center p-6 space-y-8 relative animate-fade-in">
+      
+      {/* User Status / Cloud Auth - Visible seulement si Cloud dispo */}
+      {isCloudAvailable && (
+        <div className="absolute top-4 left-4 z-10">
+           {user ? (
+               <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow border border-gray-200">
+                  {user.photoURL && <img src={user.photoURL} alt="User" className="w-6 h-6 rounded-full" />}
+                  <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors">
+                      <LogOut size={16} />
+                  </button>
+               </div>
+           ) : (
+               <button 
+                  onClick={handleLogin}
+                  className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+               >
+                  <LogIn size={14} /> Connexion
+               </button>
+           )}
+        </div>
+      )}
+
       {/* Sélecteur de langue */}
       <div className="absolute top-4 right-4 flex gap-2 z-10">
         <button
@@ -39,6 +94,11 @@ export default function MainMenu({
           FOOTBALL
         </h1>
         <p className="text-ink-light italic text-sm">{t('menu.subtitle')}</p>
+        {user && (
+           <div className="flex items-center justify-center gap-1 text-[10px] text-green-600 font-bold uppercase tracking-widest mt-2">
+              <Cloud size={10} /> Cloud Sync Active
+           </div>
+        )}
       </div>
 
       <div className="w-full space-y-4 max-w-[280px]">

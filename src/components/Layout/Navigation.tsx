@@ -31,8 +31,8 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
   }, [userTeamId, day, currentView]);
 
   return (
-    <nav className="bg-paper-dark border-t border-gray-300 pb-safe absolute bottom-0 w-full z-30">
-      <ul className="flex justify-around items-center h-16 px-4">
+    <nav className="bg-paper-dark border-t border-gray-300 pb-safe absolute bottom-0 w-full z-30 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+      <ul className="flex justify-around items-center h-16 px-2">
         <NavIcon
           icon={Home}
           label={t('game.office')}
@@ -45,19 +45,22 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
           active={currentView === 'squad'}
           onClick={() => onNavigate('squad')}
         />
-        <li className="relative -mt-8">
+        
+        {/* Central Action Button */}
+        <li className="relative -mt-6">
           <button
             onClick={() => onNavigate('news')}
-            className={`flex flex-col items-center justify-center bg-paper border-2 ${currentView === 'news' ? 'border-accent text-accent' : 'border-gray-300 text-ink-light'} rounded-full h-14 w-14 shadow-lg active:scale-90 transition-all`}
+            className={`flex flex-col items-center justify-center bg-paper border-4 ${currentView === 'news' ? 'border-accent text-accent' : 'border-gray-200 text-ink-light'} rounded-full h-16 w-16 shadow-lg active:scale-95 transition-all`}
           >
-            <Newspaper size={24} />
+            <Newspaper size={24} className={currentView === 'news' ? 'animate-pulse' : ''} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center border-2 border-paper animate-bounce">
+              <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center border-2 border-paper animate-bounce shadow-sm">
                 {unreadCount}
               </span>
             )}
           </button>
         </li>
+
         <NavIcon
           icon={Dumbbell}
           label="Entrain."
@@ -81,14 +84,16 @@ function NavIcon({ icon: Icon, label, active, onClick, dot }: any) {
     <li>
       <button
         onClick={onClick}
-        className={`flex flex-col items-center gap-1 transition-all relative ${active ? 'text-accent scale-110' : 'text-ink-light hover:text-ink'}`}
+        className={`flex flex-col items-center justify-center gap-1 transition-all relative w-16 h-full py-1 rounded-xl active:bg-gray-200/50 ${active ? 'text-accent' : 'text-ink-light hover:text-ink'}`}
       >
-        <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-        <span className="text-[9px] font-bold uppercase tracking-tighter">
+        <div className={`transition-transform duration-200 ${active ? '-translate-y-1' : ''}`}>
+           <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+        </div>
+        <span className={`text-[9px] font-bold uppercase tracking-tighter transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`}>
           {label}
         </span>
         {dot && (
-           <span className="absolute top-0 right-0 w-2 h-2 bg-accent rounded-full border border-paper-dark"></span>
+           <span className="absolute top-2 right-4 w-2 h-2 bg-accent rounded-full border border-paper-dark animate-pulse"></span>
         )}
       </button>
     </li>

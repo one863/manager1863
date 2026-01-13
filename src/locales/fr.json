@@ -8,7 +8,7 @@
   },
   "create": {
     "title": "Fondation du Club",
-    "subtitle": "Écrivez l'histoire dès 1863",
+    "subtitle": "Écrivez l'histoire",
     "choose_slot": "Emplacement de sauvegarde",
     "slot_desc": "Où souhaitez-vous enregistrer cette partie ?",
     "slot_free": "Nouvelle Partie",
@@ -112,7 +112,7 @@
   "season_goals": {
     "CHAMPION": "Être Sacré Champion",
     "PROMOTION": "Obtenir la Promotion",
-    "MID_TABLE": "Finir en Milieu de Table",
+    "MID_TABLE": "Finir en Milieu de Tableau",
     "AVOID_RELEGATION": "Éviter la Relégation"
   },
   "narratives": {

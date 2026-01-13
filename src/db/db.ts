@@ -105,14 +105,14 @@ class Manager1863DB extends Dexie {
   gameState!: Table<GameStateData>;
   news!: Table<NewsArticle>;
   history!: Table<SeasonHistory>;
-  staff!: Table<StaffMember>; // NOUVEAU
+  staff!: Table<StaffMember>;
 
   constructor() {
     super('Manager1863_Storage');
 
-    // Passage à la version 14 pour le staff
-    this.version(14).stores({
-      players: '++id, saveId, teamId, [saveId+teamId], [saveId+position], skill, isStarter',
+    // Passage à la version 15 pour optimiser les index du marché des transferts
+    this.version(15).stores({
+      players: '++id, saveId, teamId, [saveId+teamId], [saveId+position], [saveId+teamId+skill], skill, isStarter',
       teams: '++id, saveId, leagueId, [saveId+leagueId]',
       leagues: '++id, saveId',
       matches: '++id, saveId, leagueId, day, [saveId+day], [saveId+leagueId]',
@@ -120,7 +120,7 @@ class Manager1863DB extends Dexie {
       gameState: 'saveId',
       news: '++id, saveId, day, [saveId+day]',
       history: '++id, saveId, teamId, seasonYear',
-      staff: '++id, saveId, teamId, [saveId+teamId]' // NOUVEAU
+      staff: '++id, saveId, teamId, [saveId+teamId]'
     });
 
     this.on('versionchange', (event) => {
@@ -131,7 +131,7 @@ class Manager1863DB extends Dexie {
 }
 
 export const db = new Manager1863DB();
-export const CURRENT_DATA_VERSION = 14;
+export const CURRENT_DATA_VERSION = 15;
 
 const SALT = 'victoria-era-football-1863';
 export async function computeSaveHash(saveId: number): Promise<string> {

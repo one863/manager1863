@@ -1,7 +1,7 @@
 # 📜 1863 FOOTBALL - Plan de Conception (Blueprint)
 
 ## 🎯 Objectif du Projet
-Créer une simulation de management de football **légère**, **rapide** et **optimisée pour mobile**, sous la marque **1863 FOOTBALL**. L'application est conçue comme une **Progressive Web App (PWA)** pour offrir une expérience fluide et "native" sur smartphone, sans nécessiter de serveur distant pour la logique ou le stockage.
+Créer une simulation de club de football **légère**, **rapide** et **optimisée pour mobile**, sous la marque **1863 FOOTBALL**. L'application est conçue comme une **Progressive Web App (PWA)** pour offrir une expérience fluide et "native" sur smartphone, sans nécessiter de serveur distant pour la logique ou le stockage.
 
 ---
 

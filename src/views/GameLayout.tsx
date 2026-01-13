@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'preact/compat';
 import { useGameStore } from '@/store/gameSlice';
+import { useLiveMatchStore } from '@/store/liveMatchStore';
 import { verifySaveIntegrity } from '@/db/db';
 import { MatchService } from '@/services/match-service';
 import { Loader2 } from 'lucide-preact';
@@ -37,8 +38,10 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   const isProcessing = useGameStore((state) => state.isProcessing);
   const isGameOver = useGameStore((state) => state.isGameOver);
   const advanceDate = useGameStore((state) => state.advanceDate);
-  const liveMatch = useGameStore((state) => state.liveMatch);
   const deleteSaveAndQuit = useGameStore((state) => state.deleteSaveAndQuit);
+  
+  // Utilisation du nouveau store pour le match en direct
+  const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 
   // Fermer l'overlay si un match commence
   useEffect(() => {
@@ -76,7 +79,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
       }
 
       // Si le store dit qu'on est en match, on ne change pas la vue ici
-      if (useGameStore.getState().liveMatch) {
+      if (useLiveMatchStore.getState().liveMatch) {
         setSaveStatus('idle');
         return;
       }

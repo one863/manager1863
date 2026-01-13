@@ -1,15 +1,37 @@
-import { db, Match, CURRENT_DATA_VERSION, Player } from '@/db/db';
+import { db, Match, CURRENT_DATA_VERSION, Player, Team } from '@/db/db';
 import { calculateTeamRatings } from '@/engine/converter';
 import { MatchResult } from '@/engine/types';
 import { NewsService } from '@/services/news-service';
 import { ClubService } from '@/services/club-service';
 import { generateSeasonFixtures } from '@/data/league-templates';
 import { randomInt, clamp } from '@/utils/math';
+import i18next from 'i18next';
 
 const simulationWorker = new Worker(
   new URL('../engine/simulation.worker.ts', import.meta.url),
   { type: 'module' }
 );
+
+// Helper function to simulate a single match in the worker
+const runMatchInWorker = (matchData: any, language: string): Promise<MatchResult> => {
+  return new Promise((resolve) => {
+    const requestId = Math.random().toString(36).substring(7);
+    
+    const handler = (e: MessageEvent) => {
+      const { type, payload } = e.data;
+      if (type === 'MATCH_COMPLETE' && payload.requestId === requestId) {
+        simulationWorker.removeEventListener('message', handler);
+        resolve(payload.result);
+      }
+    };
+
+    simulationWorker.addEventListener('message', handler);
+    simulationWorker.postMessage({ 
+      type: 'SIMULATE_MATCH', 
+      payload: { ...matchData, requestId, language } 
+    });
+  });
+};
 
 export const MatchService = {
   async hasUserMatchToday(saveId: number, day: number, userTeamId: number): Promise<boolean> {
@@ -74,11 +96,16 @@ export const MatchService = {
       const awayPlayers = await db.players.where('[saveId+teamId]').equals([saveId, userMatch.awayTeamId]).toArray();
       const [homeT, awayT] = await Promise.all([db.teams.get(userMatch.homeTeamId), db.teams.get(userMatch.awayTeamId)]);
       
-      const result = await import('@/engine/simulator').then(m => m.simulateMatch(
-        calculateTeamRatings(homePlayers, homeT?.tacticType || 'NORMAL'),
-        calculateTeamRatings(awayPlayers, awayT?.tacticType || 'NORMAL'),
-        userMatch.homeTeamId, userMatch.awayTeamId, homePlayers, awayPlayers
-      ));
+      const matchData = {
+        homeRatings: calculateTeamRatings(homePlayers, homeT?.tacticType || 'NORMAL'),
+        awayRatings: calculateTeamRatings(awayPlayers, awayT?.tacticType || 'NORMAL'),
+        homeTeamId: userMatch.homeTeamId,
+        awayTeamId: userMatch.awayTeamId,
+        homePlayers,
+        awayPlayers
+      };
+
+      const result = await runMatchInWorker(matchData, i18next.language);
 
       return {
         matchId: userMatch.id!,
@@ -92,18 +119,27 @@ export const MatchService = {
   },
 
   runBatchSimulation(matches: any[], saveId: number, date: Date) {
-    simulationWorker.postMessage({ type: 'SIMULATE_BATCH', payload: { matches, saveId } });
-    simulationWorker.onmessage = async (e) => {
+    const language = i18next.language;
+    simulationWorker.postMessage({ type: 'SIMULATE_BATCH', payload: { matches, saveId, language } });
+    
+    const handler = async (e: MessageEvent) => {
       const { type, payload } = e.data;
-      if (type === 'BATCH_COMPLETE') {
+      if (type === 'BATCH_COMPLETE' && payload.saveId === saveId) {
+        simulationWorker.removeEventListener('message', handler);
         await db.transaction('rw', [db.matches, db.teams, db.gameState, db.news, db.players], async () => {
           for (const res of payload.results) {
             const match = await db.matches.get(res.matchId);
+            // OPTIMISATION: Suppression des commentaires pour les matchs IA
+            if (res.result && res.result.commentary) {
+              delete res.result.commentary;
+            }
             if (match) await this.saveMatchResult(match, res.result, saveId, date, false);
           }
         });
       }
     };
+    
+    simulationWorker.addEventListener('message', handler);
   },
 
   async saveMatchResult(match: Match, result: MatchResult, saveId: number, date: Date, generateNews = true) {
@@ -135,25 +171,19 @@ export const MatchService = {
     }
   },
 
-  /**
-   * Applique de la fatigue aux joueurs après un match.
-   */
   async applyMatchFatigue(teamId: number, saveId: number) {
     const team = await db.teams.get(teamId);
     const starters = await db.players.where('[saveId+teamId]').equals([saveId, teamId]).and(p => !!p.isStarter).toArray();
     
-    // Fatigue de base : 20-30% d'énergie
     let baseFatigue = randomInt(20, 30);
-    if (team?.tacticType === 'PRESSING') baseFatigue += 10; // Le pressing fatigue plus
+    if (team?.tacticType === 'PRESSING') baseFatigue += 10;
 
     for (const player of starters) {
       const currentEnergy = player.energy || 100;
       const currentCondition = player.condition || 100;
       
-      // Réduction énergie
       const newEnergy = Math.max(0, currentEnergy - baseFatigue);
       
-      // Réduction légère de condition (usure physique)
       const condLoss = randomInt(1, 4);
       const newCondition = Math.max(10, currentCondition - condLoss);
 
@@ -173,40 +203,155 @@ export const MatchService = {
     await db.teams.update(teamId, { matchesPlayed: (team.matchesPlayed || 0) + 1, points: pts });
   },
 
-  async checkSeasonEnd(saveId: number, leagueId: number) {
-    const totalMatches = await db.matches.where('leagueId').equals(leagueId).count();
-    const playedMatches = await db.matches.where('leagueId').equals(leagueId).and((m) => m.played).count();
+  async checkSeasonEnd(saveId: number, userLeagueId: number) {
+    const totalMatches = await db.matches.where('leagueId').equals(userLeagueId).count();
+    const playedMatches = await db.matches.where('leagueId').equals(userLeagueId).and((m) => m.played).count();
     if (totalMatches === 0 || totalMatches !== playedMatches) return false;
 
-    const teams = await db.teams.where('leagueId').equals(leagueId).toArray();
-    teams.sort((a, b) => (b.points || 0) - (a.points || 0));
     const state = await db.gameState.get(saveId);
     if (!state) return false;
 
-    const userTeamIndex = teams.findIndex(t => t.id === state.userTeamId);
-    const userPosition = userTeamIndex + 1;
-    const userTeam = teams[userTeamIndex];
+    // --- CLEANUP DE FIN DE SAISON ---
+    const oldSeason = state.season - 5;
+    if (oldSeason > 0) {
+        const oldHistory = await db.history.where('saveId').equals(saveId).and(h => h.seasonYear <= oldSeason).primaryKeys();
+        await db.history.bulkDelete(oldHistory);
+    }
+    await db.news.where('saveId').equals(saveId).delete();
+    const matchesToClean = await db.matches.where('saveId').equals(saveId).toArray();
+    for (const m of matchesToClean) {
+      if (m.details && m.details.commentary) {
+        const cleanDetails = { ...m.details };
+        delete cleanDetails.commentary; 
+        await db.matches.update(m.id!, { details: cleanDetails });
+      }
+    }
+    // --------------------------------
 
-    let isFailed = false;
-    if (userTeam.seasonGoal === 'CHAMPION' && userPosition > 1) isFailed = true;
-    if (userTeam.seasonGoal === 'PROMOTION' && userPosition > 3) isFailed = true;
-    if (userTeam.seasonGoal === 'MID_TABLE' && userPosition > 6) isFailed = true;
+    // 1. Récupérer toutes les ligues triées par niveau
+    const allLeagues = await db.leagues.where('saveId').equals(saveId).toArray();
+    allLeagues.sort((a, b) => a.level - b.level);
 
-    if (isFailed) {
-      await db.gameState.update(saveId, { isGameOver: true });
-      await NewsService.addNews(saveId, { day: state.day, date: state.currentDate, title: "LICENCIEMENT", content: `Objectif non rempli pour ${userTeam.name}.`, type: 'BOARD', importance: 3 });
-      return true; 
+    let promotions: Map<number, Team[]> = new Map(); // level -> équipes promues vers ce level
+    let relegations: Map<number, Team[]> = new Map(); // level -> équipes reléguées vers ce level
+
+    // 2. Traiter chaque ligue pour déterminer classements et mouvements
+    for (const league of allLeagues) {
+      const teams = await db.teams.where('leagueId').equals(league.id!).toArray();
+      
+      // Si c'est la ligue du joueur ou qu'il y a eu des matchs simulés, on utilise les points
+      // Sinon (simulation simplifiée pour les autres ligues), on trie par réputation/skill
+      const hasMatches = (await db.matches.where('leagueId').equals(league.id!).count()) > 0;
+      
+      if (hasMatches) {
+         teams.sort((a, b) => (b.points || 0) - (a.points || 0));
+      } else {
+         // Simulation aléatoire pondérée par la réputation pour les ligues non jouées
+         teams.sort((a, b) => (b.reputation + randomInt(-10, 10)) - (a.reputation + randomInt(-10, 10)));
+      }
+
+      // Sauvegarder l'historique
+      for (let i = 0; i < teams.length; i++) {
+        const t = teams[i];
+        await db.history.add({ 
+            saveId, 
+            teamId: t.id!, 
+            seasonYear: state.season, 
+            leagueName: league.name, 
+            position: i + 1, 
+            points: t.points || 0, 
+            achievements: i === 0 ? ['Champion'] : [] 
+        });
+      }
+
+      // Gestion Objectifs Joueur
+      if (league.id === userLeagueId) {
+        const userTeamIndex = teams.findIndex(t => t.id === state.userTeamId);
+        const userPosition = userTeamIndex + 1;
+        const userTeam = teams[userTeamIndex];
+
+        let isFailed = false;
+        if (userTeam.seasonGoal === 'CHAMPION' && userPosition > 1) isFailed = true;
+        if (userTeam.seasonGoal === 'PROMOTION' && userPosition > league.promotionSpots) isFailed = true; // Top 3
+        if (userTeam.seasonGoal === 'MID_TABLE' && userPosition > (teams.length / 2)) isFailed = true;
+
+        if (isFailed) {
+          await db.gameState.update(saveId, { isGameOver: true });
+          await NewsService.addNews(saveId, { day: state.day, date: state.currentDate, title: "LICENCIEMENT", content: `Objectif non rempli pour ${userTeam.name}.`, type: 'BOARD', importance: 3 });
+          return true; 
+        }
+      }
+
+      // Identifier Promus et Relégués
+      const promoteCount = league.promotionSpots; // Ex: 3 (sauf Div 1 qui a 0)
+      const relegateCount = league.relegationSpots; // Ex: 3 (sauf Div 5 qui a 0)
+
+      // Promus (vers le niveau supérieur, donc level - 1)
+      if (promoteCount > 0 && league.level > 1) {
+         const promotedTeams = teams.slice(0, promoteCount);
+         const targetLevel = league.level - 1;
+         if (!promotions.has(targetLevel)) promotions.set(targetLevel, []);
+         promotions.get(targetLevel)!.push(...promotedTeams);
+      }
+
+      // Relégués (vers le niveau inférieur, donc level + 1)
+      if (relegateCount > 0 && league.level < allLeagues.length) {
+         const relegatedTeams = teams.slice(teams.length - relegateCount);
+         const targetLevel = league.level + 1;
+         if (!relegations.has(targetLevel)) relegations.set(targetLevel, []);
+         relegations.get(targetLevel)!.push(...relegatedTeams);
+      }
     }
 
-    for (let i = 0; i < teams.length; i++) {
-      const t = teams[i];
-      await db.history.add({ saveId, teamId: t.id!, seasonYear: state.season, leagueName: 'The Football Association League', position: i + 1, points: t.points || 0, achievements: i === 0 ? ['Champion'] : [] });
-      await db.teams.update(t.id!, { points: 0, matchesPlayed: 0 });
+    // 3. Appliquer les mouvements
+    // On doit récupérer les IDs des ligues par niveau pour faire les updates
+    const leaguesByLevel = new Map(allLeagues.map(l => [l.level, l.id]));
+
+    // Traiter les promotions
+    for (const [level, teams] of promotions) {
+        const targetLeagueId = leaguesByLevel.get(level);
+        if (targetLeagueId) {
+            for (const team of teams) {
+                await db.teams.update(team.id!, { leagueId: targetLeagueId });
+                // News spéciale si c'est le joueur
+                if (team.id === state.userTeamId) {
+                    await NewsService.addNews(saveId, { day: state.day, date: state.currentDate, title: "PROMOTION !", content: "Nous montons dans la division supérieure !", type: 'BOARD', importance: 3 });
+                }
+            }
+        }
     }
 
-    const teamIds = teams.map((t) => t.id!);
-    await db.matches.where('leagueId').equals(leagueId).delete();
-    await generateSeasonFixtures(saveId, leagueId, teamIds);
+    // Traiter les relégations
+    for (const [level, teams] of relegations) {
+        const targetLeagueId = leaguesByLevel.get(level);
+        if (targetLeagueId) {
+            for (const team of teams) {
+                await db.teams.update(team.id!, { leagueId: targetLeagueId });
+                if (team.id === state.userTeamId) {
+                    await NewsService.addNews(saveId, { day: state.day, date: state.currentDate, title: "RELÉGATION", content: "Une saison cauchemardesque qui nous envoie à l'étage inférieur.", type: 'BOARD', importance: 3 });
+                }
+            }
+        }
+    }
+
+    // 4. Reset des points et génération des calendriers pour TOUTES les ligues
+    // Suppression des matchs de la saison passée (toutes ligues confondues pour ce save)
+    await db.matches.where('saveId').equals(saveId).delete();
+
+    for (const league of allLeagues) {
+        // Récupérer les équipes qui sont MAINTENANT dans cette ligue (après mouvements)
+        const currentTeams = await db.teams.where('leagueId').equals(league.id!).toArray();
+        const teamIds = currentTeams.map(t => t.id!);
+        
+        // Reset stats
+        for (const t of currentTeams) {
+            await db.teams.update(t.id!, { points: 0, matchesPlayed: 0 });
+        }
+
+        // Générer nouveau calendrier
+        await generateSeasonFixtures(saveId, league.id!, teamIds);
+    }
+
     return true;
   },
 };

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { db, SaveSlot } from '@/db/db';
 import { useTranslation } from 'react-i18next';
 import { exportSaveToJSON, importSaveFromJSON } from '@/db/export-system';
-import { Trash2, Download, Upload, Shield, X, AlertTriangle, ChevronRight } from 'lucide-preact';
+import { CloudService, CloudSaveMetadata } from '@/services/cloud-service';
+import { Trash2, Download, Upload, Shield, X, AlertTriangle, ChevronRight, Cloud, DownloadCloud } from 'lucide-preact';
 
 interface LoadGameProps {
   onGameLoaded: (slotId: number) => void;
@@ -14,8 +15,15 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
   const [slots, setSlots] = useState<(SaveSlot | undefined)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  
+  // Cloud State
+  const [user, setUser] = useState(CloudService.getCurrentUser());
+  const [viewMode, setViewMode] = useState<'local' | 'cloud'>('local');
+  const [cloudSaves, setCloudSaves] = useState<CloudSaveMetadata[]>([]);
+  const [selectedCloudSave, setSelectedCloudSave] = useState<CloudSaveMetadata | null>(null); // Save à importer
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [targetImportSlot, setTargetImportSlot] = useState<number | null>(null);
+  const [targetImportSlot, setTargetImportSlot] = useState<number | null>(null); // Slot cible pour import fichier
 
   const refreshSlots = async () => {
     try {
@@ -28,13 +36,23 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
     } catch (e) {
       console.error('Erreur chargement slots:', e);
     } finally {
-      setIsLoading(false);
+      if (viewMode === 'local') setIsLoading(false);
     }
   };
 
   useEffect(() => {
     refreshSlots();
   }, []);
+
+  useEffect(() => {
+    if (user && viewMode === 'cloud') {
+        setIsLoading(true);
+        CloudService.getCloudSaves().then(saves => {
+            setCloudSaves(saves);
+            setIsLoading(false);
+        }).catch(() => setIsLoading(false));
+    }
+  }, [user, viewMode]);
 
   const handleExport = async (slotId: number, e: Event) => {
     e.preventDefault();
@@ -106,9 +124,26 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
     }
   };
 
+  const performCloudImport = async (targetSlotId: number) => {
+    if (!selectedCloudSave) return;
+    try {
+        setIsLoading(true);
+        await importSaveFromJSON(selectedCloudSave.data, targetSlotId);
+        await refreshSlots();
+        setSelectedCloudSave(null);
+        setViewMode('local');
+        // alert("Import réussi !"); // Feedback visuel suffisant par le changement de vue
+    } catch (e) {
+        console.error("Cloud import failed", e);
+        alert("Erreur lors de l'importation Cloud");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 animate-fade-in relative overflow-hidden">
-      <header className="mb-8 flex items-center justify-between">
+      <header className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-serif font-bold text-accent tracking-tight">
           {t('load.title')}
         </h1>
@@ -117,16 +152,36 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
         </button>
       </header>
 
+      {/* Tabs */}
+      {user && (
+          <div className="flex bg-paper-dark rounded-xl p-1 mb-6">
+              <button 
+                onClick={() => setViewMode('local')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'local' ? 'bg-white shadow text-accent' : 'text-gray-400'}`}
+              >
+                  LOCAL
+              </button>
+              <button 
+                onClick={() => setViewMode('cloud')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${viewMode === 'cloud' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}
+              >
+                  <Cloud size={12} /> CLOUD
+              </button>
+          </div>
+      )}
+
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
 
       {isLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-ink-light italic text-sm">{t('load.searching')}</p>
+          <p className="text-ink-light italic text-sm">{viewMode === 'cloud' ? 'Synchronisation...' : t('load.searching')}</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-4 pb-20">
-          {slots.map((slot, index) => {
+          
+          {/* VUE LOCAL */}
+          {viewMode === 'local' && slots.map((slot, index) => {
             const slotId = index + 1;
             
             if (!slot) {
@@ -185,10 +240,48 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
               </div>
             );
           })}
+
+          {/* VUE CLOUD */}
+          {viewMode === 'cloud' && (
+             <div className="space-y-4">
+                 {cloudSaves.length === 0 ? (
+                     <div className="text-center py-12 opacity-50">
+                         <Cloud size={48} className="mx-auto mb-2 text-gray-300" />
+                         <p className="text-sm">Aucune sauvegarde Cloud trouvée.</p>
+                     </div>
+                 ) : (
+                     cloudSaves.map((save) => (
+                        <div key={save.id} className="bg-white border-2 border-blue-100 rounded-2xl p-5 shadow-sm hover:border-blue-300 transition-all animate-slide-up relative overflow-hidden">
+                            <div className="absolute top-0 right-0 bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded-bl-lg">
+                                CLOUD
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-serif font-bold text-lg text-ink">{save.clubName}</h3>
+                                    <div className="flex gap-3 text-xs text-gray-500 mt-1">
+                                        <span>Saison {save.season}</span>
+                                        <span>Jour {save.day}</span>
+                                    </div>
+                                    <div className="text-[10px] text-gray-400 mt-2 italic">
+                                        Sauvegardé le {new Date(save.updatedAt).toLocaleDateString()} à {new Date(save.updatedAt).toLocaleTimeString()}
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setSelectedCloudSave(save)}
+                                    className="bg-blue-50 text-blue-600 p-3 rounded-full hover:bg-blue-100 transition-colors"
+                                >
+                                    <DownloadCloud size={20} />
+                                </button>
+                            </div>
+                        </div>
+                     ))
+                 )}
+             </div>
+          )}
         </div>
       )}
 
-      {/* OVERLAY DE CONFIRMATION DE SUPPRESSION SIMPLIFIÉ */}
+      {/* OVERLAY DE CONFIRMATION DE SUPPRESSION */}
       {deleteTarget !== null && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
            <div className="bg-white rounded-3xl p-8 shadow-2xl border-4 border-red-500 max-w-xs w-full animate-slide-up text-center">
@@ -197,20 +290,56 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
               </div>
               <h2 className="text-xl font-serif font-bold text-ink mb-2">Supprimer la partie ?</h2>
               <p className="text-sm text-ink-light mb-8 leading-relaxed">
-                Voulez-vous vraiment supprimer la partie de <span className="font-bold text-ink">{slots[deleteTarget - 1]?.teamName}</span> ?
+                Voulez-vous vraiment supprimer la partie locale ?
               </p>
               <div className="space-y-3">
                  <button 
                    onClick={performDelete}
                    className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-all"
                  >
-                   SUPPRIMER DÉFINITIVEMENT
+                   OUI, SUPPRIMER
                  </button>
                  <button 
                    onClick={() => setDeleteTarget(null)}
                    className="w-full py-3 bg-paper-dark text-ink-light rounded-xl font-bold active:scale-95 transition-all"
                  >
                    ANNULER
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* OVERLAY CHOIX SLOT POUR IMPORT CLOUD */}
+      {selectedCloudSave && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+           <div className="bg-white rounded-3xl p-6 shadow-2xl border-4 border-blue-500 max-w-xs w-full animate-slide-up text-center">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <Cloud size={24} />
+              </div>
+              <h2 className="text-lg font-serif font-bold text-ink mb-1">Importer la sauvegarde</h2>
+              <p className="text-xs text-ink-light mb-6">
+                Sur quel emplacement local (1-3) voulez-vous installer la sauvegarde de <b>{selectedCloudSave.clubName}</b> ?
+                <br/><span className="text-red-500 font-bold">Cela écrasera les données locales.</span>
+              </p>
+              
+              <div className="space-y-2">
+                  {[1, 2, 3].map(id => (
+                      <button 
+                        key={id}
+                        onClick={() => performCloudImport(id)}
+                        className="w-full py-3 bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-ink rounded-xl font-bold transition-all flex justify-between px-4 items-center"
+                      >
+                        <span>Emplacement {id}</span>
+                        {slots[id-1] ? <span className="text-[10px] text-red-400 uppercase">Occupé</span> : <span className="text-[10px] text-green-500 uppercase">Libre</span>}
+                      </button>
+                  ))}
+                  
+                  <button 
+                   onClick={() => setSelectedCloudSave(null)}
+                   className="w-full py-3 mt-4 text-gray-400 font-bold hover:text-gray-600"
+                 >
+                   Annuler
                  </button>
               </div>
            </div>

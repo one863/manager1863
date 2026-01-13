@@ -19,6 +19,26 @@ export const NewsService = {
     return await db.news.update(newsId, { isRead: true });
   },
 
+  async cleanupOldNews(saveId: number, currentSeason: number) {
+    // Keep news only for current and previous season
+    const keepFromSeason = currentSeason - 1;
+    // We need to fetch news and filter because we don't store season in news directly
+    // Or simpler: delete news older than X days if we had a date index, but day index is per save
+    // However, news has a 'day' field. Assuming a season is ~40-50 weeks * 7 days.
+    // Let's approximate: 1 season ~ 300 days (to be safe).
+    // Better strategy: Count total news, if > 200, delete oldest ones.
+    
+    const count = await db.news.where('saveId').equals(saveId).count();
+    const MAX_NEWS = 200;
+    
+    if (count > MAX_NEWS) {
+      const deleteCount = count - MAX_NEWS;
+      // Get IDs of oldest news
+      const oldestNews = await db.news.where('saveId').equals(saveId).limit(deleteCount).primaryKeys();
+      await db.news.bulkDelete(oldestNews);
+    }
+  },
+
   async generateMatchNews(saveId: number, date: Date, teamName: string, opponentName: string, myScore: number, oppScore: number) {
     const isWin = myScore > oppScore;
     const isDraw = myScore === oppScore;

@@ -8,7 +8,7 @@
   },
   "create": {
     "title": "Club Foundation",
-    "subtitle": "Write history starting from 1863",
+    "subtitle": "Write history starting",
     "choose_slot": "Choose a Slot",
     "slot_desc": "Where would you like to archive this career?",
     "slot_free": "Free",
@@ -108,6 +108,12 @@
     "ga": "GA",
     "gd": "GD",
     "pts": "Pts"
+  },
+  "season_goals": {
+    "CHAMPION": "Être Sacré Champion",
+    "PROMOTION": "Obtenir la Promotion",
+    "MID_TABLE": "Finir en Milieu de Tableau",
+    "AVOID_RELEGATION": "Éviter la Relégation"
   },
   "narratives": {
     "match": {
