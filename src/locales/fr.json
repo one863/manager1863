@@ -1,0 +1,112 @@
+{
+  "menu": {
+    "title": "Manager 1863",
+    "subtitle": "Aux origines du football",
+    "new_game": "Nouvelle Carrière",
+    "load_game": "Charger une partie",
+    "version": "v0.1.0 - Alpha"
+  },
+  "create": {
+    "title": "Fondation du Club",
+    "subtitle": "Écrivez l'histoire dès 1863",
+    "choose_slot": "Choisir un emplacement",
+    "slot_desc": "Où souhaitez-vous archiver cette carrière ?",
+    "slot_free": "Libre",
+    "slot_occupied": "Occupé",
+    "slot_new": "Nouvelle Sauvegarde",
+    "manager_label": "Nom du Manager",
+    "manager_placeholder": "Ex: Arthur Kinnaird",
+    "club_label": "Nom du Club",
+    "club_placeholder": "Ex: Sheffield FC",
+    "charter_text": "En signant cette charte, vous vous engagez à respecter les règles de la Football Association établies en 1863. Vous prendrez la direction de ce club amateur et tenterez de le mener vers la gloire éternelle.",
+    "sign_button": "Signer la Charte",
+    "creating": "Fondation en cours...",
+    "cancel": "Annuler",
+    "change_slot": "Changer d'emplacement"
+  },
+  "load": {
+    "title": "Charger une Partie",
+    "searching": "Recherche des archives...",
+    "empty_slot": "Emplacement vide",
+    "played_on": "Joué le",
+    "game_date": "Date en jeu",
+    "delete_confirm": "Voulez-vous vraiment effacer cette sauvegarde ?",
+    "back": "Retour"
+  },
+  "game": {
+    "date_format": "{{date, datetime}}",
+    "continue": "Continuer",
+    "loading": "Chargement...",
+    "office": "Bureau",
+    "squad": "Effectif",
+    "training": "Entraînement",
+    "calendar": "Calendrier",
+    "league": "Classement",
+    "quit": "Quitter"
+  },
+  "dashboard": {
+    "division": "Division",
+    "finances": "Finances",
+    "next_match": "Prochain Match",
+    "home": "Domicile",
+    "away": "Extérieur",
+    "prepare_team": "Préparer l'équipe",
+    "news": "Dépêches",
+    "welcome_title": "Bienvenue au club !",
+    "welcome_msg": "La saison 1863 commence bientôt.",
+    "ago": "Il y a 2 heures"
+  },
+  "squad": {
+    "title": "Effectif du Club",
+    "no_players": "Aucun joueur sous contrat.",
+    "name": "Nom",
+    "age": "Age",
+    "pos": "Pos",
+    "skill": "Niv",
+    "cond": "Forme",
+    "details": "Détails",
+    "gk": "Gardiens",
+    "def": "Défenseurs",
+    "mid": "Milieux",
+    "fwd": "Attaquants"
+  },
+  "player_card": {
+    "attributes": "Attributs",
+    "physical": "Physique",
+    "technical": "Technique",
+    "mental": "Mental",
+    "speed": "Vitesse",
+    "strength": "Puissance",
+    "stamina": "Endurance",
+    "dribbling": "Dribble",
+    "passing": "Passe",
+    "shooting": "Tir",
+    "defense": "Défense",
+    "morale": "Moral",
+    "energy": "Énergie",
+    "condition": "Condition",
+    "value": "Valeur",
+    "wage": "Salaire",
+    "close": "Fermer le dossier"
+  },
+  "calendar": {
+    "title": "Calendrier",
+    "no_matches": "Aucun match prévu.",
+    "upcoming": "À venir",
+    "results": "Résultats",
+    "vs": "vs"
+  },
+  "league_table": {
+    "title": "Classement",
+    "pos": "Pos",
+    "club": "Club",
+    "p": "J",
+    "w": "G",
+    "d": "N",
+    "l": "P",
+    "gf": "BP",
+    "ga": "BC",
+    "gd": "Diff",
+    "pts": "Pts"
+  }
+}

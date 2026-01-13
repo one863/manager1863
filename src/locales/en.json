@@ -1,0 +1,112 @@
+{
+  "menu": {
+    "title": "Manager 1863",
+    "subtitle": "The Origins of Football",
+    "new_game": "New Career",
+    "load_game": "Load Game",
+    "version": "v0.1.0 - Alpha"
+  },
+  "create": {
+    "title": "Club Foundation",
+    "subtitle": "Write history from 1863",
+    "choose_slot": "Choose a Slot",
+    "slot_desc": "Where do you want to archive this career?",
+    "slot_free": "Free",
+    "slot_occupied": "Occupied",
+    "slot_new": "New Save",
+    "manager_label": "Manager Name",
+    "manager_placeholder": "Ex: Arthur Kinnaird",
+    "club_label": "Club Name",
+    "club_placeholder": "Ex: Sheffield FC",
+    "charter_text": "By signing this charter, you agree to abide by the Football Association rules established in 1863. You will take charge of this amateur club and attempt to lead it to eternal glory.",
+    "sign_button": "Sign the Charter",
+    "creating": "Foundation in progress...",
+    "cancel": "Cancel",
+    "change_slot": "Change Slot"
+  },
+  "load": {
+    "title": "Load Game",
+    "searching": "Searching archives...",
+    "empty_slot": "Empty Slot",
+    "played_on": "Last played",
+    "game_date": "Game date",
+    "delete_confirm": "Do you really want to delete this save?",
+    "back": "Back"
+  },
+  "game": {
+    "date_format": "{{date, datetime}}",
+    "continue": "Continue",
+    "loading": "Loading...",
+    "office": "Office",
+    "squad": "Squad",
+    "training": "Training",
+    "calendar": "Fixtures",
+    "league": "Table",
+    "quit": "Quit"
+  },
+  "dashboard": {
+    "division": "Division",
+    "finances": "Finances",
+    "next_match": "Next Match",
+    "home": "Home",
+    "away": "Away",
+    "prepare_team": "Prepare Team",
+    "news": "Dispatches",
+    "welcome_title": "Welcome to the club!",
+    "welcome_msg": "The 1863 season is starting soon.",
+    "ago": "2 hours ago"
+  },
+  "squad": {
+    "title": "Team Squad",
+    "no_players": "No players found under contract.",
+    "name": "Name",
+    "age": "Age",
+    "pos": "Pos",
+    "skill": "Skill",
+    "cond": "Cond",
+    "details": "Details",
+    "gk": "Goalkeepers",
+    "def": "Defenders",
+    "mid": "Midfielders",
+    "fwd": "Forwards"
+  },
+  "player_card": {
+    "attributes": "Attributes",
+    "physical": "Physical",
+    "technical": "Technical",
+    "mental": "Mental",
+    "speed": "Speed",
+    "strength": "Strength",
+    "stamina": "Stamina",
+    "dribbling": "Dribbling",
+    "passing": "Passing",
+    "shooting": "Shooting",
+    "defense": "Defense",
+    "morale": "Morale",
+    "energy": "Energy",
+    "condition": "Condition",
+    "value": "Market Value",
+    "wage": "Wage",
+    "close": "Close"
+  },
+  "calendar": {
+    "title": "Fixture List",
+    "no_matches": "No matches scheduled.",
+    "upcoming": "Upcoming",
+    "results": "Results",
+    "vs": "vs"
+  },
+  "league_table": {
+    "title": "League Table",
+    "pos": "Pos",
+    "club": "Club",
+    "p": "P",
+    "w": "W",
+    "d": "D",
+    "l": "L",
+    "gf": "GF",
+    "ga": "GA",
+    "gd": "GD",
+    "pts": "Pts"
+  }
+}
