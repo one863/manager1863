@@ -1,7 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import Button from '@/components/Common/Button';
 
-export default function MainMenu({ onNewGame, onLoadGame }: { onNewGame: () => void, onLoadGame: () => void }) {
+export default function MainMenu({
+  onNewGame,
+  onLoadGame,
+}: {
+  onNewGame: () => void;
+  onLoadGame: () => void;
+}) {
   const { t, i18n } = useTranslation();
 
   const changeLanguage = (lng: string) => {
@@ -10,17 +16,16 @@ export default function MainMenu({ onNewGame, onLoadGame }: { onNewGame: () => v
 
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper items-center justify-center p-6 space-y-8 relative animate-fade-in">
-      
       {/* Sélecteur de langue */}
       <div className="absolute top-4 right-4 flex gap-2 z-10">
-        <button 
-          onClick={() => changeLanguage('en')} 
+        <button
+          onClick={() => changeLanguage('en')}
           className={`w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-bold transition-all ${i18n.resolvedLanguage === 'en' ? 'bg-accent text-white shadow-md' : 'bg-white text-ink-light opacity-50 hover:opacity-100'}`}
         >
           EN
         </button>
-        <button 
-          onClick={() => changeLanguage('fr')} 
+        <button
+          onClick={() => changeLanguage('fr')}
           className={`w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-xs font-bold transition-all ${i18n.resolvedLanguage === 'fr' ? 'bg-accent text-white shadow-md' : 'bg-white text-ink-light opacity-50 hover:opacity-100'}`}
         >
           FR
@@ -29,7 +34,9 @@ export default function MainMenu({ onNewGame, onLoadGame }: { onNewGame: () => v
 
       <div className="text-center space-y-2">
         <h1 className="text-5xl font-serif font-bold text-accent tracking-tighter drop-shadow-sm">
-          MANAGER<br/>1863
+          MANAGER
+          <br />
+          1863
         </h1>
         <p className="text-ink-light italic text-sm">{t('menu.subtitle')}</p>
       </div>

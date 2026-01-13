@@ -4,19 +4,19 @@ import { useGameStore } from '@/store/gameSlice';
 import Card from '@/components/Common/Card';
 import Button from '@/components/Common/Button';
 import CreditAmount from '@/components/Common/CreditAmount'; // Nouvel import
-import { 
-  Building2, 
-  Users, 
-  Heart, 
-  Star, 
+import {
+  Building2,
+  Users,
+  Heart,
+  Star,
   Construction,
-  Award
+  Award,
 } from 'lucide-preact';
 import { useTranslation } from 'react-i18next';
 
 export default function ClubManagement() {
   const { t } = useTranslation();
-  const userTeamId = useGameStore(state => state.userTeamId);
+  const userTeamId = useGameStore((state) => state.userTeamId);
   const [team, setTeam] = useState<Team | null>(null);
   const [squadSize, setSquadSize] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,9 +35,17 @@ export default function ClubManagement() {
     loadClubData();
   }, [userTeamId]);
 
-  if (isLoading || !team) return <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>;
+  if (isLoading || !team)
+    return (
+      <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>
+    );
 
-  const ProgressBar = ({ label, value, icon: Icon, color = "bg-accent" }: any) => (
+  const ProgressBar = ({
+    label,
+    value,
+    icon: Icon,
+    color = 'bg-accent',
+  }: any) => (
     <div className="space-y-1">
       <div className="flex justify-between items-center text-[10px] uppercase font-bold text-ink-light">
         <div className="flex items-center gap-1">
@@ -47,8 +55,8 @@ export default function ClubManagement() {
         <span>{value}%</span>
       </div>
       <div className="h-2 bg-paper-dark rounded-full overflow-hidden border border-gray-200">
-        <div 
-          className={`h-full ${color} transition-all duration-500`} 
+        <div
+          className={`h-full ${color} transition-all duration-500`}
           style={{ width: `${value}%` }}
         />
       </div>
@@ -60,7 +68,9 @@ export default function ClubManagement() {
       {/* En-tête Club */}
       <div className="text-center space-y-1">
         <h2 className="text-2xl font-serif font-bold text-ink">{team.name}</h2>
-        <p className="text-ink-light italic text-sm">Fondé en 1863 • {team.managerName}</p>
+        <p className="text-ink-light italic text-sm">
+          Fondé en 1863 • {team.managerName}
+        </p>
       </div>
 
       {/* Statistiques Vitales */}
@@ -68,21 +78,25 @@ export default function ClubManagement() {
         <Card className="flex flex-col items-center text-center py-4">
           <Users className="text-accent mb-2" size={24} />
           <span className="text-2xl font-bold text-ink">{team.fanCount}</span>
-          <span className="text-[10px] uppercase text-ink-light tracking-widest">Fans</span>
+          <span className="text-[10px] uppercase text-ink-light tracking-widest">
+            Fans
+          </span>
         </Card>
         <Card className="flex flex-col items-center text-center py-4">
           <Star className="text-yellow-600 mb-2" size={24} />
           <span className="text-2xl font-bold text-ink">{team.reputation}</span>
-          <span className="text-[10px] uppercase text-ink-light tracking-widest">Réputation</span>
+          <span className="text-[10px] uppercase text-ink-light tracking-widest">
+            Réputation
+          </span>
         </Card>
       </div>
 
       {/* Confiance & Moral */}
       <Card title="État du Club">
         <div className="space-y-4">
-          <ProgressBar 
-            label="Confiance des Dirigeants" 
-            value={team.confidence} 
+          <ProgressBar
+            label="Confiance des Dirigeants"
+            value={team.confidence}
             icon={Heart}
             color={team.confidence > 50 ? 'bg-green-600' : 'bg-red-500'}
           />
@@ -92,7 +106,9 @@ export default function ClubManagement() {
                 <Users size={16} />
               </div>
               <div>
-                <span className="text-[10px] uppercase text-ink-light block">Effectif</span>
+                <span className="text-[10px] uppercase text-ink-light block">
+                  Effectif
+                </span>
                 <span className="font-bold text-sm">{squadSize} Joueurs</span>
               </div>
             </div>
@@ -101,7 +117,9 @@ export default function ClubManagement() {
                 <Award size={16} />
               </div>
               <div>
-                <span className="text-[10px] uppercase text-ink-light block">Palmarès</span>
+                <span className="text-[10px] uppercase text-ink-light block">
+                  Palmarès
+                </span>
                 <span className="font-bold text-sm">0 Titres</span>
               </div>
             </div>
@@ -117,14 +135,22 @@ export default function ClubManagement() {
           </div>
           <div className="flex-1">
             <h4 className="font-bold text-ink">{team.stadiumName}</h4>
-            <p className="text-xs text-ink-light mb-3">Niveau {team.stadiumLevel} • {team.stadiumCapacity} Places</p>
-            <Button 
-              onClick={() => {}} 
-              variant="secondary" 
+            <p className="text-xs text-ink-light mb-3">
+              Niveau {team.stadiumLevel} • {team.stadiumCapacity} Places
+            </p>
+            <Button
+              onClick={() => {}}
+              variant="secondary"
               className="py-2 text-[10px] h-8 w-auto flex items-center gap-2"
             >
               <Construction size={12} />
-              AGRANDIR (<CreditAmount amount={team.stadiumLevel * 500} size="sm" color="text-accent" />)
+              AGRANDIR (
+              <CreditAmount
+                amount={team.stadiumLevel * 500}
+                size="sm"
+                color="text-accent"
+              />
+              )
             </Button>
           </div>
         </div>
@@ -133,14 +159,14 @@ export default function ClubManagement() {
       {/* Objectifs des Dirigeants */}
       <Card title="Objectifs de la Saison">
         <div className="space-y-2">
-           <div className="flex items-center gap-2 text-sm">
-             <div className="w-2 h-2 rounded-full bg-accent"></div>
-             <p className="text-ink">Maintenir la réputation au dessus de 50</p>
-           </div>
-           <div className="flex items-center gap-2 text-sm">
-             <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-             <p className="text-ink-light">Atteindre le top 5 du classement</p>
-           </div>
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 rounded-full bg-accent"></div>
+            <p className="text-ink">Maintenir la réputation au dessus de 50</p>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+            <p className="text-ink-light">Atteindre le top 5 du classement</p>
+          </div>
         </div>
       </Card>
     </div>

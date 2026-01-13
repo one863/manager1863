@@ -1,15 +1,54 @@
 import { Player, PlayerStats } from '@/db/db';
 
 const firstNames = [
-  "Arthur", "William", "George", "Thomas", "James", "John", "Charles", "Henry", 
-  "Edward", "Frederick", "Walter", "Albert", "Robert", "Joseph", "Samuel", 
-  "Alfred", "Harry", "Frank", "Richard", "Ernest", "David", "Peter", "Hugh"
+  'Arthur',
+  'William',
+  'George',
+  'Thomas',
+  'James',
+  'John',
+  'Charles',
+  'Henry',
+  'Edward',
+  'Frederick',
+  'Walter',
+  'Albert',
+  'Robert',
+  'Joseph',
+  'Samuel',
+  'Alfred',
+  'Harry',
+  'Frank',
+  'Richard',
+  'Ernest',
+  'David',
+  'Peter',
+  'Hugh',
 ];
 
 const lastNames = [
-  "Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson", 
-  "Thomas", "Roberts", "Johnson", "Lewis", "Walker", "Robinson", "Wood", 
-  "Thompson", "Wright", "White", "Watson", "Kinnaird", "Alcock", "Crompton"
+  'Smith',
+  'Jones',
+  'Williams',
+  'Taylor',
+  'Brown',
+  'Davies',
+  'Evans',
+  'Wilson',
+  'Thomas',
+  'Roberts',
+  'Johnson',
+  'Lewis',
+  'Walker',
+  'Robinson',
+  'Wood',
+  'Thompson',
+  'Wright',
+  'White',
+  'Watson',
+  'Kinnaird',
+  'Alcock',
+  'Crompton',
 ];
 
 export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
@@ -23,8 +62,9 @@ function getRandomElement<T>(arr: T[]): T {
 }
 
 function generateStats(position: Position, skill: number): PlayerStats {
-  const getAttr = (base: number) => Math.max(1, Math.min(99, base + randomInt(-15, 15)));
-  
+  const getAttr = (base: number) =>
+    Math.max(1, Math.min(99, base + randomInt(-15, 15)));
+
   const stats: PlayerStats = {
     speed: getAttr(skill),
     strength: getAttr(skill),
@@ -61,22 +101,25 @@ function generateStats(position: Position, skill: number): PlayerStats {
 
 // Estimation sommaire de la valeur (très arbitraire pour l'instant)
 function calculateValue(skill: number, age: number): number {
-  let baseValue = skill * skill * 2; 
+  let baseValue = skill * skill * 2;
   if (age < 23) baseValue *= 1.5; // Potentiel
   if (age > 32) baseValue *= 0.6; // Déclin
-  return Math.floor(baseValue / 10); 
+  return Math.floor(baseValue / 10);
 }
 
 function calculateWage(skill: number): number {
-  return Math.floor(skill / 5); 
+  return Math.floor(skill / 5);
 }
 
 // Fonction générique qui renvoie un objet partiel (sans saveId/teamId qui seront ajoutés par l'appelant)
-export function generatePlayer(targetSkill: number = 50, forcedPosition?: Position): Omit<Player, 'id' | 'saveId' | 'teamId'> {
+export function generatePlayer(
+  targetSkill: number = 50,
+  forcedPosition?: Position,
+): Omit<Player, 'id' | 'saveId' | 'teamId'> {
   const firstName = getRandomElement(firstNames);
   const lastName = getRandomElement(lastNames);
   const age = randomInt(16, 38);
-  
+
   let position = forcedPosition;
   if (!position) {
     const roll = Math.random();
@@ -108,11 +151,13 @@ export function generatePlayer(targetSkill: number = 50, forcedPosition?: Positi
     condition: randomInt(90, 100),
     morale: randomInt(70, 100),
     marketValue: calculateValue(skill, age),
-    wage: calculateWage(skill)
+    wage: calculateWage(skill),
   };
 }
 
-export function generateTeamSquad(teamSkill: number = 50): Omit<Player, 'id' | 'saveId' | 'teamId'>[] {
+export function generateTeamSquad(
+  teamSkill: number = 50,
+): Omit<Player, 'id' | 'saveId' | 'teamId'>[] {
   const squad: Omit<Player, 'id' | 'saveId' | 'teamId'>[] = [];
 
   squad.push(generatePlayer(teamSkill, 'GK'));

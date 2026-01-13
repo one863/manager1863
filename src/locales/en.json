@@ -1,34 +1,34 @@
 {
   "menu": {
     "title": "Manager 1863",
-    "subtitle": "The Origins of Football",
+    "subtitle": "Origins of Football",
     "new_game": "New Career",
     "load_game": "Load Game",
     "version": "v0.1.0 - Alpha"
   },
   "create": {
     "title": "Club Foundation",
-    "subtitle": "Write history from 1863",
+    "subtitle": "Write history starting from 1863",
     "choose_slot": "Choose a Slot",
-    "slot_desc": "Where do you want to archive this career?",
+    "slot_desc": "Where would you like to archive this career?",
     "slot_free": "Free",
     "slot_occupied": "Occupied",
     "slot_new": "New Save",
     "manager_label": "Manager Name",
-    "manager_placeholder": "Ex: Arthur Kinnaird",
+    "manager_placeholder": "E.g.: Arthur Kinnaird",
     "club_label": "Club Name",
-    "club_placeholder": "Ex: Sheffield FC",
-    "charter_text": "By signing this charter, you agree to abide by the Football Association rules established in 1863. You will take charge of this amateur club and attempt to lead it to eternal glory.",
+    "club_placeholder": "E.g.: Sheffield FC",
+    "charter_text": "By signing this charter, you agree to abide by the rules of the Football Association established in 1863. You will take charge of this amateur club and attempt to lead it to eternal glory.",
     "sign_button": "Sign the Charter",
-    "creating": "Foundation in progress...",
+    "creating": "Founding club...",
     "cancel": "Cancel",
     "change_slot": "Change Slot"
   },
   "load": {
-    "title": "Load Game",
+    "title": "Load a Game",
     "searching": "Searching archives...",
-    "empty_slot": "Empty Slot",
-    "played_on": "Last played",
+    "empty_slot": "Empty slot",
+    "played_on": "Played on",
     "game_date": "Game date",
     "delete_confirm": "Do you really want to delete this save?",
     "back": "Back"
@@ -40,8 +40,8 @@
     "office": "Office",
     "squad": "Squad",
     "training": "Training",
-    "calendar": "Fixtures",
-    "league": "Table",
+    "calendar": "Calendar",
+    "league": "League",
     "quit": "Quit"
   },
   "dashboard": {
@@ -51,19 +51,19 @@
     "home": "Home",
     "away": "Away",
     "prepare_team": "Prepare Team",
-    "news": "Dispatches",
+    "news": "Press Dispatches",
     "welcome_title": "Welcome to the club!",
     "welcome_msg": "The 1863 season is starting soon.",
     "ago": "2 hours ago"
   },
   "squad": {
-    "title": "Team Squad",
-    "no_players": "No players found under contract.",
+    "title": "Club Squad",
+    "no_players": "No players under contract.",
     "name": "Name",
     "age": "Age",
     "pos": "Pos",
-    "skill": "Skill",
-    "cond": "Cond",
+    "skill": "Lvl",
+    "cond": "Fitness",
     "details": "Details",
     "gk": "Goalkeepers",
     "def": "Defenders",
@@ -76,21 +76,21 @@
     "technical": "Technical",
     "mental": "Mental",
     "speed": "Speed",
-    "strength": "Strength",
+    "strength": "Power",
     "stamina": "Stamina",
-    "dribbling": "Dribbling",
-    "passing": "Passing",
-    "shooting": "Shooting",
+    "dribbling": "Dribble",
+    "passing": "Pass",
+    "shooting": "Shoot",
     "defense": "Defense",
     "morale": "Morale",
     "energy": "Energy",
     "condition": "Condition",
-    "value": "Market Value",
+    "value": "Value",
     "wage": "Wage",
-    "close": "Close"
+    "close": "Close File"
   },
   "calendar": {
-    "title": "Fixture List",
+    "title": "Calendar",
     "no_matches": "No matches scheduled.",
     "upcoming": "Upcoming",
     "results": "Results",
@@ -108,5 +108,130 @@
     "ga": "GA",
     "gd": "GD",
     "pts": "Pts"
+  },
+  "narratives": {
+    "match": {
+      "goal": [
+        "{{player}} sends the leather into the back of the net with a monumental strike!",
+        "The stadium erupts! {{player}} beats the keeper after a beautiful team move.",
+        "Goal! {{player}} takes advantage of a defensive error to put his name on the scoreboard.",
+        "What an action! {{player}} finishes the job and makes the wooden stands vibrate!"
+      ],
+      "miss": [
+        "{{player}} tries his luck but the ball flies towards the clouds.",
+        "Big missed opportunity for {{player}}! The target is missed at the last moment.",
+        "{{player}} is denied by the goalkeeper who makes a historic save.",
+        "The defense intervenes at the last second in front of {{player}}!"
+      ],
+      "ambient": [
+        "London rain makes the pitch muddy, the game becomes physical.",
+        "Fans wave their top hats in an electric atmosphere.",
+        "The captain of {{team}} rallies his troops under cheers.",
+        "A spectator in the grandstand shouts tactical advice to {{player}}.",
+        "The ball is out of the field, someone has to fetch it from the Thames."
+      ]
+    },
+    "news": {
+      "matchDay": {
+        "title": [
+          "MATCH DAY: {{team}} vs {{opponent}}",
+          "Awaited clash at {{stadium}}",
+          "Kick-off is approaching!",
+          "Local fervor for the reception of {{opponent}}"
+        ],
+        "content": [
+          "Today, {{team}} faces {{opponent}}. The taverns are full and the gamblers are busy.",
+          "The {{stadium}} ground is ready to vibrate. Tension is palpable between {{team}} and {{opponent}}.",
+          "Morning Gazette: All eyes are on {{team}} hosting {{opponent}} today."
+        ]
+      },
+      "victory": {
+        "title": [
+          "Triumph for {{team}}!",
+          "The brilliant victory of {{team}}",
+          "A football demonstration by {{team}}",
+          "The genius of {{team}} crushes the opponent"
+        ],
+        "content": [
+          "The public at {{stadium}} witnessed a lesson in courage. {{team}} dominated {{opponent}} with a score of {{score}}.",
+          "Daily Gazette: {{team}} wins against all odds facing {{opponent}} ({{score}}).",
+          "What fervor! {{team}} wins with panache against {{opponent}}. The score of {{score}} reflects territorial dominance."
+        ]
+      },
+      "draw": {
+        "title": [
+          "Hard-fought draw at {{stadium}}",
+          "No winner between {{team}} and {{opponent}}",
+          "Parity score: {{score}}",
+          "A point of courage for {{team}}"
+        ],
+        "content": [
+          "Both teams neutralized each other after a fierce duel. Final score: {{score}}.",
+          "The match between {{team}} and {{opponent}} ends in a draw. No one could make the difference.",
+          "A precious point for {{team}} who held their own against {{opponent}} in a heated atmosphere."
+        ]
+      },
+      "loss": {
+        "title": [
+          "Bitter defeat for {{team}}",
+          "A setback for {{team}}",
+          "Disillusion at {{stadium}}",
+          "{{team}} falls to {{opponent}}"
+        ],
+        "content": [
+          "Despite their efforts, {{team}} players could not contain the assaults of {{opponent}}. Final score: {{score}}.",
+          "The press is unanimous: {{team}} lacked vigor against {{opponent}} ({{score}}).",
+          "A day to forget for {{team}} fans. {{opponent}} dictated the law on the pitch."
+        ]
+      }
+    },
+    "board": {
+      "warning": [
+        "Sir, the Board of Directors is growing impatient. The results of {{team}} are unworthy of our rank.",
+        "Letter from the President: Your recent failures are tarnish the reputation of our institution. Correct the course without delay."
+      ],
+      "praise": [
+        "The management salutes your exemplary leadership. Keep it up and you will become a legend at {{stadium}}.",
+        "Congratulations on these results. The club is buzzing thanks to you!"
+      ],
+      "sundayReport": {
+        "title": [
+          "Weekly Board Review",
+          "Sunday Management Report",
+          "President's Service Note"
+        ],
+        "content": [
+          "A week rich in lessons. We are currently in {{position}}th place. Your budget stands at {{budget}} credits. Keep it up!",
+          "The Board has examined your recent work. Confidence is at {{confidence}}%. {{team}} must continue its efforts.",
+          "Sir, we are watching your progress closely. Finances are stable ({{budget}} £). The objective '{{goal}}' remains our priority."
+        ]
+      }
+    },
+    "training": {
+      "wednesdayReport": {
+        "title": [
+          "Physical Instructor's Report",
+          "Wednesday Training Note",
+          "Squad Fitness Status"
+        ],
+        "content": [
+          "The players sweated on the pitch this week. {{player}} particularly stood out with his vigor.",
+          "Medical Report: Global energy is satisfactory. We note a fine technical progression among some of our men.",
+          "Successful goal-scoring session. {{player}} seems sharp for the next duel."
+        ]
+      }
+    },
+    "weekly": {
+      "positive": [
+        { "title": "Unexpected Patronage", "content": "A wealthy anonymous industrialist donated 100 credits to the club to support the development of football." },
+        { "title": "New Training Ground", "content": "Players found a drier field to train on. Morale is at an all-time high!" },
+        { "title": "Club Anthem", "content": "Fans composed a song in honor of {{team}}. The club's reputation is rising in the neighborhood." }
+      ],
+      "negative": [
+        { "title": "Flu Outbreak", "content": "Several players feel weak this week. The squad's overall energy has slightly dropped." },
+        { "title": "Burst Balls", "content": "A rascal burst three of our precious leather balls. An unforeseen expense of 20 credits." },
+        { "title": "Harsh Criticism", "content": "The local newspaper 'The London Times' published a bloody critique of your management. Board confidence suffers." }
+      ]
+    }
   }
 }

@@ -1,16 +1,38 @@
 import { Player } from '@/db/db';
 import { useTranslation } from 'react-i18next';
+import { useGameStore } from '@/store/gameSlice';
+import { TransferService } from '@/services/transfer-service';
 import PlayerAvatar from './PlayerAvatar';
+import Button from './Common/Button';
+import { Trash2, TrendingUp, AlertCircle, X } from 'lucide-preact';
+import { useState } from 'preact/hooks';
 
 interface PlayerCardProps {
   player: Player | null;
   onClose: () => void;
+  onPlayerAction?: () => void; // Pour forcer le refresh du parent
 }
 
-export default function PlayerCard({ player, onClose }: PlayerCardProps) {
+export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCardProps) {
   const { t } = useTranslation();
+  const userTeamId = useGameStore(state => state.userTeamId);
+  const [showConfirmSell, setShowConfirmSell] = useState(false);
 
   if (!player) return null;
+
+  const isUserPlayer = player.teamId === userTeamId;
+
+  const handleSell = async () => {
+    if (!userTeamId) return;
+    try {
+      await TransferService.sellPlayer(player.id!, userTeamId);
+      setShowConfirmSell(false);
+      if (onPlayerAction) onPlayerAction();
+      onClose();
+    } catch (e) {
+      alert("Erreur lors de la vente");
+    }
+  };
 
   const getPositionColor = (pos: string) => {
     switch (pos) {
@@ -22,37 +44,28 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
     }
   };
 
-  const StatBar = ({ label, value }: { label: string, value: number }) => (
+  const StatBar = ({ label, value }: { label: string; value: number }) => (
     <div className="flex items-center text-xs mb-1">
       <span className="w-20 text-ink-light truncate">{label}</span>
       <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
-        <div 
-          className="h-full bg-accent" 
-          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-        />
+        <div className="h-full bg-accent" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
       </div>
       <span className="w-8 text-right font-mono font-bold text-ink">{value}</span>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div 
-        className="bg-paper w-full max-w-sm rounded-lg shadow-2xl border-4 border-paper-dark overflow-hidden relative"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header Carte */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div className="bg-paper w-full max-w-sm rounded-lg shadow-2xl border-4 border-paper-dark overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
+        
+        {/* Header */}
         <div className="bg-paper-dark p-4 border-b border-gray-300 flex justify-between items-start">
           <div className="flex gap-4 items-center">
             <PlayerAvatar dna={player.dna} size={64} className="border-2 border-accent shadow-md" />
             <div>
-              <h2 className="text-xl font-serif font-bold text-accent leading-tight">
-                {player.firstName} {player.lastName}
-              </h2>
+              <h2 className="text-xl font-serif font-bold text-accent leading-tight">{player.firstName} {player.lastName}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getPositionColor(player.position)}`}>
-                  {player.position}
-                </span>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getPositionColor(player.position)}`}>{player.position}</span>
                 <span className="text-sm text-ink-light">{player.age} ans</span>
               </div>
             </div>
@@ -63,43 +76,28 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
           </div>
         </div>
 
-        {/* Corps de la carte - Scrollable si petit écran */}
+        {/* Stats */}
         <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          
-          {/* Info Contrat & Forme */}
           <div className="grid grid-cols-2 gap-3 text-sm bg-white p-3 rounded border border-gray-200 shadow-sm">
             <div>
               <span className="block text-[10px] text-ink-light uppercase">{t('player_card.value')}</span>
               <span className="font-bold">£ {player.marketValue}</span>
             </div>
             <div>
-              <span className="block text-[10px] text-ink-light uppercase">{t('player_card.wage')}</span>
-              <span className="font-bold">£ {player.wage}/s</span>
-            </div>
-            <div>
               <span className="block text-[10px] text-ink-light uppercase">{t('player_card.condition')}</span>
               <span className={`font-bold ${player.condition < 80 ? 'text-red-600' : 'text-green-700'}`}>{player.condition}%</span>
             </div>
-            <div>
-              <span className="block text-[10px] text-ink-light uppercase">{t('player_card.morale')}</span>
-              <span className="font-bold text-blue-700">{player.morale}%</span>
-            </div>
           </div>
 
-          {/* Attributs */}
           <div>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wider mb-2 border-b border-gray-300 pb-1">
-              {t('player_card.physical')}
-            </h3>
+            <h3 className="text-sm font-bold text-ink uppercase tracking-wider mb-2 border-b border-gray-300 pb-1">{t('player_card.physical')}</h3>
             <StatBar label={t('player_card.speed')} value={player.stats.speed} />
             <StatBar label={t('player_card.strength')} value={player.stats.strength} />
             <StatBar label={t('player_card.stamina')} value={player.stats.stamina} />
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wider mb-2 border-b border-gray-300 pb-1">
-              {t('player_card.technical')}
-            </h3>
+            <h3 className="text-sm font-bold text-ink uppercase tracking-wider mb-2 border-b border-gray-300 pb-1">{t('player_card.technical')}</h3>
             <StatBar label={t('player_card.shooting')} value={player.stats.shooting} />
             <StatBar label={t('player_card.passing')} value={player.stats.passing} />
             <StatBar label={t('player_card.dribbling')} value={player.stats.dribbling} />
@@ -107,15 +105,31 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 bg-paper-dark border-t border-gray-300">
-          <button 
-            onClick={onClose}
-            className="w-full py-3 bg-white border border-gray-400 rounded text-ink font-bold shadow-sm hover:bg-gray-50 active:bg-gray-200"
-          >
-            {t('player_card.close')}
-          </button>
+        {/* Actions */}
+        <div className="p-4 bg-paper-dark border-t border-gray-300 space-y-2">
+          {isUserPlayer && (
+            <button
+              onClick={() => setShowConfirmSell(true)}
+              className="w-full py-3 bg-red-50 text-red-600 border border-red-200 rounded font-bold flex items-center justify-center gap-2 hover:bg-red-100"
+            >
+              <Trash2 size={18} /> VENDRE LE JOUEUR (£ {Math.round(player.marketValue * 0.7)})
+            </button>
+          )}
+          <button onClick={onClose} className="w-full py-3 bg-white border border-gray-400 rounded text-ink font-bold shadow-sm hover:bg-gray-50">{t('player_card.close')}</button>
         </div>
+
+        {/* Confirmation Vente */}
+        {showConfirmSell && (
+          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+             <AlertCircle size={48} className="text-red-500 mb-4" />
+             <h4 className="font-serif font-bold text-xl mb-2">Libérer le joueur ?</h4>
+             <p className="text-sm text-ink-light mb-6">En vendant <span className="font-bold">{player.lastName}</span>, vous récupérerez 70% de sa valeur marchande.</p>
+             <div className="flex gap-3 w-full">
+               <Button onClick={() => setShowConfirmSell(false)} variant="secondary" className="flex-1">Annuler</Button>
+               <Button onClick={handleSell} variant="primary" className="flex-1 !bg-red-600 !border-red-800">Confirmer</Button>
+             </div>
+          </div>
+        )}
       </div>
     </div>
   );

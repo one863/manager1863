@@ -9,50 +9,34 @@ type AppState = 'menu' | 'create' | 'load' | 'game';
 
 export function App() {
   const [appState, setAppState] = useState<AppState>('menu');
-  const loadGame = useGameStore(state => state.loadGame);
+  const currentSaveId = useGameStore((state) => state.currentSaveId);
+  const loadGame = useGameStore((state) => state.loadGame);
 
-  const handleNewGameClick = () => {
-    setAppState('create');
-  };
-
-  const handleGameCreated = () => {
-    setAppState('game');
-  };
-
-  // Clic sur "Charger une partie" depuis le menu
-  const handleLoadGameClick = () => {
-    setAppState('load');
-  };
-
-  // Callback quand une partie est sélectionnée depuis l'écran LoadGame
-  const handleGameLoaded = async (slotId: number) => {
-    console.log(`Chargement du slot ${slotId}...`);
-    const success = await loadGame(slotId);
-    if (success) {
+  // Sécurité : si on a un ID de sauvegarde actif mais qu'on est sur le menu (ex: après un refresh),
+  // on restaure l'affichage du jeu.
+  useEffect(() => {
+    if (currentSaveId && appState === 'menu') {
       setAppState('game');
-    } else {
-      alert("Erreur lors du chargement de la sauvegarde !");
     }
-  };
+  }, [currentSaveId]);
 
-  const handleQuit = () => {
-    setAppState('menu');
-  };
+  const handleNewGameClick = () => setAppState('create');
+  const handleGameCreated = () => setAppState('game');
+  const handleLoadGameClick = () => setAppState('load');
+  const handleCancel = () => setAppState('menu');
+  const handleQuit = () => setAppState('menu');
 
-  const handleCancel = () => {
-    setAppState('menu');
+  const handleGameLoaded = async (slotId: number) => {
+    const success = await loadGame(slotId);
+    if (success) setAppState('game');
+    else alert('Erreur lors du chargement de la sauvegarde !');
   };
 
   switch (appState) {
-    case 'menu':
-      return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;
-    case 'create':
-      return <CreateTeam onGameCreated={handleGameCreated} onCancel={handleCancel} />;
-    case 'load':
-      return <LoadGame onGameLoaded={handleGameLoaded} onCancel={handleCancel} />;
-    case 'game':
-      return <GameLayout onQuit={handleQuit} />;
-    default:
-      return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;
+    case 'menu': return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;
+    case 'create': return <CreateTeam onGameCreated={handleGameCreated} onCancel={handleCancel} />;
+    case 'load': return <LoadGame onGameLoaded={handleGameLoaded} onCancel={handleCancel} />;
+    case 'game': return <GameLayout onQuit={handleQuit} />;
+    default: return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;
   }
 }

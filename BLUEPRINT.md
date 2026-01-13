@@ -14,9 +14,11 @@ Créer une simulation de management de football **légère**, **rapide** et **op
     - Migrations automatiques des données.
     - Hachage d'intégrité anti-triche (SHA-256).
 - **Style :** [Tailwind CSS](https://tailwindcss.com/) avec un thème personnalisé "Papier & Encre Historique".
+- **Linter & Formatter :** [Biome](https://biomejs.dev/) (Remplaçant ultra-rapide d'ESLint/Prettier).
 - **Icônes :** [Lucide-Preact](https://lucide.dev/guide/preact).
 - **PWA :** [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) pour le support hors-ligne et l'installation sur écran d'accueil.
-- **Internationalisation :** [i18next](https://www.i18next.com/) pour le support multilingue.
+- **Internationalisation :** [i18next](https://www.i18next.com/) pour le support multilingue (FR/EN implémentés).
+- **Mobile Natif :** [Capacitor](https://capacitorjs.com/) pour l'encapsulation native optionnelle (iOS/Android).
 
 ---
 
@@ -28,39 +30,50 @@ Tout s'exécute dans le navigateur de l'utilisateur. Aucun traitement côté ser
 ### 2. Intégrité & Sécurité des Données
 - **Auto-Versioning :** Dexie gère les mises à jour du schéma IndexedDB.
 - **Système de Réparation :** Une couche de migration applicative personnalisée garantit que les anciennes sauvegardes restent compatibles avec les nouvelles règles du jeu.
-- **Redondance :** Snapshots JSON automatiques stockés dans le `localStorage` comme sauvegarde secondaire à IndexedDB.
+- **Redondance :** Snapshots JSON automatiques via un service de backup dédié (`backup-service.ts`).
 - **Portabilité :** Système intégré d'Export/Import JSON pour migrer les sauvegardes entre navigateurs ou appareils.
 
 ### 3. Identité Visuelle (ADN du XIXe siècle)
-- **Avatars Procéduraux :** Pas d'images lourdes ; chaque joueur possède une chaîne "DNA" (ex: `1-4-2-8`) qui génère un avatar SVG unique avec une pilosité et des coiffures d'époque.
-- **Thématique :** Palette de couleurs inspirée des vieux journaux et du cuir (`#fdfbf7` papier, `#3d1d13` cuir/accent).
+- **Avatars Procéduraux :** Pas d'images lourdes ; chaque joueur possède une chaîne "DNA" qui génère un avatar SVG unique avec une pilosité et des coiffures d'époque (`PlayerAvatar.tsx`).
+- **Thématique :** Palette de couleurs inspirée des vieux journaux et du cuir.
 
 ---
 
-## 🕹️ Mécaniques de Jeu
+## 🕹️ Mécaniques de Jeu (Implémentées)
 
-### Gestion du Temps (Le système de "Tick")
-- **Temps en jeu :** Les joueurs récupèrent +10% d'énergie chaque jour simulé.
-- **Temps réel (Absence) :** Récupération de +5% d'énergie par heure d'absence réelle, calculée à la réouverture de l'application.
+### 📈 Services & Logique métier
+- **Match Service :** Gestion de la programmation et du déroulement des matchs.
+- **Club Service :** Gestion des finances, des sponsors et de l'identité du club.
+- **Transfer Service :** Marché des transferts dynamique.
+- **Training Service :** Système de progression des joueurs.
+- **News Service :** Système de notifications et actualités du monde du foot.
 
-### Simulation de Match
-- **Moteur :** Simulation rapide basée sur les probabilités et les niveaux de l'équipe (Attaque/Défense/Milieu).
-- **Live :** Commentaires textuels en temps réel avec une ambiance historique.
+### 🏟️ Moteur de Simulation (`src/engine`)
+- **Simulator :** Moteur basé sur les probabilités calculées à partir des statistiques d'équipe.
+- **Tactics :** Prise en compte des formations historiques (ex: le 2-3-5 "Pyramide").
+- **Live Match :** Visualisation en temps réel avec commentaires textuels.
 
-### Effectif & Marché des Transferts
-- **Attributs :** Système de caractéristiques précises (Vitesse, Force, Tir, Passe, etc.).
-- **Économie :** Gestion du budget de transfert et des salaires en £ (Livres Sterling).
-
----
-
-## 📱 Fonctionnalités PWA
-- **Affichage Standalone :** Suppression de la barre d'adresse du navigateur.
-- **Couleur de Thème :** Intégration OS harmonisée avec le thème papier.
-- **Protection Overscroll :** CSS personnalisé pour éviter l'effet de rebond sur mobile, renforçant l'aspect "app native".
+### 👤 Gestion des Joueurs
+- **Générateur :** Création procédurale de joueurs avec noms et talents variés.
+- **Progression :** Système d'entraînement influençant les attributs (Vitesse, Force, Tir, etc.).
 
 ---
 
-## 🚀 Feuille de Route (Roadmap)
-- **Classement Mondial :** Utilisation du système de hash pour vérifier l'intégrité des scores partagés.
-- **Profondeur Tactique :** Mise en place des formations d'époque (ex: le 2-3-5 "Pyramide").
-- **Expansion Historique :** Ouverture vers d'autres époques clés de l'histoire du football.
+## 📱 Fonctionnalités PWA & Mobile
+- **Affichage Standalone :** Suppression de la barre d'adresse.
+- **Support Natif :** Configuration Capacitor prête pour un déploiement sur les stores.
+- **Optimisation Mobile :** Interface tactile pensée "mobile-first", protection contre l'overscroll.
+
+---
+
+## 🚀 État Actuel & Roadmap
+- ✅ Base de données IndexedDB & Migrations
+- ✅ Moteur de match (Live & Report)
+- ✅ Marché des transferts & Finances
+- ✅ Entraînement & Progression
+- ✅ Système de News
+- 🔄 Système de Calendrier & Saisons (En cours)
+- 📅 **Prochaines étapes :**
+    - Expansion de la base de données des clubs historiques.
+    - Approfondissement des mécaniques de coaching (causeries, changements tactiques en match).
+    - Système de succès (Achievements).

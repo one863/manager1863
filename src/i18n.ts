@@ -8,7 +8,7 @@ import frTranslation from './locales/fr.json';
 
 const resources = {
   en: { translation: enTranslation },
-  fr: { translation: frTranslation }
+  fr: { translation: frTranslation },
 };
 
 i18n
@@ -18,23 +18,23 @@ i18n
     resources,
     fallbackLng: 'en',
     detection: {
-      order: ['localStorage', 'navigator'], 
+      order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
     },
     debug: false, // Désactivé pour la production
     interpolation: {
       escapeValue: false,
-    }
+    },
   });
 
 // Formatteur de date personnalisé
 i18n.services.formatter?.add('datetime', (value, lng, options) => {
-    if (!(value instanceof Date)) return value;
-    return value.toLocaleDateString(lng, {
-        day: 'numeric', 
-        month: 'long', 
-        year: 'numeric'
-    });
+  if (!(value instanceof Date)) return value;
+  return value.toLocaleDateString(lng, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 });
 
 export default i18n;

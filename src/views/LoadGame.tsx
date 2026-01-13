@@ -25,7 +25,7 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
       }
       setSlots(loadedSlots);
     } catch (e) {
-      console.error("Erreur chargement slots:", e);
+      console.error('Erreur chargement slots:', e);
     } finally {
       setIsLoading(false);
     }
@@ -47,13 +47,13 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fm1863_save_${slot.teamName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.json`;
+      a.download = `fm1863_save_${slot.teamName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Export failed:", err);
+      console.error('Export failed:', err);
       alert("Erreur lors de l'export.");
     }
   };
@@ -74,14 +74,14 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
       try {
         const json = event.target?.result as string;
         await importSaveFromJSON(json, targetImportSlot);
-        alert("Importation réussie !");
+        alert('Importation réussie !');
         await refreshSlots();
       } catch (err) {
-        console.error("Import failed:", err);
-        alert("Fichier invalide ou corrompu.");
+        console.error('Import failed:', err);
+        alert('Fichier invalide ou corrompu.');
       } finally {
         setTargetImportSlot(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
     reader.readAsText(file);
@@ -102,35 +102,48 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
   const performDelete = async (slotId: number) => {
     try {
       const id = Number(slotId);
-      await db.transaction('rw', db.players, db.teams, db.matches, db.saveSlots, db.gameState, async () => {
-        await db.saveSlots.delete(id);
-        await db.gameState.delete(id);
-        await db.players.where('saveId').equals(id).delete();
-        await db.teams.where('saveId').equals(id).delete();
-        await db.matches.where('saveId').equals(id).delete();
-      });
+      await db.transaction(
+        'rw',
+        db.players,
+        db.teams,
+        db.matches,
+        db.saveSlots,
+        db.gameState,
+        async () => {
+          await db.saveSlots.delete(id);
+          await db.gameState.delete(id);
+          await db.players.where('saveId').equals(id).delete();
+          await db.teams.where('saveId').equals(id).delete();
+          await db.matches.where('saveId').equals(id).delete();
+        },
+      );
       setConfirmDeleteId(null);
       await refreshSlots();
     } catch (err) {
-      console.error("Erreur critique lors de la suppression:", err);
+      console.error('Erreur critique lors de la suppression:', err);
     }
   };
 
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 overflow-hidden">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-serif font-bold text-accent">{t('load.title')}</h1>
-        <button onClick={onCancel} className="text-sm text-ink-light hover:text-ink">
+        <h1 className="text-2xl font-serif font-bold text-accent">
+          {t('load.title')}
+        </h1>
+        <button
+          onClick={onCancel}
+          className="text-sm text-ink-light hover:text-ink"
+        >
           {t('load.back')}
         </button>
       </header>
 
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        accept=".json" 
-        className="hidden" 
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".json"
+        className="hidden"
       />
 
       {isLoading ? (
@@ -142,26 +155,28 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
           {slots.map((slot, index) => {
             const slotId = index + 1;
             const isConfirming = confirmDeleteId === slotId;
-            
+
             if (!slot) {
-               return (
-                 <div 
-                   key={slotId}
-                   className="bg-paper-dark border-2 border-dashed border-gray-300 flex flex-col items-center justify-center h-24 rounded-lg gap-2"
-                 >
-                   <span className="text-sm font-medium text-gray-400">{t('load.empty_slot')} {slotId}</span>
-                   <button 
-                     onClick={(e) => handleImportClick(slotId, e)}
-                     className="text-[10px] uppercase font-bold text-accent hover:underline"
-                   >
-                     📥 Importer un fichier .json
-                   </button>
-                 </div>
-               );
+              return (
+                <div
+                  key={slotId}
+                  className="bg-paper-dark border-2 border-dashed border-gray-300 flex flex-col items-center justify-center h-24 rounded-lg gap-2"
+                >
+                  <span className="text-sm font-medium text-gray-400">
+                    {t('load.empty_slot')} {slotId}
+                  </span>
+                  <button
+                    onClick={(e) => handleImportClick(slotId, e)}
+                    className="text-[10px] uppercase font-bold text-accent hover:underline"
+                  >
+                    📥 Importer un fichier .json
+                  </button>
+                </div>
+              );
             }
 
             return (
-              <div 
+              <div
                 key={slotId}
                 className="bg-white border-2 border-gray-300 rounded-lg shadow-sm flex overflow-hidden hover:shadow-md transition-shadow h-28"
               >
@@ -169,47 +184,59 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
                   onClick={() => onGameLoaded(slotId)}
                   className="flex-1 p-3 text-left hover:bg-gray-50 active:bg-gray-100 transition-colors flex flex-col justify-between"
                 >
-                    <div className="flex justify-between items-start w-full">
-                      <div className="truncate pr-2">
-                        <h3 className="font-bold text-lg text-ink truncate leading-tight">{slot.teamName}</h3>
-                        <p className="text-sm text-ink-light truncate">{slot.managerName}</p>
-                      </div>
-                      <span className="bg-paper-dark text-xs font-mono px-1.5 py-0.5 rounded text-ink-light border border-gray-200 shrink-0">
-                        #{slotId}
+                  <div className="flex justify-between items-start w-full">
+                    <div className="truncate pr-2">
+                      <h3 className="font-bold text-lg text-ink truncate leading-tight">
+                        {slot.teamName}
+                      </h3>
+                      <p className="text-sm text-ink-light truncate">
+                        {slot.managerName}
+                      </p>
+                    </div>
+                    <span className="bg-paper-dark text-xs font-mono px-1.5 py-0.5 rounded text-ink-light border border-gray-200 shrink-0">
+                      #{slotId}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-ink-light space-y-0.5 w-full">
+                    <div className="flex items-center gap-1 font-semibold text-accent">
+                      <span>📅 {t('load.game_date')}:</span>
+                      <span>
+                        {t('game.date_format', { date: slot.currentDate })}
                       </span>
                     </div>
-                    
-                    <div className="text-xs text-ink-light space-y-0.5 w-full">
-                      <div className="flex items-center gap-1 font-semibold text-accent">
-                        <span>📅 {t('load.game_date')}:</span>
-                        <span>{t('game.date_format', { date: slot.currentDate })}</span>
-                      </div>
-                      <div className="flex justify-between items-center mt-1">
-                        <span className="text-[10px] text-gray-400">Dernier accès: {slot.lastPlayedDate.toLocaleDateString()}</span>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={(e) => handleExport(slotId, e)}
-                            className="text-[10px] font-bold text-blue-600 hover:underline"
-                            title="Sauvegarder en fichier externe"
-                          >
-                            📤 EXPORTER
-                          </button>
-                        </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-[10px] text-gray-400">
+                        Dernier accès:{' '}
+                        {slot.lastPlayedDate.toLocaleDateString()}
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => handleExport(slotId, e)}
+                          className="text-[10px] font-bold text-blue-600 hover:underline"
+                          title="Sauvegarder en fichier externe"
+                        >
+                          📤 EXPORTER
+                        </button>
                       </div>
                     </div>
+                  </div>
                 </button>
 
-                <button 
+                <button
                   onClick={(e) => handleDeleteClick(slotId, e)}
                   className={`w-14 border-l border-gray-200 transition-all flex flex-col items-center justify-center gap-1
-                    ${isConfirming 
-                      ? 'bg-red-600 text-white hover:bg-red-700' 
-                      : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500'
+                    ${
+                      isConfirming
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500'
                     }
                   `}
                 >
                   <span className="text-xl">{isConfirming ? '⚠️' : '🗑️'}</span>
-                  {isConfirming && <span className="text-[10px] font-bold">Sûr?</span>}
+                  {isConfirming && (
+                    <span className="text-[10px] font-bold">Sûr?</span>
+                  )}
                 </button>
               </div>
             );

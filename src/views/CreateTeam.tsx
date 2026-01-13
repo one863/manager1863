@@ -2,26 +2,29 @@ import { useState, useEffect } from 'preact/hooks';
 import { db, SaveSlot, CURRENT_DATA_VERSION } from '@/db/db';
 import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
-import { generateTeamSquad } from '@/data/players-generator'; 
-import { generateLeagueStructure } from '@/data/league-templates'; // NOUVEL IMPORT
+import { generateTeamSquad } from '@/data/players-generator';
+import { generateLeagueStructure } from '@/data/league-templates';
 
 interface CreateTeamProps {
   onGameCreated: () => void;
   onCancel: () => void;
 }
 
-export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps) {
+export default function CreateTeam({
+  onGameCreated,
+  onCancel,
+}: CreateTeamProps) {
   const { t } = useTranslation();
-  
+
   const [managerName, setManagerName] = useState('');
   const [teamName, setTeamName] = useState('');
-  
-  const [step, setStep] = useState<1 | 2>(1); 
+
+  const [step, setStep] = useState<1 | 2>(1);
   const [slots, setSlots] = useState<(SaveSlot | undefined)[]>([]);
   const [isCreating, setIsCreating] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState(''); // Pour afficher l'avancement
-  
-  const initializeGame = useGameStore(state => state.initialize);
+  const [loadingStatus, setLoadingStatus] = useState('');
+
+  const initializeGame = useGameStore((state) => state.initialize);
 
   useEffect(() => {
     const loadSlots = async () => {
@@ -43,7 +46,13 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 
   const handleSlotSelect = async (slotId: number) => {
     const slot = slots[slotId - 1];
-    if (slot && !confirm(`This slot is already used by "${slot.teamName}". Do you want to overwrite it?`)) return;
+    if (
+      slot &&
+      !confirm(
+        `This slot is already used by "${slot.teamName}". Do you want to overwrite it?`,
+      )
+    )
+      return;
 
     setIsCreating(true);
     setLoadingStatus(t('create.creating'));
@@ -51,58 +60,72 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
     try {
       let createdTeamId = 0;
 
-      // On utilise toujours une transaction pour la cohérence
-      await db.transaction('rw', db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, async () => {
-        
-        // 1. Nettoyage du slot
-        setLoadingStatus("Nettoyage des archives...");
-        await db.players.where('saveId').equals(slotId).delete();
-        await db.teams.where('saveId').equals(slotId).delete();
-        await db.matches.where('saveId').equals(slotId).delete();
-        await db.leagues.where('saveId').equals(slotId).delete();
-        
-        // 2. Création de l'équipe Joueur
-        setLoadingStatus("Fondation de votre club...");
-        createdTeamId = await db.teams.add({
-          saveId: slotId,
-          name: teamName,
-          leagueId: 0, // Sera mis à jour par generateLeagueStructure
-          managerName: managerName, 
-          version: CURRENT_DATA_VERSION
-        }) as number;
+      await db.transaction(
+        'rw',
+        [db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, db.news, db.history],
+        async () => {
+          // 1. Nettoyage COMPLET du slot (Correction du bug des anciennes dépêches)
+          setLoadingStatus('Nettoyage des archives...');
+          await Promise.all([
+            db.players.where('saveId').equals(slotId).delete(),
+            db.teams.where('saveId').equals(slotId).delete(),
+            db.matches.where('saveId').equals(slotId).delete(),
+            db.leagues.where('saveId').equals(slotId).delete(),
+            db.news.where('saveId').equals(slotId).delete(),
+            db.history.where('saveId').equals(slotId).delete(),
+            db.gameState.delete(slotId),
+            db.saveSlots.delete(slotId)
+          ]);
 
-        // 3. Génération des joueurs du Joueur
-        const squad = generateTeamSquad(50);
-        const playersToInsert = squad.map(player => ({
-          ...player,
-          saveId: slotId,
-          teamId: createdTeamId
-        }));
-        await db.players.bulkAdd(playersToInsert);
-        
-        // 4. Génération de la Ligue et des Adversaires
-        setLoadingStatus("Organisation de la Football Association...");
-        await generateLeagueStructure(slotId, createdTeamId, teamName);
-        
-      });
+          // 2. Création de l'équipe Joueur
+          setLoadingStatus('Fondation de votre club...');
+          createdTeamId = (await db.teams.add({
+            saveId: slotId,
+            name: teamName,
+            leagueId: 0,
+            managerName: managerName,
+            budget: 1000,
+            reputation: 50,
+            fanCount: 150,
+            confidence: 80,
+            stadiumName: `${teamName} Park`,
+            stadiumCapacity: 800,
+            stadiumLevel: 1,
+            tacticType: 'NORMAL',
+            version: CURRENT_DATA_VERSION,
+          })) as number;
 
-      // 5. Init store (après transaction)
-      setLoadingStatus("Finalisation...");
+          // 3. Génération des joueurs du Joueur
+          const squad = generateTeamSquad(50);
+          const playersToInsert = squad.map((player) => ({
+            ...player,
+            saveId: slotId,
+            teamId: createdTeamId,
+          }));
+          await db.players.bulkAdd(playersToInsert);
+
+          // 4. Génération de la Ligue et des Adversaires
+          setLoadingStatus('Organisation de la Football Association...');
+          await generateLeagueStructure(slotId, createdTeamId, teamName);
+        },
+      );
+
+      // 5. Init store
+      setLoadingStatus('Finalisation...');
       if (createdTeamId > 0) {
-          await initializeGame(
-            slotId, 
-            (new Date('1863-09-01')), 
-            createdTeamId,
-            managerName,
-            teamName
-          );
-          onGameCreated();
+        await initializeGame(
+          slotId,
+          new Date('1863-09-01'),
+          createdTeamId,
+          managerName,
+          teamName,
+        );
+        onGameCreated();
       } else {
-        throw new Error("Erreur ID Team");
+        throw new Error('Erreur ID Team');
       }
-
     } catch (error) {
-      console.error("Error creating game:", error);
+      console.error('Error creating game:', error);
       setIsCreating(false);
     }
   };
@@ -111,8 +134,12 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 overflow-y-auto">
         <header className="mb-8 text-center">
-          <h1 className="text-2xl font-serif font-bold text-accent">{t('create.title')}</h1>
-          <p className="text-ink-light text-sm italic mt-1">{t('create.subtitle')}</p>
+          <h1 className="text-2xl font-serif font-bold text-accent">
+            {t('create.title')}
+          </h1>
+          <p className="text-ink-light text-sm italic mt-1">
+            {t('create.subtitle')}
+          </p>
         </header>
 
         <form onSubmit={handleInfoSubmit} className="space-y-6 flex-1">
@@ -156,7 +183,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
             >
               {t('create.sign_button')}
             </button>
-            
+
             <button
               type="button"
               onClick={onCancel}
@@ -173,15 +200,19 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 overflow-hidden">
       <header className="mb-6 text-center">
-        <h1 className="text-xl font-serif font-bold text-accent">{t('create.choose_slot')}</h1>
+        <h1 className="text-xl font-serif font-bold text-accent">
+          {t('create.choose_slot')}
+        </h1>
         <p className="text-ink-light text-sm italic">{t('create.slot_desc')}</p>
       </header>
 
       {isCreating ? (
-         <div className="flex-1 flex flex-col items-center justify-center gap-4">
-           <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-           <p className="text-accent font-bold animate-pulse text-center px-8">{loadingStatus}</p>
-         </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-accent font-bold animate-pulse text-center px-8">
+            {loadingStatus}
+          </p>
+        </div>
       ) : (
         <>
           <div className="flex-1 overflow-y-auto space-y-3 pb-safe">
@@ -192,31 +223,47 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
                   key={slotId}
                   onClick={() => handleSlotSelect(slotId)}
                   className={`w-full text-left relative border-2 rounded-lg p-3 transition-all
-                    ${slot 
-                      ? 'bg-paper-dark border-gray-300 opacity-80 hover:opacity-100 hover:border-red-300' 
-                      : 'bg-white border-dashed border-gray-300 hover:border-accent hover:shadow-md'
+                    ${
+                      slot
+                        ? 'bg-paper-dark border-gray-300 opacity-80 hover:opacity-100 hover:border-red-300'
+                        : 'bg-white border-dashed border-gray-300 hover:border-accent hover:shadow-md'
                     }
                   `}
                 >
                   <div className="flex justify-between items-center">
-                    <span className="font-mono text-xs text-ink-light bg-gray-200 px-2 rounded">Slot {slotId}</span>
-                    {slot ? <span className="text-xs text-red-500 font-bold">{t('create.slot_occupied')}</span> : <span className="text-xs text-green-600 font-bold">{t('create.slot_free')}</span>}
+                    <span className="font-mono text-xs text-ink-light bg-gray-200 px-2 rounded">
+                      Slot {slotId}
+                    </span>
+                    {slot ? (
+                      <span className="text-xs text-red-500 font-bold">
+                        {t('create.slot_occupied')}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-green-600 font-bold">
+                        {t('create.slot_free')}
+                      </span>
+                    )}
                   </div>
                   {slot ? (
                     <div className="mt-1">
                       <div className="font-bold text-ink">{slot.teamName}</div>
-                      <div className="text-xs text-ink-light">{slot.managerName} - {slot.currentDate.toLocaleDateString()}</div>
+                      <div className="text-xs text-ink-light">
+                        {slot.managerName} -{' '}
+                        {slot.currentDate.toLocaleDateString()}
+                      </div>
                     </div>
                   ) : (
-                    <div className="mt-2 text-center text-gray-400 text-sm">{t('create.slot_new')}</div>
+                    <div className="mt-2 text-center text-gray-400 text-sm">
+                      {t('create.slot_new')}
+                    </div>
                   )}
                 </button>
               );
             })}
           </div>
-          
-          <button 
-            onClick={() => setStep(1)} 
+
+          <button
+            onClick={() => setStep(1)}
             className="mt-4 py-3 w-full text-ink-light hover:text-ink border-t border-gray-200"
           >
             {t('load.back')}

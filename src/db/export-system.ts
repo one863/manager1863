@@ -1,75 +1,104 @@
 import { db } from './db';
+import { ExportDataSchema } from '@/engine/types';
 
 /**
  * Exporte l'intégralité d'un slot de sauvegarde en format JSON.
  */
 export async function exportSaveToJSON(saveId: number): Promise<string> {
-    const players = await db.players.where('saveId').equals(saveId).toArray();
-    const teams = await db.teams.where('saveId').equals(saveId).toArray();
-    const matches = await db.matches.where('saveId').equals(saveId).toArray();
-    const leagues = await db.leagues.where('saveId').equals(saveId).toArray();
-    const slot = await db.saveSlots.get(saveId);
-    const gameState = await db.gameState.get(saveId);
+  const players = await db.players.where('saveId').equals(saveId).toArray();
+  const teams = await db.teams.where('saveId').equals(saveId).toArray();
+  const matches = await db.matches.where('saveId').equals(saveId).toArray();
+  const leagues = await db.leagues.where('saveId').equals(saveId).toArray();
+  const news = await db.news.where('saveId').equals(saveId).toArray();
+  const history = await db.history.where('saveId').equals(saveId).toArray();
+  const gameState = await db.gameState.get(saveId);
 
-    const fullData = {
-        exportDate: new Date().toISOString(),
-        saveId,
-        slot,
-        gameState,
-        teams,
-        players,
-        matches,
-        leagues
-    };
+  if (!gameState) throw new Error("Sauvegarde introuvable");
 
-    return JSON.stringify(fullData);
+  const fullData = {
+    gameState,
+    teams,
+    players,
+    matches,
+    leagues,
+    news,
+    history
+  };
+
+  return JSON.stringify(fullData);
 }
 
 /**
  * Importe des données JSON dans un slot spécifique de la base de données.
- * Attention : écrase les données existantes dans ce slot.
+ * Valide les données avec Zod avant l'insertion.
  */
-export async function importSaveFromJSON(jsonString: string, targetSlotId: number): Promise<void> {
-    const data = JSON.parse(jsonString);
-    
-    // Normalisation des dates (JSON les transforme en strings)
-    if (data.slot) {
-        data.slot.currentDate = new Date(data.slot.currentDate);
-        data.slot.lastPlayedDate = new Date(data.slot.lastPlayedDate);
-    }
-    if (data.gameState) {
-        data.gameState.currentDate = new Date(data.gameState.currentDate);
-    }
-    if (data.matches) {
-        data.matches.forEach((m: any) => m.date = new Date(m.date));
-    }
+export async function importSaveFromJSON(
+  jsonString: string,
+  targetSlotId: number,
+): Promise<void> {
+  const rawData = JSON.parse(jsonString);
+  
+  // 1. Validation avec Zod
+  // parse() lève une erreur si les données sont invalides, 
+  // et transforme les strings de dates en objets Date grâce à z.coerce.date()
+  const validatedData = ExportDataSchema.parse(rawData);
 
-    await db.transaction('rw', db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, async () => {
-        // 1. Nettoyage
-        await db.saveSlots.delete(targetSlotId);
-        await db.gameState.delete(targetSlotId);
-        await db.players.where('saveId').equals(targetSlotId).delete();
-        await db.teams.where('saveId').equals(targetSlotId).delete();
-        await db.matches.where('saveId').equals(targetSlotId).delete();
-        await db.leagues.where('saveId').equals(targetSlotId).delete();
+  await db.transaction(
+    'rw',
+    db.players,
+    db.teams,
+    db.matches,
+    db.leagues,
+    db.saveSlots,
+    db.gameState,
+    db.news,
+    db.history,
+    async () => {
+      // 2. Nettoyage du slot cible
+      await Promise.all([
+        db.gameState.delete(targetSlotId),
+        db.players.where('saveId').equals(targetSlotId).delete(),
+        db.teams.where('saveId').equals(targetSlotId).delete(),
+        db.matches.where('saveId').equals(targetSlotId).delete(),
+        db.leagues.where('saveId').equals(targetSlotId).delete(),
+        db.news.where('saveId').equals(targetSlotId).delete(),
+        db.history.where('saveId').equals(targetSlotId).delete()
+      ]);
 
-        // 2. Insertion
-        if (data.slot) {
-            await db.saveSlots.put({ ...data.slot, id: targetSlotId });
-        }
-        if (data.gameState) {
-            await db.gameState.put({ ...data.gameState, saveId: targetSlotId });
-        }
-        
-        // Remappage des IDs car bulkAdd va en générer de nouveaux s'ils ne sont pas spécifiés ou si conflits
-        // Mais ici on veut surtout garder la cohérence interne.
-        if (data.teams) await db.teams.bulkAdd(data.teams.map((t: any) => ({ ...t, id: undefined, saveId: targetSlotId })));
-        if (data.players) await db.players.bulkAdd(data.players.map((p: any) => ({ ...p, id: undefined, saveId: targetSlotId })));
-        if (data.matches) await db.matches.bulkAdd(data.matches.map((m: any) => ({ ...m, id: undefined, saveId: targetSlotId })));
-        if (data.leagues) await db.leagues.bulkAdd(data.leagues.map((l: any) => ({ ...l, id: undefined, saveId: targetSlotId })));
-        
-        // Note: Cette méthode simple d'import perd les relations par ID (primary keys) si on les réinitialise à undefined.
-        // Pour un import parfait, il faudrait mapper les anciens IDs vers les nouveaux.
-        // Mais comme on utilise saveId comme pivot, ça devrait fonctionner pour la plupart des affichages.
-    });
+      // 3. Ré-insertion des données validées
+      await db.gameState.put({ 
+        ...validatedData.gameState, 
+        saveId: targetSlotId 
+      });
+
+      // On met à jour aussi le slot de sauvegarde global (SaveSlot) pour l'écran de chargement
+      const userTeam = validatedData.teams.find(t => t.id === validatedData.gameState.userTeamId);
+      await db.saveSlots.put({
+        id: targetSlotId,
+        managerName: validatedData.gameState.userTeamId ? "Manager" : "Sans Club",
+        teamName: userTeam ? userTeam.name : "Sans Club",
+        currentDate: validatedData.gameState.currentDate,
+        lastPlayedDate: new Date()
+      });
+
+      // Insertion par paquets
+      if (validatedData.teams.length > 0)
+        await db.teams.bulkAdd(validatedData.teams.map(t => ({ ...t, id: undefined, saveId: targetSlotId })));
+      
+      if (validatedData.players.length > 0)
+        await db.players.bulkAdd(validatedData.players.map(p => ({ ...p, id: undefined, saveId: targetSlotId })));
+      
+      if (validatedData.matches.length > 0)
+        await db.matches.bulkAdd(validatedData.matches.map(m => ({ ...m, id: undefined, saveId: targetSlotId })));
+      
+      if (validatedData.leagues.length > 0)
+        await db.leagues.bulkAdd(validatedData.leagues.map(l => ({ ...l, id: undefined, saveId: targetSlotId })));
+
+      if (validatedData.news.length > 0)
+        await db.news.bulkAdd(validatedData.news.map(n => ({ ...n, id: undefined, saveId: targetSlotId })));
+
+      if (validatedData.history.length > 0)
+        await db.history.bulkAdd(validatedData.history.map(h => ({ ...h, id: undefined, saveId: targetSlotId })));
+    },
+  );
 }
