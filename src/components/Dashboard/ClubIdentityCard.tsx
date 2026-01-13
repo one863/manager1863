@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { Team, League } from '@/db/db';
 import { Landmark, Trophy } from 'lucide-preact';
+import CreditAmount from '../Common/CreditAmount';
 
 interface ClubIdentityCardProps {
   team: Team | null;
@@ -40,11 +41,13 @@ export default function ClubIdentityCard({ team, league, position }: ClubIdentit
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-paper-dark p-2 rounded">
-             <span className="text-lg font-bold text-accent">£</span>
+             <CreditAmount amount={0} size="sm" className="opacity-0 w-0" /> {/* Pre-load icon spacing */}
+             <span className="text-lg font-bold text-accent">
+                <CreditAmount amount={team?.budget || 0} size="md" />
+             </span>
           </div>
-          <div>
+          <div className="ml-1">
             <span className="text-ink-light block text-[10px] uppercase tracking-wider">{t('dashboard.finances')}</span>
-            <span className="font-semibold text-green-700 block">{team?.budget || 0}</span> 
           </div>
         </div>
       </div>
