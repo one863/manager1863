@@ -17,15 +17,22 @@ export interface Player {
 
 export interface Team {
   id?: number; saveId: number; name: string; leagueId: number;
-  managerName?: string; matchesPlayed?: number; points?: number;
+  managerName?: string; 
+  presidentName?: string; 
+  primaryColor?: string;  
+  secondaryColor?: string; 
+  matchesPlayed?: number; points?: number;
   budget: number; reputation: number; fanCount: number; confidence: number;
   stadiumName: string; stadiumCapacity: number; stadiumLevel: number;
   sponsorName?: string; sponsorIncome?: number; sponsorExpiryDate?: Date;
-  tacticType: TeamRatings['tacticType']; version: number;
-  
-  // NOUVEAU : Objectifs de la saison
+  tacticType: TeamRatings['tacticType']; 
+  formation: '2-3-5' | '4-4-2' | '4-3-3' | '5-3-2' | '3-5-2'; // NOUVEAU
+  version: number;
   seasonGoal?: 'CHAMPION' | 'PROMOTION' | 'MID_TABLE' | 'AVOID_RELEGATION';
   seasonGoalStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
+  stadiumUpgradeEndDay?: number;
+  trainingEndDay?: number;
+  trainingFocus?: 'PHYSICAL' | 'TECHNICAL';
 }
 
 export interface League { 
@@ -35,11 +42,14 @@ export interface League {
 
 export interface Match {
   id?: number; saveId: number; leagueId: number; homeTeamId: number; awayTeamId: number;
-  homeScore: number; awayScore: number; date: Date; played: boolean; details?: MatchResult;
+  homeScore: number; awayScore: number; date: Date; 
+  day: number; 
+  played: boolean; details?: MatchResult;
 }
 
 export interface NewsArticle {
-  id?: number; saveId: number; date: Date; title: string; content: string;
+  id?: number; saveId: number; day: number; 
+  date: Date; title: string; content: string;
   type: 'PRESS' | 'CLUB' | 'LEAGUE' | 'TRANSFER' | 'SPONSOR' | 'BOARD';
   importance: number; isRead: boolean;
 }
@@ -50,12 +60,23 @@ export interface SeasonHistory {
 }
 
 export interface SaveSlot {
-  id?: number; managerName: string; teamName: string; currentDate: Date; lastPlayedDate: Date;
+  id?: number; managerName: string; teamName: string; 
+  presidentName?: string; 
+  season: number; 
+  day: number;    
+  lastPlayedDate: Date;
 }
 
 export interface GameStateData {
-  saveId: number; currentDate: Date; userTeamId: number | null; version: number; hash?: string;
-  isGameOver?: boolean; // NOUVEAU : État critique
+  saveId: number; 
+  season: number; 
+  day: number;    
+  currentDate: Date; 
+  userTeamId: number | null; 
+  version: number; 
+  hash?: string;
+  isGameOver?: boolean;
+  liveMatch?: any;
 }
 
 // --- Base de Données ---
@@ -73,14 +94,15 @@ class Manager1863DB extends Dexie {
   constructor() {
     super('Manager1863_Storage');
 
-    this.version(7).stores({ // Nouvelle version pour les objectifs
+    // Passage à la version 12 pour les formations
+    this.version(12).stores({
       players: '++id, saveId, teamId, [saveId+teamId], [saveId+position], skill, isStarter',
       teams: '++id, saveId, leagueId, [saveId+leagueId]',
       leagues: '++id, saveId',
-      matches: '++id, saveId, leagueId, date, [saveId+date], [saveId+leagueId]',
-      saveSlots: 'id',
+      matches: '++id, saveId, leagueId, day, [saveId+day], [saveId+leagueId]',
+      saveSlots: 'id, lastPlayedDate',
       gameState: 'saveId',
-      news: '++id, saveId, date, [saveId+date]',
+      news: '++id, saveId, day, [saveId+day]',
       history: '++id, saveId, teamId, seasonYear',
     });
 
@@ -92,9 +114,8 @@ class Manager1863DB extends Dexie {
 }
 
 export const db = new Manager1863DB();
-export const CURRENT_DATA_VERSION = 7;
+export const CURRENT_DATA_VERSION = 12;
 
-// --- Sécurité (Identique) ---
 const SALT = 'victoria-era-football-1863';
 export async function computeSaveHash(saveId: number): Promise<string> {
   const state = await db.gameState.get(saveId);
@@ -102,7 +123,7 @@ export async function computeSaveHash(saveId: number): Promise<string> {
   const userTeam = await db.teams.get(state.userTeamId);
   if (!userTeam) return '';
   const dataToHash = JSON.stringify({
-    saveId: state.saveId, date: state.currentDate.getTime(),
+    saveId: state.saveId, day: state.day, season: state.season,
     teamId: state.userTeamId, points: userTeam.points || 0,
     budget: userTeam.budget, salt: SALT,
   });

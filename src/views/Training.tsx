@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
-import { db, Player } from '@/db/db';
+import { db, Player, Team } from '@/db/db';
 import { useGameStore } from '@/store/gameSlice';
 import { TrainingService } from '@/services/training-service';
 import Card from '@/components/Common/Card';
@@ -7,10 +7,11 @@ import Button from '@/components/Common/Button';
 import {
   Dumbbell,
   Target,
-  Brain,
   Zap,
   AlertTriangle,
   ChevronUp,
+  Clock,
+  CalendarCheck
 } from 'lucide-preact';
 import { useTranslation } from 'react-i18next';
 
@@ -18,160 +19,139 @@ export default function Training() {
   const { t } = useTranslation();
   const currentSaveId = useGameStore((state) => state.currentSaveId);
   const userTeamId = useGameStore((state) => state.userTeamId);
+  const currentDay = useGameStore((state) => state.day);
+  const currentDate = useGameStore((state) => state.currentDate);
 
-  const [results, setResults] = useState<
-    { name: string; stat: string }[] | null
-  >(null);
+  const [team, setTeam] = useState<Team | null>(null);
   const [isTraining, setIsTraining] = useState(false);
   const [lowEnergyWarning, setLowEnergyWarning] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadData = async () => {
+    if (!userTeamId || !currentSaveId) return;
+    const teamData = await db.teams.get(userTeamId);
+    setTeam(teamData || null);
+
+    const players = await db.players
+      .where('[saveId+teamId]')
+      .equals([currentSaveId, userTeamId])
+      .toArray();
+    const avgEnergy = players.reduce((acc, p) => acc + p.energy, 0) / (players.length || 1);
+    setLowEnergyWarning(avgEnergy < 40);
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    const checkEnergy = async () => {
-      if (!userTeamId || !currentSaveId) return;
-      const players = await db.players
-        .where('[saveId+teamId]')
-        .equals([currentSaveId, userTeamId])
-        .toArray();
-      const avgEnergy =
-        players.reduce((acc, p) => acc + p.energy, 0) / players.length;
-      setLowEnergyWarning(avgEnergy < 40);
-    };
-    checkEnergy();
-  }, [userTeamId, currentSaveId, results]);
+    loadData();
+  }, [userTeamId, currentSaveId, currentDay]);
 
   const handleTrain = async (focus: 'PHYSICAL' | 'TECHNICAL') => {
     if (!currentSaveId || !userTeamId) return;
 
     setIsTraining(true);
-    setResults(null);
-
-    // Petit délai pour simuler l'effort
-    setTimeout(async () => {
-      const trainingResults = await TrainingService.trainSquad(
-        currentSaveId,
-        userTeamId,
-        focus,
-      );
-      setResults(trainingResults);
-      setIsTraining(false);
-    }, 800);
+    // Correction ici : on passe currentDay (nombre) au lieu de currentDate (Date)
+    const result = await TrainingService.startTrainingCycle(userTeamId, focus, currentDay);
+    if (result.success) {
+      await loadData();
+    } else {
+      alert(result.error || "Erreur lors du lancement");
+    }
+    setIsTraining(false);
   };
 
+  if (isLoading) return <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>;
+
+  const activeTraining = team?.trainingEndDay && team.trainingEndDay > currentDay;
+  const daysRemaining = activeTraining ? team.trainingEndDay - currentDay : 0;
+
   return (
-    <div className="space-y-6 pb-24 animate-fade-in">
-      <div className="px-2">
+    <div className="space-y-5 pb-24 animate-fade-in">
+      <div className="px-2 border-b border-gray-200 pb-4">
         <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
-          <Dumbbell />
-          Centre d'Entraînement
+          <Dumbbell className="text-accent" />
+          Académie du Club
         </h2>
-        <p className="text-xs text-ink-light italic">
-          Développez le potentiel de vos athlètes
+        <p className="text-[10px] text-ink-light italic uppercase tracking-wider">
+          Cycles de perfectionnement hebdomadaire
         </p>
       </div>
 
       {lowEnergyWarning && (
-        <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3 items-start animate-pulse">
-          <AlertTriangle className="text-amber-600 shrink-0" size={20} />
-          <p className="text-xs text-amber-800 font-medium">
-            Attention : Votre effectif est épuisé. Un entraînement intensif
-            pourrait affecter leurs performances au prochain match.
+        <div className="bg-amber-50 border border-amber-200 p-2 rounded-lg flex gap-2 items-center">
+          <AlertTriangle className="text-amber-600 shrink-0" size={16} />
+          <p className="text-[10px] text-amber-800 leading-tight">
+            <strong>AVIS MÉDICAL :</strong> L'effectif est épuisé. Un cycle intense pourrait être contre-productif.
           </p>
         </div>
       )}
 
-      {/* Options d'Entraînement */}
-      <div className="grid grid-cols-1 gap-4">
-        <Card title="Focus Physique">
-          <div className="flex justify-between items-center">
-            <div className="flex-1">
-              <p className="text-xs text-ink-light mb-2">
-                Améliore la Vitesse, la Force et l'Endurance.
-              </p>
-              <div className="flex gap-2">
-                <span className="text-[10px] bg-paper-dark px-2 py-0.5 rounded font-bold">
-                  Énergie : -20%
-                </span>
-              </div>
-            </div>
-            <Button
-              onClick={() => handleTrain('PHYSICAL')}
-              variant="primary"
-              className="w-auto px-6"
-              disabled={isTraining}
-            >
-              <Zap size={16} />
-              Lancer
-            </Button>
+      {/* État de l'entraînement actuel */}
+      {activeTraining ? (
+        <div className="bg-white border-2 border-accent rounded-xl p-5 shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2 opacity-10">
+            <CalendarCheck size={80} />
           </div>
-        </Card>
+          <h3 className="text-sm font-bold text-ink uppercase tracking-widest mb-1">Cycle en cours</h3>
+          <p className="text-2xl font-serif font-bold text-accent">Focus {team?.trainingFocus === 'PHYSICAL' ? 'Physique' : 'Technique'}</p>
+          <div className="flex items-center gap-2 mt-4 text-ink-light text-xs font-medium">
+             <Clock size={14} /> 
+             <span>Fin prévue dans {daysRemaining} jours (Jour {team!.trainingEndDay})</span>
+          </div>
+          <div className="mt-4 h-1.5 bg-paper-dark rounded-full overflow-hidden">
+             <div 
+               className="h-full bg-accent animate-pulse-slow" 
+               style={{ width: `${((7 - daysRemaining) / 7) * 100}%` }}
+             ></div>
+          </div>
+          <p className="text-[10px] text-ink-light italic mt-2">Les joueurs progresseront à la fin du cycle.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between gap-4">
+            <div className="bg-paper-dark p-2 rounded-lg"><Zap size={20} className="text-accent" /></div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-ink">Constitution & Force</h3>
+              <p className="text-[10px] text-ink-light italic">Vélocité, Vigueur, Endurance</p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+               <span className="text-[9px] font-bold text-red-600 flex items-center gap-0.5"><Clock size={10} /> 7 JOURS</span>
+               <Button
+                onClick={() => handleTrain('PHYSICAL')}
+                variant="primary"
+                className="py-1 px-4 text-xs h-8"
+                disabled={isTraining}
+              >
+                Lancer
+              </Button>
+            </div>
+          </div>
 
-        <Card title="Focus Technique">
-          <div className="flex justify-between items-center">
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between gap-4">
+            <div className="bg-paper-dark p-2 rounded-lg"><Target size={20} className="text-blue-600" /></div>
             <div className="flex-1">
-              <p className="text-xs text-ink-light mb-2">
-                Travail spécifique sur les Tirs, les Passes et le Dribble.
-              </p>
-              <div className="flex gap-2">
-                <span className="text-[10px] bg-paper-dark px-2 py-0.5 rounded font-bold">
-                  Énergie : -15%
-                </span>
-              </div>
+              <h3 className="text-sm font-bold text-ink">Arts du Cuir</h3>
+              <p className="text-[10px] text-ink-light italic">Frappe, Précision, Agilité</p>
             </div>
-            <Button
-              onClick={() => handleTrain('TECHNICAL')}
-              variant="secondary"
-              className="w-auto px-6 border-accent text-accent"
-              disabled={isTraining}
-            >
-              <Target size={16} />
-              Lancer
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+               <span className="text-[9px] font-bold text-blue-600 flex items-center gap-0.5"><Clock size={10} /> 7 JOURS</span>
+               <Button
+                onClick={() => handleTrain('TECHNICAL')}
+                variant="secondary"
+                className="py-1 px-4 text-xs h-8 border-accent text-accent"
+                disabled={isTraining}
+              >
+                Lancer
+              </Button>
+            </div>
           </div>
-        </Card>
+        </div>
+      )}
+
+      <div className="bg-paper-dark/30 p-4 rounded-xl border border-dashed border-gray-300 text-center">
+        <p className="text-[10px] text-ink-light italic uppercase tracking-widest font-bold">
+          "Un corps sain pour un club prospère"
+        </p>
       </div>
-
-      {/* Résultats du jour */}
-      {isTraining && (
-        <div className="text-center py-12 flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-accent font-bold animate-pulse">
-            Entraînement en cours...
-          </p>
-        </div>
-      )}
-
-      {results && (
-        <Card title="Rapport de Progression" className="animate-slide-up">
-          {results.length === 0 ? (
-            <p className="text-sm text-ink-light italic text-center py-4">
-              Séance terminée. Aucun progrès majeur noté aujourd'hui, mais la
-              condition physique a été travaillée.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-ink-light mb-3">
-                {results.length} joueur(s) ont montré des signes de progression
-                :
-              </p>
-              <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
-                {results.map((res, idx) => (
-                  <div
-                    key={idx}
-                    className="flex justify-between items-center bg-paper-dark p-2 rounded text-sm"
-                  >
-                    <span className="font-bold">{res.name}</span>
-                    <div className="flex items-center gap-1 text-green-700 font-bold">
-                      <ChevronUp size={14} />
-                      <span className="uppercase text-[10px]">{res.stat}</span>
-                      <span>+1</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
     </div>
   );
 }

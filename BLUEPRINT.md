@@ -1,7 +1,7 @@
-# 📜 MANAGER 1863 - Plan de Conception (Blueprint)
+# 📜 1863 FOOTBALL - Plan de Conception (Blueprint)
 
 ## 🎯 Objectif du Projet
-Créer une simulation de management de football **légère**, **rapide** et **optimisée pour mobile**, se déroulant à l'aube du football moderne (1863). L'application est conçue comme une **Progressive Web App (PWA)** pour offrir une expérience fluide et "native" sur smartphone, sans nécessiter de serveur distant pour la logique ou le stockage.
+Créer une simulation de management de football **légère**, **rapide** et **optimisée pour mobile**, sous la marque **1863 FOOTBALL**. L'application est conçue comme une **Progressive Web App (PWA)** pour offrir une expérience fluide et "native" sur smartphone, sans nécessiter de serveur distant pour la logique ou le stockage.
 
 ---
 
@@ -13,8 +13,8 @@ Créer une simulation de management de football **légère**, **rapide** et **op
     - Versioning robuste du schéma.
     - Migrations automatiques des données.
     - Hachage d'intégrité anti-triche (SHA-256).
-- **Style :** [Tailwind CSS](https://tailwindcss.com/) avec un thème personnalisé "Papier & Encre Historique".
-- **Linter & Formatter :** [Biome](https://biomejs.dev/) (Remplaçant ultra-rapide d'ESLint/Prettier).
+- **Style :** [Tailwind CSS](https://tailwindcss.com/) avec un thème personnalisé "Papier & Encre".
+- **Linter & Formatter :** [Biome](https://biomejs.dev/) (Remplaçant ultra-fast d'ESLint/Prettier).
 - **Icônes :** [Lucide-Preact](https://lucide.dev/guide/preact).
 - **PWA :** [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) pour le support hors-ligne et l'installation sur écran d'accueil.
 - **Internationalisation :** [i18next](https://www.i18next.com/) pour le support multilingue (FR/EN implémentés).
@@ -33,29 +33,29 @@ Tout s'exécute dans le navigateur de l'utilisateur. Aucun traitement côté ser
 - **Redondance :** Snapshots JSON automatiques via un service de backup dédié (`backup-service.ts`).
 - **Portabilité :** Système intégré d'Export/Import JSON pour migrer les sauvegardes entre navigateurs ou appareils.
 
-### 3. Identité Visuelle (ADN du XIXe siècle)
-- **Avatars Procéduraux :** Pas d'images lourdes ; chaque joueur possède une chaîne "DNA" qui génère un avatar SVG unique avec une pilosité et des coiffures d'époque (`PlayerAvatar.tsx`).
-- **Thématique :** Palette de couleurs inspirée des vieux journaux et du cuir.
+### 3. Identité Visuelle
+- **Avatars Procéduraux :** Pas d'images lourdes ; chaque joueur possède une chaîne "DNA" qui génère un avatar SVG unique (`PlayerAvatar.tsx`).
+- **Thématique :** Palette de couleurs inspirée des vieux journaux et du cuir (Identité de marque 1863 FOOTBALL).
 
 ---
 
 ## 🕹️ Mécaniques de Jeu (Implémentées)
 
 ### 📈 Services & Logique métier
-- **Match Service :** Gestion de la programmation et du déroulement des matchs.
-- **Club Service :** Gestion des finances, des sponsors et de l'identité du club.
+- **Match Service :** Gestion de la programmation et du déroulement des matchs par cycles de jours.
+- **Club Service :** Gestion du budget, des sponsors et de l'identité du club (Présidence).
 - **Transfer Service :** Marché des transferts dynamique.
-- **Training Service :** Système de progression des joueurs.
-- **News Service :** Système de notifications et actualités du monde du foot.
+- **Training Service :** Système de progression des joueurs par cycles hebdomadaires.
+- **News Service :** Système de notifications et actualités mondiales.
 
 ### 🏟️ Moteur de Simulation (`src/engine`)
-- **Simulator :** Moteur basé sur les probabilités calculées à partir des statistiques d'équipe.
-- **Tactics :** Prise en compte des formations historiques (ex: le 2-3-5 "Pyramide").
-- **Live Match :** Visualisation en temps réel avec commentaires textuels.
+- **Simulator :** Moteur probabiliste à 12 actions par match.
+- **Tactics :** Prise en compte des formations (ex: 2-3-5, 4-4-2) et des styles de jeu (Pressing, Contre-attaque).
+- **Live Match :** Visualisation en temps réel avec commentaires textuels et effets visuels (Flash But).
 
 ### 👤 Gestion des Joueurs
 - **Générateur :** Création procédurale de joueurs avec noms et talents variés.
-- **Progression :** Système d'entraînement influençant les attributs (Vitesse, Force, Tir, etc.).
+- **Progression :** Système d'entraînement influençant les attributs (Vitesse, Force, Tir, etc.) et gestion de l'énergie.
 
 ---
 
@@ -67,13 +67,13 @@ Tout s'exécute dans le navigateur de l'utilisateur. Aucun traitement côté ser
 ---
 
 ## 🚀 État Actuel & Roadmap
-- ✅ Base de données IndexedDB & Migrations
+- ✅ Base de données IndexedDB & Migrations (v12)
 - ✅ Moteur de match (Live & Report)
-- ✅ Marché des transferts & Finances
-- ✅ Entraînement & Progression
-- ✅ Système de News
-- 🔄 Système de Calendrier & Saisons (En cours)
+- ✅ Marché des transferts & Budget
+- ✅ Entraînement par cycles & Récupération quotidienne
+- ✅ Système de News & Dépêches
+- ✅ Système de Calendrier & Saisons Linéaires (Saison X, Jour Y)
 - 📅 **Prochaines étapes :**
-    - Expansion de la base de données des clubs historiques.
-    - Approfondissement des mécaniques de coaching (causeries, changements tactiques en match).
+    - Expansion du marché des transferts (Recherche ciblée).
+    - Approfondissement des mécaniques de présidence.
     - Système de succès (Achievements).

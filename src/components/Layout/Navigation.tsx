@@ -1,8 +1,8 @@
-import { Home, Users, Newspaper, ShoppingCart, Trophy } from 'lucide-preact';
+import { Home, Users, Newspaper, ShoppingCart, Trophy, Dumbbell, Construction } from 'lucide-preact';
 import { useTranslation } from 'react-i18next';
+import { useGameStore } from '@/store/gameSlice';
 import { useEffect, useState } from 'preact/hooks';
 import { db } from '@/db/db';
-import { useGameStore } from '@/store/gameSlice';
 
 interface NavigationProps {
   currentView: string;
@@ -11,22 +11,24 @@ interface NavigationProps {
 
 export function Navigation({ currentView, onNavigate }: NavigationProps) {
   const { t } = useTranslation();
-  const currentSaveId = useGameStore(state => state.currentSaveId);
-  const currentDate = useGameStore(state => state.currentDate);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useGameStore(state => state.unreadNewsCount);
+  const userTeamId = useGameStore(state => state.userTeamId);
+  const day = useGameStore(state => state.day);
+  
+  const [hasActiveProject, setHasActiveProject] = useState(false);
 
-  // Surveiller les news non lues
   useEffect(() => {
-    if (!currentSaveId) return;
-    const checkNews = async () => {
-      const count = await db.news.where('saveId').equals(currentSaveId).and(n => !n.isRead).count();
-      setUnreadCount(count);
+    const checkProjects = async () => {
+      if (!userTeamId) return;
+      const team = await db.teams.get(userTeamId);
+      if (team) {
+        const training = !!(team.trainingEndDay && team.trainingEndDay > day);
+        const stadium = !!(team.stadiumUpgradeEndDay && team.stadiumUpgradeEndDay > day);
+        setHasActiveProject(training || stadium);
+      }
     };
-    checkNews();
-    
-    // On pourrait utiliser un intervalle ou un hook Dexie plus réactif, 
-    // mais pour l'instant on check à chaque changement de date ou de vue.
-  }, [currentSaveId, currentDate, currentView]);
+    checkProjects();
+  }, [userTeamId, day, currentView]);
 
   return (
     <nav className="bg-paper-dark border-t border-gray-300 pb-safe absolute bottom-0 w-full z-30">
@@ -57,10 +59,11 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
           </button>
         </li>
         <NavIcon
-          icon={ShoppingCart}
-          label="Mercato"
-          active={currentView === 'transfers'}
-          onClick={() => onNavigate('transfers')}
+          icon={Dumbbell}
+          label="Entrain."
+          active={currentView === 'training'}
+          onClick={() => onNavigate('training')}
+          dot={hasActiveProject}
         />
         <NavIcon
           icon={Trophy}
@@ -73,17 +76,20 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
   );
 }
 
-function NavIcon({ icon: Icon, label, active, onClick }: any) {
+function NavIcon({ icon: Icon, label, active, onClick, dot }: any) {
   return (
     <li>
       <button
         onClick={onClick}
-        className={`flex flex-col items-center gap-1 transition-all ${active ? 'text-accent scale-110' : 'text-ink-light hover:text-ink'}`}
+        className={`flex flex-col items-center gap-1 transition-all relative ${active ? 'text-accent scale-110' : 'text-ink-light hover:text-ink'}`}
       >
         <Icon size={20} strokeWidth={active ? 2.5 : 2} />
         <span className="text-[9px] font-bold uppercase tracking-tighter">
           {label}
         </span>
+        {dot && (
+           <span className="absolute top-0 right-0 w-2 h-2 bg-accent rounded-full border border-paper-dark"></span>
+        )}
       </button>
     </li>
   );

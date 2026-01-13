@@ -4,13 +4,22 @@ import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
 import PlayerCard from '@/components/PlayerCard';
 import PlayerAvatar from '@/components/PlayerAvatar';
-import { Check, Star, Settings2, Target, Shield, Zap, TrendingUp, Users } from 'lucide-preact'; // AJOUT DE Users ICI
+import { Check, Star, Settings2, Target, Shield, Zap, TrendingUp, Users, HeartPulse, UserPlus, Layout } from 'lucide-preact';
 import Button from '@/components/Common/Button';
+
+const FORMATIONS: Record<string, { GK: number, DEF: number, MID: number, FWD: number }> = {
+  '2-3-5': { GK: 1, DEF: 2, MID: 3, FWD: 5 }, // Formation historique de 1863
+  '4-4-2': { GK: 1, DEF: 4, MID: 4, FWD: 2 },
+  '4-3-3': { GK: 1, DEF: 4, MID: 3, FWD: 3 },
+  '5-3-2': { GK: 1, DEF: 5, MID: 3, FWD: 2 },
+  '3-5-2': { GK: 1, DEF: 3, MID: 5, FWD: 2 },
+};
 
 export default function Squad() {
   const { t } = useTranslation();
   const userTeamId = useGameStore((state) => state.userTeamId);
   const currentSaveId = useGameStore((state) => state.currentSaveId);
+  const day = useGameStore((state) => state.day);
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [team, setTeam] = useState<Team | null>(null);
@@ -31,7 +40,7 @@ export default function Squad() {
 
   useEffect(() => {
     loadData();
-  }, [userTeamId, currentSaveId]);
+  }, [userTeamId, currentSaveId, day]);
 
   const toggleStarter = async (player: Player) => {
     const isCurrentlyStarter = !!player.isStarter;
@@ -52,6 +61,46 @@ export default function Squad() {
     loadData();
   };
 
+  const updateFormation = async (formation: Team['formation']) => {
+    if (!userTeamId) return;
+    await db.teams.update(userTeamId, { formation });
+    loadData();
+  };
+
+  const useAssistantAdvice = async () => {
+    if (!userTeamId || !team) return;
+    const formationKey = team.formation || '2-3-5';
+    const req = FORMATIONS[formationKey];
+    
+    // 1. Reset tous les titulaires
+    const playerIds = players.map(p => p.id!);
+    await db.players.where('id').anyOf(playerIds).modify({ isStarter: false });
+
+    // 2. Sélectionner les meilleurs pour chaque poste requis
+    const newStarters: number[] = [];
+    const availablePlayers = [...players].sort((a, b) => b.skill - a.skill);
+
+    const pickBest = (pos: 'GK' | 'DEF' | 'MID' | 'FWD', count: number) => {
+      let picked = 0;
+      for (let i = 0; i < availablePlayers.length && picked < count; i++) {
+        const p = availablePlayers[i];
+        if (p.position === pos && !newStarters.includes(p.id!)) {
+          newStarters.push(p.id!);
+          picked++;
+        }
+      }
+    };
+
+    pickBest('GK', req.GK);
+    pickBest('DEF', req.DEF);
+    pickBest('MID', req.MID);
+    pickBest('FWD', req.FWD);
+
+    // 3. Appliquer
+    await db.players.where('id').anyOf(newStarters).modify({ isStarter: true });
+    loadData();
+  };
+
   const getPlayersByPos = (pos: string) =>
     players.filter((p) => p.position === pos).sort((a, b) => b.skill - a.skill);
 
@@ -66,18 +115,21 @@ export default function Squad() {
             {player.lastName}
             {player.isStarter && <Star size={10} className="fill-accent text-accent" />}
           </div>
-          <div className="text-xs text-ink-light flex items-center gap-1">
-            <span className={`px-1 rounded-[2px] text-[10px] font-bold border ${getPositionClass(player.position)}`}>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className={`px-1 rounded-[2px] text-[9px] font-bold border ${getPositionClass(player.position)}`}>
               {player.position}
             </span>
-            {player.firstName}
+            <div className="flex items-center gap-1">
+               <div className={`w-1.5 h-1.5 rounded-full ${player.energy > 70 ? 'bg-green-500' : player.energy > 40 ? 'bg-amber-500' : 'bg-red-500'}`}></div>
+               <span className="text-[10px] text-ink-light font-mono">{player.energy}% NRJ</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="text-right mr-2">
-          <div className="text-[10px] text-ink-light uppercase">Skill</div>
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <div className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">Skill</div>
           <div className={`font-mono font-bold text-sm ${player.skill > 80 ? 'text-accent' : 'text-ink'}`}>
             {player.skill}
           </div>
@@ -85,7 +137,7 @@ export default function Squad() {
         
         <button
           onClick={(e) => { e.stopPropagation(); toggleStarter(player); }}
-          className={`h-10 w-10 rounded-full flex items-center justify-center transition-all border-2 ${player.isStarter ? 'bg-accent border-accent text-white' : 'bg-white border-gray-200 text-gray-300 hover:border-accent/50'}`}
+          className={`h-10 w-10 rounded-full flex items-center justify-center transition-all border-2 ${player.isStarter ? 'bg-accent border-accent text-white shadow-md' : 'bg-white border-gray-200 text-gray-200 hover:border-accent/50 hover:text-accent'}`}
         >
           <Check size={20} strokeWidth={3} />
         </button>
@@ -96,7 +148,7 @@ export default function Squad() {
   if (isLoading) return <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>;
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 animate-fade-in">
       <div className="flex bg-paper-dark rounded-xl p-1 mb-6 border border-gray-200 shadow-inner">
         <button
           onClick={() => setActiveTab('squad')}
@@ -108,30 +160,38 @@ export default function Squad() {
           onClick={() => setActiveTab('tactics')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'tactics' ? 'bg-white text-accent shadow-sm' : 'text-ink-light'}`}
         >
-          <Settings2 size={18} /> Tactique
+          <Settings2 size={18} /> Dispositif
         </button>
       </div>
 
       {activeTab === 'squad' ? (
         <>
-          <div className="flex justify-between items-center mb-4 px-2">
+          <div className="flex justify-between items-end mb-4 px-2">
             <div>
-              <h2 className="text-xl font-serif font-bold text-ink">{t('squad.title')}</h2>
-              <p className="text-[10px] text-ink-light uppercase tracking-widest font-bold">
-                {players.filter(p => p.isStarter).length} / 11 TITULAIRES
-              </p>
+              <h2 className="text-xl font-serif font-bold text-ink leading-none mb-2">{t('squad.title')}</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-paper-dark px-2 py-0.5 rounded border border-gray-200 text-ink-light font-bold uppercase">
+                  {players.filter(p => p.isStarter).length} / 11 Mobilisés
+                </span>
+                <span className="text-[10px] bg-accent/10 px-2 py-0.5 rounded border border-accent/20 text-accent font-bold uppercase italic">
+                  {team?.formation || '2-3-5'}
+                </span>
+              </div>
             </div>
-            <div className="bg-white px-3 py-1 rounded-full border border-gray-200 text-xs font-bold text-accent shadow-sm">
-              {team?.name}
-            </div>
+            <button 
+              onClick={useAssistantAdvice}
+              className="flex items-center gap-1.5 bg-paper-dark hover:bg-gray-200 px-3 py-2 rounded-lg border border-gray-300 text-[10px] font-black text-ink-light uppercase transition-all active:scale-95 shadow-sm"
+            >
+              <UserPlus size={14} className="text-accent" /> Conseil de l'Adjoint
+            </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {['GK', 'DEF', 'MID', 'FWD'].map(pos => (
               <section key={pos} className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
-                <div className={`px-3 py-2 border-b font-bold text-[10px] uppercase tracking-wider flex justify-between items-center ${getSectionBgClass(pos)}`}>
+                <div className={`px-3 py-2 border-b font-bold text-[10px] uppercase tracking-widest flex justify-between items-center ${getSectionBgClass(pos)}`}>
                   <span>{t(`squad.${pos.toLowerCase()}`)}</span>
-                  <span className="opacity-50">{getPlayersByPos(pos).length}</span>
+                  <span className="opacity-40">{getPlayersByPos(pos).length}</span>
                 </div>
                 {getPlayersByPos(pos).map((p) => (
                   <PlayerRow key={p.id} player={p} />
@@ -142,55 +202,45 @@ export default function Squad() {
         </>
       ) : (
         <div className="space-y-6 animate-fade-in">
+          {/* SÉLECTEUR DE FORMATION */}
           <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-serif font-bold text-ink mb-4 flex items-center gap-2">
-              <Target size={20} className="text-accent" /> Style de Jeu
+             <h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Layout size={18} className="text-accent" /> Schéma Tactique
+             </h3>
+             <div className="grid grid-cols-3 gap-2">
+                {Object.keys(FORMATIONS).map(f => (
+                   <button
+                     key={f}
+                     onClick={() => updateFormation(f as any)}
+                     className={`py-3 rounded-xl border-2 font-mono font-bold text-sm transition-all ${team?.formation === f ? 'bg-accent border-accent text-white shadow-md' : 'bg-paper-dark border-gray-100 text-ink-light hover:border-gray-300'}`}
+                   >
+                     {f}
+                   </button>
+                ))}
+             </div>
+             <p className="text-[10px] text-ink-light italic mt-3 text-center">Note : La formation 2-3-5 est le standard historique de la Football Association.</p>
+          </section>
+
+          {/* STYLE DE JEU */}
+          <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+            <h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Target size={18} className="text-accent" /> Philosophie de Jeu
             </h3>
             <div className="grid grid-cols-1 gap-3">
               <TacticButton 
-                active={team?.tacticType === 'NORMAL'} 
-                title="Normal" 
-                desc="Équilibre classique entre attaque et défense."
-                icon={TrendingUp}
-                onClick={() => updateTactic('NORMAL')}
+                active={team?.tacticType === 'NORMAL'} title="Équilibre" desc="Le football dans sa forme la plus pure."
+                icon={TrendingUp} onClick={() => updateTactic('NORMAL')}
               />
               <TacticButton 
-                active={team?.tacticType === 'PRESSING'} 
-                title="Pressing Constant" 
-                desc="Plus de possession, mais fatigue les joueurs plus vite."
-                icon={Zap}
-                onClick={() => updateTactic('PRESSING')}
+                active={team?.tacticType === 'PRESSING'} title="Pressing" desc="Étouffer l'adversaire dès le renvoi."
+                icon={Zap} onClick={() => updateTactic('PRESSING')}
               />
               <TacticButton 
-                active={team?.tacticType === 'CA'} 
-                title="Contre-Attaque" 
-                desc="Défense renforcée et jaillissements rapides."
-                icon={Shield}
-                onClick={() => updateTactic('CA')}
-              />
-              <TacticButton 
-                active={team?.tacticType === 'AOW'} 
-                title="Attaque sur les Ailes" 
-                desc="Utilise la vitesse de vos ailiers pour déborder."
-                icon={Zap}
-                onClick={() => updateTactic('AOW')}
-              />
-              <TacticButton 
-                active={team?.tacticType === 'AIM'} 
-                title="Attaque au Centre" 
-                desc="Pénétration plein axe avec vos meilleurs techniciens."
-                icon={Target}
-                onClick={() => updateTactic('AIM')}
+                active={team?.tacticType === 'CA'} title="Contre-Attaque" desc="Attendre l'erreur et jaillir."
+                icon={Shield} onClick={() => updateTactic('CA')}
               />
             </div>
           </section>
-
-          <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
-            <p className="text-xs text-ink-light italic text-center">
-              "Le football est un jeu simple, rendu compliqué par des gens qui n'y comprennent rien." 
-              <br/>— Sagesse de 1863
-            </p>
-          </div>
         </div>
       )}
 
@@ -198,6 +248,7 @@ export default function Squad() {
         <PlayerCard
           player={selectedPlayer}
           onClose={() => setSelectedPlayer(null)}
+          onPlayerAction={loadData}
         />
       )}
     </div>
@@ -215,7 +266,7 @@ function TacticButton({ active, title, desc, icon: Icon, onClick }: any) {
       </div>
       <div>
         <div className={`font-bold text-sm ${active ? 'text-accent' : 'text-ink'}`}>{title}</div>
-        <div className="text-xs text-ink-light">{desc}</div>
+        <div className="text-[10px] text-ink-light italic">{desc}</div>
       </div>
       {active && <div className="ml-auto mt-1"><Check size={16} className="text-accent" strokeWidth={3} /></div>}
     </button>

@@ -1,40 +1,40 @@
 {
   "menu": {
-    "title": "Manager 1863",
-    "subtitle": "Aux origines du football",
-    "new_game": "Nouvelle Carrière",
+    "title": "1863 FOOTBALL",
+    "subtitle": "Bâtissez votre Dynastie",
+    "new_game": "Fonder un Club",
     "load_game": "Charger une partie",
-    "version": "v0.1.0 - Alpha"
+    "version": "v0.2.0 - Dynastie"
   },
   "create": {
     "title": "Fondation du Club",
     "subtitle": "Écrivez l'histoire dès 1863",
-    "choose_slot": "Choisir un emplacement",
-    "slot_desc": "Où souhaitez-vous archiver cette carrière ?",
-    "slot_free": "Libre",
-    "slot_occupied": "Occupé",
-    "slot_new": "Nouvelle Sauvegarde",
-    "manager_label": "Nom du Manager",
+    "choose_slot": "Emplacement de sauvegarde",
+    "slot_desc": "Où souhaitez-vous enregistrer cette partie ?",
+    "slot_free": "Nouvelle Partie",
+    "slot_occupied": "Partie Occupée",
+    "slot_new": "Nouvelle Partie",
+    "manager_label": "Nom du Président",
     "manager_placeholder": "Ex: Arthur Kinnaird",
     "club_label": "Nom du Club",
     "club_placeholder": "Ex: Sheffield FC",
-    "charter_text": "En signant cette charte, vous vous engagez à respecter les règles de la Football Association établies en 1863. Vous prendrez la direction de ce club amateur et tenterez de le mener vers la gloire éternelle.",
-    "sign_button": "Signer la Charte",
-    "creating": "Fondation en cours...",
+    "charter_text": "En tant que Président, vous prenez la tête de cette institution. Votre mission est de mener vos joueurs vers la gloire et de développer votre club saison après saison.",
+    "sign_button": "Créer le Club",
+    "creating": "Création du club...",
     "cancel": "Annuler",
     "change_slot": "Changer d'emplacement"
   },
   "load": {
-    "title": "Charger une Partie",
-    "searching": "Recherche des archives...",
+    "title": "Charger une partie",
+    "searching": "Recherche des sauvegardes...",
     "empty_slot": "Emplacement vide",
-    "played_on": "Joué le",
-    "game_date": "Date en jeu",
-    "delete_confirm": "Voulez-vous vraiment effacer cette sauvegarde ?",
+    "played_on": "Dernier accès",
+    "game_date": "Progression",
+    "delete_confirm": "Voulez-vous vraiment supprimer cette partie ?",
     "back": "Retour"
   },
   "game": {
-    "date_format": "{{date, datetime}}",
+    "date_format": "Saison {{season}}, Jour {{day}}",
     "continue": "Continuer",
     "loading": "Chargement...",
     "office": "Bureau",
@@ -45,24 +45,24 @@
     "quit": "Quitter"
   },
   "dashboard": {
-    "division": "Division",
-    "finances": "Finances",
-    "next_match": "Prochain Match",
+    "division": "Ligue",
+    "finances": "Budget",
+    "next_match": "Prochain match",
     "home": "Domicile",
     "away": "Extérieur",
     "prepare_team": "Préparer l'équipe",
-    "news": "Dépêches",
-    "welcome_title": "Bienvenue au club !",
-    "welcome_msg": "La saison 1863 commence bientôt.",
-    "ago": "Il y a 2 heures"
+    "news": "Actualités",
+    "welcome_title": "Bienvenue, Monsieur le Président",
+    "welcome_msg": "Votre bureau est prêt pour le début de la saison.",
+    "ago": "Il y a peu"
   },
   "squad": {
-    "title": "Effectif du Club",
+    "title": "Gestion de l'Effectif",
     "no_players": "Aucun joueur sous contrat.",
     "name": "Nom",
     "age": "Age",
-    "pos": "Pos",
-    "skill": "Niv",
+    "pos": "Poste",
+    "skill": "Niveau",
     "cond": "Forme",
     "details": "Détails",
     "gk": "Gardiens",
@@ -76,7 +76,7 @@
     "technical": "Technique",
     "mental": "Mental",
     "speed": "Vitesse",
-    "strength": "Puissance",
+    "strength": "Force",
     "stamina": "Endurance",
     "dribbling": "Dribble",
     "passing": "Passe",
@@ -87,10 +87,10 @@
     "condition": "Condition",
     "value": "Valeur",
     "wage": "Salaire",
-    "close": "Fermer le dossier"
+    "close": "Fermer"
   },
   "calendar": {
-    "title": "Calendrier",
+    "title": "Calendrier de la Saison",
     "no_matches": "Aucun match prévu.",
     "upcoming": "À venir",
     "results": "Résultats",
@@ -109,141 +109,48 @@
     "gd": "Diff",
     "pts": "Pts"
   },
+  "season_goals": {
+    "CHAMPION": "Être Sacré Champion",
+    "PROMOTION": "Obtenir la Promotion",
+    "MID_TABLE": "Finir en Milieu de Table",
+    "AVOID_RELEGATION": "Éviter la Relégation"
+  },
   "narratives": {
     "match": {
       "goal": [
-        "{{player}} expédie le cuir au fond des filets d'une frappe monumentale !",
-        "Le stade exulte ! {{player}} trompe le gardien après un mouvement collectif de toute beauté.",
-        "But ! {{player}} profite d'une erreur défensive pour inscrire son nom au tableau d'affichage.",
-        "Quelle action ! {{player}} finit le travail et fait vibrer les tribunes en bois !"
+        "{{player}} marque d'une frappe puissante qui finit au fond des filets !",
+        "But ! {{player}} trompe le gardien après un bel enchaînement collectif.",
+        "Quelle finition ! {{player}} profite d'un ballon perdu pour marquer.",
+        "Incroyable ! {{player}} trouve la lucarne et fait exploser le stade !"
       ],
       "miss": [
-        "{{player}} tente sa chance mais le ballon s'envole vers les nuages.",
-        "Grosse occasion manquée pour {{player}} ! Le cadre se dérobe au dernier moment.",
-        "{{player}} bute sur le gardien qui réalise une parade historique.",
-        "La défense s'interpose in extremis devant {{player}} !"
+        "{{player}} tente sa chance mais sa frappe passe juste à côté.",
+        "Grosse occasion manquée pour {{player}} ! Le gardien s'interpose.",
+        "Le gardien réalise un arrêt déterminant face à {{player}}.",
+        "La défense dévie in extremis la tentative de {{player}} !"
       ],
       "ambient": [
-        "La pluie londonienne rend le terrain boueux, le jeu devient physique.",
-        "Les supporters agitent leurs chapeaux haut-de-forme dans une ambiance électrique.",
-        "Le capitaine de {{team}} harangue ses troupes sous les acclamations.",
-        "Un spectateur en tribune d'honneur hurle des conseils tactiques à {{player}}.",
-        "Le ballon est sorti du terrain, il faut aller le chercher dans la Tamise."
+        "Le terrain devient difficile à cause de la pluie battante.",
+        "L'ambiance monte d'un cran dans les tribunes.",
+        "Le capitaine de {{team}} encourage ses joueurs sur la pelouse.",
+        "Le public réclame plus d'engagement de la part des joueurs.",
+        "Le match gagne en intensité physique au milieu de terrain."
       ]
     },
     "news": {
       "matchDay": {
         "title": [
           "JOUR DE MATCH : {{team}} vs {{opponent}}",
-          "Choc attendu à {{stadium}}",
+          "Match au sommet à {{stadium}}",
           "Le coup d'envoi approche !",
-          "Ferveur locale pour la réception de {{opponent}}"
+          "Réception de {{opponent}} ce jour"
         ],
         "content": [
-          "Aujourd'hui, {{team}} affronte {{opponent}}. Les tavernes sont pleines et les parieurs s'agitent.",
-          "Le stade de {{stadium}} s'apprête à vibrer. La tension est palpable entre {{team}} et {{opponent}}.",
-          "Gazette du matin : Tous les regards sont tournés vers {{team}} qui reçoit {{opponent}} ce jour."
-        ]
-      },
-      "victory": {
-        "title": [
-          "Triomphe pour {{team}} !",
-          "L'éclatante victoire de {{team}}",
-          "Une démonstration de football par {{team}}",
-          "Le génie de {{team}} terrasse l'adversaire"
-        ],
-        "content": [
-          "Le public de {{stadium}} a assisté à une leçon de courage. {{team}} a dominé {{opponent}} sur le score de {{score}}.",
-          "Gazette du jour : {{team}} s'impose contre vents et marées face à {{opponent}} ({{score}}).",
-          "Quelle ferveur ! {{team}} l'emporte avec panache face à {{opponent}}. Le score de {{score}} reflète la domination territoriale."
-        ]
-      },
-      "draw": {
-        "title": [
-          "Nul disputé à {{stadium}}",
-          "Pas de vainqueur entre {{team}} et {{opponent}}",
-          "Score de parité : {{score}}",
-          "Un point de courage pour {{team}}"
-        ],
-        "content": [
-          "Les deux formations se sont neutralisées au terme d'un duel acharné. Score final : {{score}}.",
-          "Le match entre {{team}} et {{opponent}} s'achève sur un score de parité. Personne n'a su faire la différence.",
-          "Un point précieux pour {{team}} qui a su tenir tête à {{opponent}} dans une ambiance surchauffée."
-        ]
-      },
-      "loss": {
-        "title": [
-          "Défaite amère pour {{team}}",
-          "Le coup d'arrêt de {{team}}",
-          "Désillusion à {{stadium}}",
-          "{{team}} s'incline face à {{opponent}}"
-        ],
-        "content": [
-          "Malgré leurs efforts, les joueurs de {{team}} n'ont pu contenir les assauts de {{opponent}}. Score final : {{score}}.",
-          "La presse est unanime : {{team}} a manqué de vigueur face à {{opponent}} ({{score}}).",
-          "Une journée à oublier pour les fans de {{team}}. {{opponent}} a dicté sa loi sur la pelouse."
+          "Monsieur le Président, votre club affronte {{opponent}} aujourd'hui.",
+          "Les supporters attendent une belle performance de {{team}} face à {{opponent}}.",
+          "C'est un jour de match important pour le club qui reçoit {{opponent}}."
         ]
       }
-    },
-    "board": {
-      "warning": [
-        "Monsieur, le Conseil d'Administration commence à s'impatienter. Les résultats de {{team}} sont indignes de notre rang.",
-        "Lettre du Président : Vos récents échecs ternissent la réputation de notre institution. Redressez la barre sans tarder."
-      ],
-      "praise": [
-        "La direction salue votre gestion exemplaire. Continuez ainsi et vous deviendrez une légende à {{stadium}}.",
-        "Félicitations pour ces résultats. Le club est en pleine effervescence grâce à vous !"
-      ],
-      "sundayReport": {
-        "title": [
-          "Bilan hebdomadaire du Conseil",
-          "Rapport dominical de la Direction",
-          "Note de service du Président"
-        ],
-        "content": [
-          "Une semaine riche en enseignements. Nous sommes actuellement {{position}}e. Votre budget s'élève à {{budget}} crédits. Maintenez le cap !",
-          "Le Conseil a examiné vos récents travaux. La confiance est à {{confidence}}%. {{team}} doit poursuivre ses efforts.",
-          "Monsieur, nous observons avec attention votre progression. Les finances sont stables ({{budget}} £). L'objectif '{{goal}}' reste notre priorité."
-        ]
-      },
-      "randomSquad": {
-        "title": [
-          "COMPOSITION DE DERNIÈRE MINUTE",
-          "LE CAPITAINE A TRANCHÉ",
-          "DÉCISION DU CONSEIL TACTIQUE"
-        ],
-        "content": [
-          "Monsieur, faute de consignes claires de votre part, le capitaine a dû choisir les 11 titulaires au hasard dans les vestiaires. Espérons que la chance soit avec nous !",
-          "Le Conseil a constaté que vous n'aviez pas désigné d'équipe. Des joueurs ont été réquisitionnés arbitrairement pour la rencontre de ce jour.",
-          "L'effectif a été complété à la hâte avant le coup d'envoi. Sans vos ordres, l'équilibre de l'équipe pourrait en souffrir."
-        ]
-      }
-    },
-    "training": {
-      "wednesdayReport": {
-        "title": [
-          "Rapport de l'instructeur physique",
-          "Note d'entraînement du mercredi",
-          "État de forme de l'effectif"
-        ],
-        "content": [
-          "Les joueurs ont transpiré sur la pelouse cette semaine. {{player}} s'est particulièrement illustré par sa vigueur.",
-          "Rapport médical : L'énergie globale est satisfaisante. On note une belle progression technique chez certains de nos hommes.",
-          "Séance de frappes au but concluante. {{player}} semble affûté pour le prochain duel."
-        ]
-      }
-    },
-    "weekly": {
-      "positive": [
-        { "title": "Mécénat inattendu", "content": "Un riche industriel anonyme a fait don de 100 crédits au club pour soutenir le développement du football." },
-        { "title": "Nouveau terrain d'entraînement", "content": "Les joueurs ont trouvé un champ plus sec pour s'entraîner. Le moral est au beau fixe !" },
-        { "title": "Hymne du club", "content": "Les supporters ont composé un chant en l'honneur de {{team}}. La réputation du club grimpe dans le quartier." }
-      ],
-      "negative": [
-        { "title": "Epidémie de grippe", "content": "Plusieurs joueurs se sentent faibles cette semaine. L'énergie globale de l'effectif a légèrement baissé." },
-        { "title": "Ballons crevés", "content": "Un garnement a crevé trois de nos précieux ballons en cuir. Une dépense imprévue de 20 crédits." },
-        { "title": "Critique acerbe", "content": "Le journal local 'The London Times' a publié une critique sanglante de votre gestion. La confiance du Board en pâtit." }
-      ]
     }
   }
 }

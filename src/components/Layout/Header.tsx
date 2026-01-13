@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Menu, X, ChevronRight, Loader2 } from 'lucide-preact';
+import { useGameStore } from '@/store/gameSlice';
 
 interface HeaderProps {
   currentDate: Date;
@@ -11,7 +12,6 @@ interface HeaderProps {
 }
 
 export function Header({ 
-  currentDate, 
   isProcessing, 
   showOverlay, 
   isMenuOpen, 
@@ -19,6 +19,8 @@ export function Header({
   onContinue 
 }: HeaderProps) {
   const { t } = useTranslation();
+  const season = useGameStore(state => state.season);
+  const day = useGameStore(state => state.day);
 
   return (
     <header className="bg-paper-dark p-4 border-b border-gray-300 flex justify-between items-center sticky top-0 z-30">
@@ -35,8 +37,10 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="text-xs font-mono text-ink-light bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
-          {t('game.date_format', { date: currentDate })}
+        <div className="text-[10px] font-bold uppercase tracking-widest text-ink-light bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm flex items-center gap-2">
+          <span className="text-accent">Saison {season}</span>
+          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+          <span>Jour {day}</span>
         </div>
 
         <button

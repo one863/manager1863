@@ -34,9 +34,9 @@ export default function MainMenu({
 
       <div className="text-center space-y-2">
         <h1 className="text-5xl font-serif font-bold text-accent tracking-tighter drop-shadow-sm">
-          MANAGER
-          <br />
           1863
+          <br />
+          FOOTBALL
         </h1>
         <p className="text-ink-light italic text-sm">{t('menu.subtitle')}</p>
       </div>

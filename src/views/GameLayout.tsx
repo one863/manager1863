@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'preact/compat';
 import { useGameStore } from '@/store/gameSlice';
 import { verifySaveIntegrity } from '@/db/db';
-import { MatchService } from '@/services/match-service'; // AJOUT
+import { MatchService } from '@/services/match-service';
 import { Loader2 } from 'lucide-preact';
 
 import { Header } from '@/components/Layout/Header';
@@ -9,8 +9,9 @@ import { Navigation } from '@/components/Layout/Navigation';
 import { SidebarMenu } from '@/components/Layout/SidebarMenu';
 import { SaveOverlay } from '@/components/Layout/SaveOverlay';
 import { GameOverOverlay } from '@/components/Layout/GameOverOverlay';
-import { MatchReadyOverlay } from '@/components/Layout/MatchReadyOverlay'; // AJOUT
+import { MatchReadyOverlay } from '@/components/Layout/MatchReadyOverlay';
 
+// Importations dynamiques
 const Dashboard = lazy(() => import('@/views/Dashboard'));
 const Squad = lazy(() => import('@/views/Squad'));
 const LeagueTable = lazy(() => import('@/views/LeagueTable'));
@@ -28,7 +29,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'verified' | 'error'>('idle');
-  const [showMatchConfirm, setShowMatchConfirm] = useState(false); // NOUVEAU
+  const [showMatchConfirm, setShowMatchConfirm] = useState(false);
 
   const currentDate = useGameStore((state) => state.currentDate);
   const currentSaveId = useGameStore((state) => state.currentSaveId);
@@ -39,10 +40,16 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   const liveMatch = useGameStore((state) => state.liveMatch);
   const deleteSaveAndQuit = useGameStore((state) => state.deleteSaveAndQuit);
 
+  // Fermer l'overlay si un match commence
+  useEffect(() => {
+    if (liveMatch) {
+      setShowMatchConfirm(false);
+    }
+  }, [liveMatch]);
+
   const handleContinueClick = async () => {
-    if (isGameOver) return;
+    if (isGameOver || isProcessing) return;
     
-    // VÉRIFIER SI MATCH AUJOURD'HUI
     if (currentSaveId && userTeamId) {
       const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, currentDate, userTeamId);
       if (hasMatch) {
@@ -55,24 +62,27 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   };
 
   const executeContinue = async () => {
-    setShowMatchConfirm(false);
+    setShowMatchConfirm(false); // S'assurer que l'overlay est fermé avant de lancer la simulation
     try {
       setSaveStatus('saving');
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      // Petit délai pour laisser l'UI respirer
+      await new Promise((resolve) => setTimeout(resolve, 300));
       await advanceDate();
 
       if (currentSaveId) {
         const isValid = await verifySaveIntegrity(currentSaveId);
         setSaveStatus(isValid ? 'verified' : 'error');
-        if (isValid) await new Promise((resolve) => setTimeout(resolve, 800));
+        if (isValid) await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
+      // Si le store dit qu'on est en match, on ne change pas la vue ici
       if (useGameStore.getState().liveMatch) {
         setSaveStatus('idle');
         return;
       }
       setCurrentView('dashboard');
     } catch (error) {
+      console.error("Simulation error:", error);
       setSaveStatus('error');
     } finally {
       setTimeout(() => setSaveStatus('idle'), 300);
@@ -84,8 +94,18 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
     onQuit();
   };
 
+  const handlePrepareTeam = () => {
+    setShowMatchConfirm(false);
+    setCurrentView('squad');
+  };
+
+  // Si on est en plein match live, on affiche uniquement le MatchLive
   if (liveMatch) {
-    return <Suspense fallback={<ViewLoader />}><MatchLive /></Suspense>;
+    return (
+      <Suspense fallback={<ViewLoader />}>
+        <MatchLive />
+      </Suspense>
+    );
   }
 
   return (
@@ -96,7 +116,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
       {showMatchConfirm && (
         <MatchReadyOverlay 
           onConfirm={executeContinue}
-          onPrepare={() => { setShowMatchConfirm(false); setCurrentView('squad'); }}
+          onPrepare={handlePrepareTeam}
         />
       )}
 
@@ -136,9 +156,9 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 
 function ViewLoader() {
   return (
-    <div className="flex flex-col items-center justify-center h-64 animate-pulse">
+    <div className="flex flex-col items-center justify-center h-full animate-pulse">
       <Loader2 size={32} className="text-accent animate-spin mb-2" />
-      <p className="text-ink-light text-sm italic font-serif">Chargement des documents...</p>
+      <p className="text-ink-light text-xs italic font-serif">Déploiement des archives...</p>
     </div>
   );
 }

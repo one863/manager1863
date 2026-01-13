@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { db, SaveSlot } from '@/db/db';
 import { useTranslation } from 'react-i18next';
 import { exportSaveToJSON, importSaveFromJSON } from '@/db/export-system';
+import { Trash2, Download, Upload, Shield, X, AlertTriangle, ChevronRight } from 'lucide-preact';
 
 interface LoadGameProps {
   onGameLoaded: (slotId: number) => void;
@@ -12,14 +13,14 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
   const { t } = useTranslation();
   const [slots, setSlots] = useState<(SaveSlot | undefined)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [targetImportSlot, setTargetImportSlot] = useState<number | null>(null);
 
   const refreshSlots = async () => {
     try {
       const loadedSlots = [];
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 3; i++) {
         const slot = await db.saveSlots.get(i);
         loadedSlots.push(slot);
       }
@@ -47,7 +48,7 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fm1863_save_${slot.teamName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `1863_save_${slot.teamName.replace(/\s+/g, '_')}_S${slot.season}_D${slot.day}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -74,10 +75,8 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
       try {
         const json = event.target?.result as string;
         await importSaveFromJSON(json, targetImportSlot);
-        alert('Importation réussie !');
         await refreshSlots();
       } catch (err) {
-        console.error('Import failed:', err);
         alert('Fichier invalide ou corrompu.');
       } finally {
         setTargetImportSlot(null);
@@ -87,160 +86,134 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
     reader.readAsText(file);
   };
 
-  const handleDeleteClick = (slotId: number, e: Event) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (confirmDeleteId === slotId) {
-      performDelete(slotId);
-    } else {
-      setConfirmDeleteId(slotId);
-      setTimeout(() => setConfirmDeleteId(null), 3000);
-    }
-  };
-
-  const performDelete = async (slotId: number) => {
+  const performDelete = async () => {
+    if (deleteTarget === null) return;
     try {
-      const id = Number(slotId);
-      await db.transaction(
-        'rw',
-        db.players,
-        db.teams,
-        db.matches,
-        db.saveSlots,
-        db.gameState,
-        async () => {
-          await db.saveSlots.delete(id);
-          await db.gameState.delete(id);
-          await db.players.where('saveId').equals(id).delete();
-          await db.teams.where('saveId').equals(id).delete();
-          await db.matches.where('saveId').equals(id).delete();
-        },
-      );
-      setConfirmDeleteId(null);
+      const id = deleteTarget;
+      await db.transaction('rw', [db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, db.news, db.history], async () => {
+        await db.saveSlots.delete(id);
+        await db.gameState.delete(id);
+        await db.players.where('saveId').equals(id).delete();
+        await db.teams.where('saveId').equals(id).delete();
+        await db.matches.where('saveId').equals(id).delete();
+        await db.news.where('saveId').equals(id).delete();
+        await db.history.where('saveId').equals(id).delete();
+      });
+      setDeleteTarget(null);
       await refreshSlots();
     } catch (err) {
-      console.error('Erreur critique lors de la suppression:', err);
+      console.error('Delete failed:', err);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 overflow-hidden">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-serif font-bold text-accent">
+    <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 animate-fade-in relative overflow-hidden">
+      <header className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-serif font-bold text-accent tracking-tight">
           {t('load.title')}
         </h1>
-        <button
-          onClick={onCancel}
-          className="text-sm text-ink-light hover:text-ink"
-        >
-          {t('load.back')}
+        <button onClick={onCancel} className="p-2 hover:bg-paper-dark rounded-full transition-colors text-ink-light">
+          <X size={24} />
         </button>
       </header>
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept=".json"
-        className="hidden"
-      />
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
 
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-ink-light animate-pulse">{t('load.searching')}</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-ink-light italic text-sm">{t('load.searching')}</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-3 pb-safe">
+        <div className="flex-1 overflow-y-auto space-y-4 pb-20">
           {slots.map((slot, index) => {
             const slotId = index + 1;
-            const isConfirming = confirmDeleteId === slotId;
-
+            
             if (!slot) {
               return (
-                <div
-                  key={slotId}
-                  className="bg-paper-dark border-2 border-dashed border-gray-300 flex flex-col items-center justify-center h-24 rounded-lg gap-2"
-                >
-                  <span className="text-sm font-medium text-gray-400">
-                    {t('load.empty_slot')} {slotId}
-                  </span>
-                  <button
-                    onClick={(e) => handleImportClick(slotId, e)}
-                    className="text-[10px] uppercase font-bold text-accent hover:underline"
-                  >
-                    📥 Importer un fichier .json
-                  </button>
+                <div key={slotId} className="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-colors hover:border-accent group">
+                   <div className="w-10 h-10 bg-paper-dark rounded-full flex items-center justify-center text-gray-300 group-hover:text-accent transition-colors">
+                      <Shield size={20} />
+                   </div>
+                   <div className="text-center">
+                      <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest">{t('load.empty_slot')} #{slotId}</span>
+                      <button onClick={(e) => handleImportClick(slotId, e)} className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1 mt-1">
+                        <Download size={10} /> IMPORTER (.JSON)
+                      </button>
+                   </div>
                 </div>
               );
             }
 
             return (
-              <div
-                key={slotId}
-                className="bg-white border-2 border-gray-300 rounded-lg shadow-sm flex overflow-hidden hover:shadow-md transition-shadow h-28"
-              >
-                <button
-                  onClick={() => onGameLoaded(slotId)}
-                  className="flex-1 p-3 text-left hover:bg-gray-50 active:bg-gray-100 transition-colors flex flex-col justify-between"
-                >
-                  <div className="flex justify-between items-start w-full">
-                    <div className="truncate pr-2">
-                      <h3 className="font-bold text-lg text-ink truncate leading-tight">
-                        {slot.teamName}
-                      </h3>
-                      <p className="text-sm text-ink-light truncate">
-                        {slot.managerName}
-                      </p>
-                    </div>
-                    <span className="bg-paper-dark text-xs font-mono px-1.5 py-0.5 rounded text-ink-light border border-gray-200 shrink-0">
-                      #{slotId}
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-ink-light space-y-0.5 w-full">
-                    <div className="flex items-center gap-1 font-semibold text-accent">
-                      <span>📅 {t('load.game_date')}:</span>
-                      <span>
-                        {t('game.date_format', { date: slot.currentDate })}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-[10px] text-gray-400">
-                        Dernier accès:{' '}
-                        {slot.lastPlayedDate.toLocaleDateString()}
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => handleExport(slotId, e)}
-                          className="text-[10px] font-bold text-blue-600 hover:underline"
-                          title="Sauvegarder en fichier externe"
-                        >
-                          📤 EXPORTER
-                        </button>
+              <div key={slotId} className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:border-accent transition-all animate-slide-up group">
+                <div className="flex">
+                  <button onClick={() => onGameLoaded(slotId)} className="flex-1 p-5 text-left active:bg-paper-dark transition-colors">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-serif font-bold text-xl text-ink leading-tight">{slot.teamName}</h3>
+                        <p className="text-xs text-accent font-bold uppercase tracking-tighter">Président {slot.managerName}</p>
                       </div>
+                      <span className="text-[10px] font-mono bg-paper-dark px-2 py-0.5 rounded border border-gray-200 text-ink-light">PARTIE #{slotId}</span>
                     </div>
-                  </div>
-                </button>
 
-                <button
-                  onClick={(e) => handleDeleteClick(slotId, e)}
-                  className={`w-14 border-l border-gray-200 transition-all flex flex-col items-center justify-center gap-1
-                    ${
-                      isConfirming
-                        ? 'bg-red-600 text-white hover:bg-red-700'
-                        : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500'
-                    }
-                  `}
-                >
-                  <span className="text-xl">{isConfirming ? '⚠️' : '🗑️'}</span>
-                  {isConfirming && (
-                    <span className="text-[10px] font-bold">Sûr?</span>
-                  )}
-                </button>
+                    <div className="flex items-center gap-4 text-xs">
+                       <div className="flex items-center gap-1 bg-accent/5 px-2 py-1 rounded text-accent font-bold">
+                          <Shield size={12} /> Saison {slot.season} • Jour {slot.day}
+                       </div>
+                       <div className="text-ink-light italic opacity-60">
+                          {new Date(slot.lastPlayedDate).toLocaleDateString()}
+                       </div>
+                    </div>
+                  </button>
+                  
+                  <div className="flex flex-col border-l border-gray-100 bg-paper-dark/30">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(slotId); }}
+                      className="flex-1 px-4 hover:bg-red-50 hover:text-red-600 text-gray-400 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <button 
+                      onClick={(e) => handleExport(slotId, e)}
+                      className="flex-1 px-4 border-t border-gray-100 hover:bg-blue-50 hover:text-blue-600 text-gray-400 transition-colors"
+                    >
+                      <Upload size={18} />
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* OVERLAY DE CONFIRMATION DE SUPPRESSION SIMPLIFIÉ */}
+      {deleteTarget !== null && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+           <div className="bg-white rounded-3xl p-8 shadow-2xl border-4 border-red-500 max-w-xs w-full animate-slide-up text-center">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <AlertTriangle size={32} />
+              </div>
+              <h2 className="text-xl font-serif font-bold text-ink mb-2">Supprimer la partie ?</h2>
+              <p className="text-sm text-ink-light mb-8 leading-relaxed">
+                Voulez-vous vraiment supprimer la partie de <span className="font-bold text-ink">{slots[deleteTarget - 1]?.teamName}</span> ?
+              </p>
+              <div className="space-y-3">
+                 <button 
+                   onClick={performDelete}
+                   className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-all"
+                 >
+                   SUPPRIMER DÉFINITIVEMENT
+                 </button>
+                 <button 
+                   onClick={() => setDeleteTarget(null)}
+                   className="w-full py-3 bg-paper-dark text-ink-light rounded-xl font-bold active:scale-95 transition-all"
+                 >
+                   ANNULER
+                 </button>
+              </div>
+           </div>
         </div>
       )}
     </div>

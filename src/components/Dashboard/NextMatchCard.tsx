@@ -1,35 +1,37 @@
 import { h } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { Match, Team } from '@/db/db';
-import { Calendar, AlertCircle, Settings2 } from 'lucide-preact';
+import { Calendar, AlertCircle, Info } from 'lucide-preact';
 
 interface NextMatchCardProps {
   nextMatch: { match: Match; opponent: Team } | null;
   userTeamId: number | null;
   userTeamName: string;
   currentDate: Date;
-  onClick?: () => void;
+  onShowOpponent?: (id: number) => void;
 }
 
-export default function NextMatchCard({ nextMatch, userTeamId, userTeamName, currentDate, onClick }: NextMatchCardProps) {
+export default function NextMatchCard({ nextMatch, userTeamId, userTeamName, currentDate, onShowOpponent }: NextMatchCardProps) {
   const { t } = useTranslation();
 
   const isToday = nextMatch && new Date(nextMatch.match.date).toDateString() === currentDate.toDateString();
 
   return (
     <div 
-      onClick={onClick}
-      className={`p-5 rounded-2xl shadow-md border-2 transition-all cursor-pointer group active:scale-[0.98] ${isToday ? 'bg-accent/5 border-accent animate-pulse-slow' : 'bg-white border-gray-200 hover:border-accent'}`}
+      className={`p-5 rounded-2xl shadow-md border-2 transition-all ${isToday ? 'bg-accent/5 border-accent' : 'bg-white border-gray-200'}`}
     >
       <div className="flex justify-between items-center mb-4">
         <h3 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${isToday ? 'text-accent' : 'text-ink-light'}`}>
           {isToday ? <AlertCircle size={14} className="animate-bounce" /> : <Calendar size={14} />}
           {isToday ? "MATCH AUJOURD'HUI" : t('dashboard.next_match')}
         </h3>
-        {isToday && (
-          <span className="bg-accent text-white text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-             <Settings2 size={10} /> PRÉPARER TACTIQUE
-          </span>
+        {nextMatch && (
+          <button 
+            onClick={() => onShowOpponent?.(nextMatch.opponent.id!)}
+            className="flex items-center gap-1.5 text-[10px] font-bold text-accent hover:underline bg-accent/5 px-2 py-1 rounded-full"
+          >
+            <Info size={12} /> VOIR ADVERSAIRE
+          </button>
         )}
       </div>
 

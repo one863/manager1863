@@ -3,47 +3,36 @@ import { db, Match, Team } from '@/db/db';
 import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
 import MatchReport from '@/components/MatchReport';
+import ClubDetails from '@/components/ClubDetails';
+import { Calendar as CalendarIcon, Trophy, CheckCircle2 } from 'lucide-preact';
 
 export default function Calendar() {
   const { t } = useTranslation();
   const currentSaveId = useGameStore((state) => state.currentSaveId);
   const userTeamId = useGameStore((state) => state.userTeamId);
+  const currentDay = useGameStore((state) => state.day);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<number, Team>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
-      // Si pas de saveId, on attend
       if (currentSaveId === null) {
         setIsLoading(false);
         return;
       }
 
       try {
-        // 1. Charger les équipes
-        const allTeams = await db.teams
-          .where('saveId')
-          .equals(currentSaveId)
-          .toArray();
+        const allTeams = await db.teams.where('saveId').equals(currentSaveId).toArray();
         const teamsMap: Record<number, Team> = {};
-        allTeams.forEach((team) => {
-          if (team.id) teamsMap[team.id] = team;
-        });
+        allTeams.forEach((team) => { if (team.id) teamsMap[team.id] = team; });
         setTeams(teamsMap);
 
-        // 2. Charger les matchs via l'index simple 'saveId' (plus robuste)
-        const allMatches = await db.matches
-          .where('saveId')
-          .equals(currentSaveId)
-          .toArray();
-
-        // Tri manuel par date
-        allMatches.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-        console.log(`Calendrier chargé : ${allMatches.length} matchs trouvés.`);
+        const allMatches = await db.matches.where('saveId').equals(currentSaveId).toArray();
+        allMatches.sort((a, b) => a.day - b.day);
         setMatches(allMatches);
       } catch (error) {
         console.error('Erreur chargement calendrier:', error);
@@ -51,97 +40,86 @@ export default function Calendar() {
         setIsLoading(false);
       }
     };
-
     loadData();
   }, [currentSaveId]);
 
-  if (isLoading)
-    return (
-      <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>
-    );
-
-  const matchesByMonth: Record<string, Match[]> = {};
-  matches.forEach((match) => {
-    const monthKey = match.date.toLocaleDateString(undefined, {
-      month: 'long',
-      year: 'numeric',
-    });
-    if (!matchesByMonth[monthKey]) matchesByMonth[monthKey] = [];
-    matchesByMonth[monthKey].push(match);
-  });
+  if (isLoading) return <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>;
 
   return (
-    <div className="pb-20 space-y-6">
-      <div className="flex justify-between items-center mb-4 px-2">
-        <h2 className="text-xl font-serif font-bold text-ink">
-          {t('calendar.title')}
-        </h2>
+    <div className="pb-20 space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center mb-4 px-2 border-b border-gray-200 pb-4">
+        <div>
+          <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
+            <CalendarIcon className="text-accent" />
+            Programme de la Saison
+          </h2>
+          <p className="text-[10px] text-ink-light uppercase tracking-widest font-bold">Chronologie des rencontres</p>
+        </div>
       </div>
 
-      {matches.length === 0 ? (
-        <div className="p-8 text-center bg-white rounded border border-gray-200 space-y-2">
-          <p className="text-ink-light italic">{t('calendar.no_matches')}</p>
-          <p className="text-xs text-red-500">
-            (Si vous venez de créer une partie, assurez-vous d'avoir utilisé
-            "Nouvelle Carrière" après la dernière mise à jour)
-          </p>
-        </div>
-      ) : (
-        Object.entries(matchesByMonth).map(([month, monthMatches]) => (
-          <div
-            key={month}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-          >
-            <div className="bg-paper-dark px-4 py-2 font-bold text-ink border-b border-gray-200 capitalize sticky top-0">
-              {month}
+      <div className="space-y-3">
+        {matches.map((match) => {
+          const homeTeam = teams[match.homeTeamId];
+          const awayTeam = teams[match.awayTeamId];
+          const isUserMatch = match.homeTeamId === userTeamId || match.awayTeamId === userTeamId;
+          const isPassed = match.day < currentDay;
+          const isToday = match.day === currentDay;
+
+          return (
+            <div
+              key={match.id}
+              className={`
+                group relative bg-white rounded-xl border-2 transition-all p-3 flex items-center gap-4
+                ${isUserMatch ? 'border-accent shadow-sm' : 'border-gray-100 opacity-60'}
+                ${isToday ? 'ring-2 ring-accent ring-offset-2 animate-pulse-slow' : ''}
+              `}
+            >
+              {/* Jour du Match */}
+              <div className={`
+                w-12 h-12 rounded-lg flex flex-col items-center justify-center font-mono
+                ${isPassed ? 'bg-gray-100 text-gray-400' : isToday ? 'bg-accent text-white' : 'bg-paper-dark text-ink'}
+              `}>
+                <span className="text-[10px] uppercase font-bold leading-none mb-1">Jour</span>
+                <span className="text-lg font-bold leading-none">{match.day}</span>
+              </div>
+
+              {/* Contenu Match */}
+              <div className="flex-1 flex items-center justify-between">
+                <button 
+                  onClick={() => setSelectedTeamId(match.homeTeamId)}
+                  className={`flex-1 text-right text-sm hover:underline truncate px-1 font-serif ${match.homeTeamId === userTeamId ? 'font-bold text-accent' : 'text-ink'}`}
+                >
+                  {homeTeam?.name || '???'}
+                </button>
+
+                <div 
+                  onClick={() => match.played && setSelectedMatch(match)}
+                  className={`
+                    px-3 py-1 font-mono font-bold text-xs rounded-full mx-2 min-w-[3.5rem] text-center border transition-all
+                    ${match.played ? 'bg-paper-dark border-gray-300 text-ink cursor-pointer hover:bg-gray-200' : 'bg-transparent border-transparent text-gray-400'}
+                  `}
+                >
+                  {match.played ? `${match.homeScore} - ${match.awayScore}` : 'VS'}
+                </div>
+
+                <button 
+                  onClick={() => setSelectedTeamId(match.awayTeamId)}
+                  className={`flex-1 text-left text-sm hover:underline truncate px-1 font-serif ${match.awayTeamId === userTeamId ? 'font-bold text-accent' : 'text-ink'}`}
+                >
+                  {awayTeam?.name || '???'}
+                </button>
+              </div>
+
+              {/* Statut */}
+              {match.played && (
+                <div className="absolute -top-2 -right-2 bg-white rounded-full text-green-600 shadow-sm">
+                  <CheckCircle2 size={18} />
+                </div>
+              )}
             </div>
-            <div className="divide-y divide-gray-100">
-              {monthMatches.map((match) => {
-                const homeTeam = teams[match.homeTeamId];
-                const awayTeam = teams[match.awayTeamId];
-                const isUserMatch =
-                  match.homeTeamId === userTeamId ||
-                  match.awayTeamId === userTeamId;
-
-                return (
-                  <div
-                    key={match.id}
-                    onClick={() => match.played && setSelectedMatch(match)}
-                    className={`p-3 flex items-center justify-between transition-colors ${isUserMatch ? 'bg-yellow-50' : ''} ${match.played ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                  >
-                    <div className="text-xs text-ink-light w-12 text-center">
-                      {match.date.getDate()}
-                    </div>
-
-                    <div className="flex-1 flex items-center justify-between px-2">
-                      <span
-                        className={`flex-1 text-right text-sm ${match.homeTeamId === userTeamId ? 'font-bold text-accent' : 'text-ink'}`}
-                      >
-                        {homeTeam?.name || '???'}
-                      </span>
-
-                      <div
-                        className={`px-3 font-mono font-bold text-sm rounded mx-2 min-w-[3rem] text-center py-1 border 
-                        ${match.played ? 'bg-paper-dark border-gray-300 text-ink' : 'bg-transparent border-transparent text-gray-400'}`}
-                      >
-                        {match.played
-                          ? `${match.homeScore} - ${match.awayScore}`
-                          : 'vs'}
-                      </div>
-
-                      <span
-                        className={`flex-1 text-left text-sm ${match.awayTeamId === userTeamId ? 'font-bold text-accent' : 'text-ink'}`}
-                      >
-                        {awayTeam?.name || '???'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))
-      )}
+          );
+        })}
+      </div>
 
       {selectedMatch && (
         <MatchReport
@@ -150,6 +128,10 @@ export default function Calendar() {
           awayTeam={teams[selectedMatch.awayTeamId]}
           onClose={() => setSelectedMatch(null)}
         />
+      )}
+
+      {selectedTeamId && (
+        <ClubDetails teamId={selectedTeamId} onClose={() => setSelectedTeamId(null)} />
       )}
     </div>
   );

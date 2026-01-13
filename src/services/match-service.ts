@@ -4,6 +4,7 @@ import { MatchResult } from '@/engine/types';
 import { NewsService } from '@/services/news-service';
 import { ClubService } from '@/services/club-service';
 import { generateSeasonFixtures } from '@/data/league-templates';
+import { randomInt, clamp } from '@/utils/math';
 
 const simulationWorker = new Worker(
   new URL('../engine/simulation.worker.ts', import.meta.url),
@@ -11,38 +12,24 @@ const simulationWorker = new Worker(
 );
 
 export const MatchService = {
-  /**
-   * Vérifie si l'utilisateur a un match à jouer à la date donnée.
-   */
-  async hasUserMatchToday(saveId: number, date: Date, userTeamId: number): Promise<boolean> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
+  async hasUserMatchToday(saveId: number, day: number, userTeamId: number): Promise<boolean> {
     const match = await db.matches
-      .where('[saveId+date]')
-      .between([saveId, startOfDay], [saveId, endOfDay])
+      .where('[saveId+day]')
+      .equals([saveId, day])
       .and(m => (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) && !m.played)
       .first();
 
     return !!match;
   },
 
-  async simulateDay(saveId: number, date: Date, userTeamId: number): Promise<any> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 1) await NewsService.generateWeeklyEvents(saveId, date, userTeamId);
-    if (dayOfWeek === 3) await NewsService.generateTrainingReport(saveId, date, userTeamId);
-    if (dayOfWeek === 0) await NewsService.generateSundayBoardReport(saveId, date, userTeamId);
+  async simulateDayByDay(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
+    if (day % 7 === 1) await NewsService.generateWeeklyEvents(saveId, date, userTeamId);
+    if (day % 7 === 3) await NewsService.generateTrainingReport(saveId, date, userTeamId);
+    if (day % 7 === 0 && day > 0) await NewsService.generateSundayBoardReport(saveId, date, userTeamId);
 
     const todaysMatches = await db.matches
-      .where('[saveId+date]')
-      .between([saveId, startOfDay], [saveId, endOfDay])
+      .where('[saveId+day]')
+      .equals([saveId, day])
       .toArray();
 
     const userMatch = todaysMatches.find(m => (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) && !m.played);
@@ -109,7 +96,7 @@ export const MatchService = {
     simulationWorker.onmessage = async (e) => {
       const { type, payload } = e.data;
       if (type === 'BATCH_COMPLETE') {
-        await db.transaction('rw', [db.matches, db.teams, db.gameState, db.news], async () => {
+        await db.transaction('rw', [db.matches, db.teams, db.gameState, db.news, db.players], async () => {
           for (const res of payload.results) {
             const match = await db.matches.get(res.matchId);
             if (match) await this.saveMatchResult(match, res.result, saveId, date, false);
@@ -129,7 +116,9 @@ export const MatchService = {
 
     await Promise.all([
       this.updateTeamStats(match.homeTeamId, result.homeScore, result.awayScore),
-      this.updateTeamStats(match.awayTeamId, result.awayScore, result.homeScore)
+      this.updateTeamStats(match.awayTeamId, result.awayScore, result.homeScore),
+      this.applyMatchFatigue(match.homeTeamId, saveId),
+      this.applyMatchFatigue(match.awayTeamId, saveId)
     ]);
 
     if (generateNews) {
@@ -143,6 +132,35 @@ export const MatchService = {
     if (state && (match.homeTeamId === state.userTeamId || match.awayTeamId === state.userTeamId)) {
       const isHome = match.homeTeamId === state.userTeamId;
       await ClubService.updateDynamicsAfterMatch(state.userTeamId!, isHome ? result.homeScore : result.awayScore, isHome ? result.awayScore : result.homeScore, isHome, saveId, date);
+    }
+  },
+
+  /**
+   * Applique de la fatigue aux joueurs après un match.
+   */
+  async applyMatchFatigue(teamId: number, saveId: number) {
+    const team = await db.teams.get(teamId);
+    const starters = await db.players.where('[saveId+teamId]').equals([saveId, teamId]).and(p => !!p.isStarter).toArray();
+    
+    // Fatigue de base : 20-30% d'énergie
+    let baseFatigue = randomInt(20, 30);
+    if (team?.tacticType === 'PRESSING') baseFatigue += 10; // Le pressing fatigue plus
+
+    for (const player of starters) {
+      const currentEnergy = player.energy || 100;
+      const currentCondition = player.condition || 100;
+      
+      // Réduction énergie
+      const newEnergy = Math.max(0, currentEnergy - baseFatigue);
+      
+      // Réduction légère de condition (usure physique)
+      const condLoss = randomInt(1, 4);
+      const newCondition = Math.max(10, currentCondition - condLoss);
+
+      await db.players.update(player.id!, {
+        energy: newEnergy,
+        condition: newCondition
+      });
     }
   },
 
@@ -176,14 +194,13 @@ export const MatchService = {
 
     if (isFailed) {
       await db.gameState.update(saveId, { isGameOver: true });
-      await NewsService.addNews(saveId, { date: state.currentDate, title: "LICENCIEMENT", content: `Objectif non rempli pour ${userTeam.name}.`, type: 'BOARD', importance: 3 });
+      await NewsService.addNews(saveId, { day: state.day, date: state.currentDate, title: "LICENCIEMENT", content: `Objectif non rempli pour ${userTeam.name}.`, type: 'BOARD', importance: 3 });
       return true; 
     }
 
-    const currentYear = state.currentDate.getFullYear();
     for (let i = 0; i < teams.length; i++) {
       const t = teams[i];
-      await db.history.add({ saveId, teamId: t.id!, seasonYear: currentYear, leagueName: 'The Football Association League', position: i + 1, points: t.points || 0, achievements: i === 0 ? ['Champion'] : [] });
+      await db.history.add({ saveId, teamId: t.id!, seasonYear: state.season, leagueName: 'The Football Association League', position: i + 1, points: t.points || 0, achievements: i === 0 ? ['Champion'] : [] });
       await db.teams.update(t.id!, { points: 0, matchesPlayed: 0 });
     }
 

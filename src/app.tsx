@@ -4,18 +4,40 @@ import GameLayout from '@/views/GameLayout';
 import CreateTeam from '@/views/CreateTeam';
 import LoadGame from '@/views/LoadGame';
 import { useGameStore } from '@/store/gameSlice';
+import { db } from '@/db/db';
 
-type AppState = 'menu' | 'create' | 'load' | 'game';
+type AppState = 'menu' | 'create' | 'load' | 'game' | 'initializing';
 
 export function App() {
-  const [appState, setAppState] = useState<AppState>('menu');
+  const [appState, setAppState] = useState<AppState>('initializing');
   const currentSaveId = useGameStore((state) => state.currentSaveId);
   const loadGame = useGameStore((state) => state.loadGame);
+
+  // Tentative de restauration de la session au démarrage
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const lastSave = await db.saveSlots.orderBy('lastPlayedDate').last();
+        if (lastSave && lastSave.id !== undefined) {
+          const success = await loadGame(lastSave.id);
+          if (success) {
+            setAppState('game');
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to restore session", e);
+      }
+      setAppState('menu');
+    };
+    
+    restoreSession();
+  }, []);
 
   // Sécurité : si on a un ID de sauvegarde actif mais qu'on est sur le menu (ex: après un refresh),
   // on restaure l'affichage du jeu.
   useEffect(() => {
-    if (currentSaveId && appState === 'menu') {
+    if (currentSaveId && (appState === 'menu' || appState === 'initializing')) {
       setAppState('game');
     }
   }, [currentSaveId]);
@@ -31,6 +53,10 @@ export function App() {
     if (success) setAppState('game');
     else alert('Erreur lors du chargement de la sauvegarde !');
   };
+
+  if (appState === 'initializing') {
+    return <div className="h-screen bg-paper flex items-center justify-center font-serif italic text-ink-light">Chargement des archives...</div>;
+  }
 
   switch (appState) {
     case 'menu': return <MainMenu onNewGame={handleNewGameClick} onLoadGame={handleLoadGameClick} />;

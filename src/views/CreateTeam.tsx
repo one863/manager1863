@@ -1,275 +1,228 @@
 import { useState, useEffect } from 'preact/hooks';
-import { db, SaveSlot, CURRENT_DATA_VERSION } from '@/db/db';
-import { useGameStore } from '@/store/gameSlice';
-import { useTranslation } from 'react-i18next';
-import { generateTeamSquad } from '@/data/players-generator';
+import { db, CURRENT_DATA_VERSION } from '@/db/db';
 import { generateLeagueStructure } from '@/data/league-templates';
+import { generateTeamSquad } from '@/data/players-generator';
+import Button from '@/components/Common/Button';
+import Card from '@/components/Common/Card';
+import { useTranslation } from 'react-i18next';
+import { Scroll, Palette, Shield, User, Check } from 'lucide-preact';
+import { useGameStore } from '@/store/gameSlice';
 
-interface CreateTeamProps {
-  onGameCreated: () => void;
-  onCancel: () => void;
-}
+const CLUB_COLORS = [
+  { name: 'Rouge & Blanc', primary: '#ef4444', secondary: '#ffffff' },
+  { name: 'Bleu & Blanc', primary: '#3b82f6', secondary: '#ffffff' },
+  { name: 'Vert & Blanc', primary: '#22c55e', secondary: '#ffffff' },
+  { name: 'Noir & Blanc', primary: '#171717', secondary: '#ffffff' },
+  { name: 'Violet & Blanc', primary: '#a855f7', secondary: '#ffffff' },
+  { name: 'Jaune & Bleu', primary: '#eab308', secondary: '#1e40af' },
+  { name: 'Ciel & Marine', primary: '#7dd3fc', secondary: '#1e3a8a' },
+  { name: 'Bordeaux & Or', primary: '#991b1b', secondary: '#fbbf24' },
+  { name: 'Orange & Noir', primary: '#f97316', secondary: '#171717' },
+  { name: 'Jaune & Noir', primary: '#facc15', secondary: '#171717' },
+  { name: 'Blanc & Rouge', primary: '#ffffff', secondary: '#ef4444' },
+  { name: 'Marine & Ciel', primary: '#1e3a8a', secondary: '#7dd3fc' },
+  { name: 'Marron & Blanc', primary: '#78350f', secondary: '#ffffff' },
+  { name: 'Gris & Bleu', primary: '#6b7280', secondary: '#1e40af' },
+  { name: 'Rose & Noir', primary: '#ec4899', secondary: '#171717' },
+  { name: 'Menthe & Marine', primary: '#2dd4bf', secondary: '#1e3a8a' },
+];
 
-export default function CreateTeam({
-  onGameCreated,
-  onCancel,
-}: CreateTeamProps) {
+export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated: () => void; onCancel: () => void }) {
   const { t } = useTranslation();
-
+  const initializeStore = useGameStore(state => state.initialize);
+  
+  const [step, setStep] = useState(1);
   const [managerName, setManagerName] = useState('');
   const [teamName, setTeamName] = useState('');
-
-  const [step, setStep] = useState<1 | 2>(1);
-  const [slots, setSlots] = useState<(SaveSlot | undefined)[]>([]);
+  const [selectedColor, setSelectedColor] = useState(CLUB_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState('');
-
-  const initializeGame = useGameStore((state) => state.initialize);
+  const [slots, setSlots] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadSlots = async () => {
-      const loadedSlots = [];
-      for (let i = 1; i <= 10; i++) {
-        loadedSlots.push(await db.saveSlots.get(i));
-      }
-      setSlots(loadedSlots);
-    };
-    loadSlots();
+    db.saveSlots.toArray().then(setSlots);
   }, []);
 
-  const handleInfoSubmit = (e: Event) => {
-    e.preventDefault();
-    if (managerName && teamName) {
-      setStep(2);
-    }
-  };
-
-  const handleSlotSelect = async (slotId: number) => {
-    const slot = slots[slotId - 1];
-    if (
-      slot &&
-      !confirm(
-        `This slot is already used by "${slot.teamName}". Do you want to overwrite it?`,
-      )
-    )
-      return;
-
+  const handleCreate = async (slotId: number) => {
+    if (!managerName || !teamName || isCreating) return;
     setIsCreating(true);
-    setLoadingStatus(t('create.creating'));
 
     try {
-      let createdTeamId = 0;
+      const teamId = await db.teams.add({
+        saveId: slotId,
+        name: teamName,
+        presidentName: managerName,
+        primaryColor: selectedColor.primary,
+        secondaryColor: selectedColor.secondary,
+        budget: 1000,
+        reputation: 50,
+        fanCount: 150,
+        confidence: 80,
+        stadiumName: `${teamName} Ground`,
+        stadiumCapacity: 800,
+        stadiumLevel: 1,
+        tacticType: 'NORMAL',
+        version: CURRENT_DATA_VERSION
+      });
 
-      await db.transaction(
-        'rw',
-        [db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, db.news, db.history],
-        async () => {
-          // 1. Nettoyage COMPLET du slot (Correction du bug des anciennes dépêches)
-          setLoadingStatus('Nettoyage des archives...');
-          await Promise.all([
-            db.players.where('saveId').equals(slotId).delete(),
-            db.teams.where('saveId').equals(slotId).delete(),
-            db.matches.where('saveId').equals(slotId).delete(),
-            db.leagues.where('saveId').equals(slotId).delete(),
-            db.news.where('saveId').equals(slotId).delete(),
-            db.history.where('saveId').equals(slotId).delete(),
-            db.gameState.delete(slotId),
-            db.saveSlots.delete(slotId)
-          ]);
+      const squad = generateTeamSquad(50);
+      const playersToInsert = squad.map(p => ({ ...p, saveId: slotId, teamId: teamId as number }));
+      await db.players.bulkAdd(playersToInsert);
 
-          // 2. Création de l'équipe Joueur
-          setLoadingStatus('Fondation de votre club...');
-          createdTeamId = (await db.teams.add({
-            saveId: slotId,
-            name: teamName,
-            leagueId: 0,
-            managerName: managerName,
-            budget: 1000,
-            reputation: 50,
-            fanCount: 150,
-            confidence: 80,
-            stadiumName: `${teamName} Park`,
-            stadiumCapacity: 800,
-            stadiumLevel: 1,
-            tacticType: 'NORMAL',
-            version: CURRENT_DATA_VERSION,
-          })) as number;
+      await generateLeagueStructure(slotId, teamId as number, teamName);
 
-          // 3. Génération des joueurs du Joueur
-          const squad = generateTeamSquad(50);
-          const playersToInsert = squad.map((player) => ({
-            ...player,
-            saveId: slotId,
-            teamId: createdTeamId,
-          }));
-          await db.players.bulkAdd(playersToInsert);
+      const date = new Date('1863-09-01');
+      await db.saveSlots.put({ id: slotId, managerName, teamName, presidentName: managerName, season: 1, day: 1, lastPlayedDate: new Date() });
+      await db.gameState.put({ saveId: slotId, season: 1, day: 1, currentDate: date, userTeamId: teamId as number, version: CURRENT_DATA_VERSION, isGameOver: false });
 
-          // 4. Génération de la Ligue et des Adversaires
-          setLoadingStatus('Organisation de la Football Association...');
-          await generateLeagueStructure(slotId, createdTeamId, teamName);
-        },
-      );
-
-      // 5. Init store
-      setLoadingStatus('Finalisation...');
-      if (createdTeamId > 0) {
-        await initializeGame(
-          slotId,
-          new Date('1863-09-01'),
-          createdTeamId,
-          managerName,
-          teamName,
-        );
-        onGameCreated();
-      } else {
-        throw new Error('Erreur ID Team');
-      }
-    } catch (error) {
-      console.error('Error creating game:', error);
+      await initializeStore(slotId, date, teamId as number, managerName, teamName);
+      onGameCreated();
+    } catch (e) {
+      console.error("Creation error", e);
+      alert("Une erreur est survenue lors de la création.");
       setIsCreating(false);
     }
   };
 
-  if (step === 1) {
-    return (
-      <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 overflow-y-auto">
-        <header className="mb-8 text-center">
-          <h1 className="text-2xl font-serif font-bold text-accent">
-            {t('create.title')}
-          </h1>
-          <p className="text-ink-light text-sm italic mt-1">
-            {t('create.subtitle')}
-          </p>
+  return (
+    <div className="min-h-screen bg-paper p-4 flex flex-col items-center animate-fade-in pb-20 overflow-y-auto">
+      <div className="max-w-md w-full space-y-6">
+        <header className="text-center">
+          <div className="inline-block p-3 bg-white rounded-full text-accent mb-2 shadow-sm border border-gray-100">
+            <Shield size={32} />
+          </div>
+          <h1 className="text-2xl font-serif font-bold text-ink tracking-tight">{t('create.title')}</h1>
+          <p className="text-ink-light italic text-xs">{t('create.subtitle')}</p>
         </header>
 
-        <form onSubmit={handleInfoSubmit} className="space-y-6 flex-1">
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-ink uppercase tracking-wider">
-              {t('create.manager_label')}
-            </label>
-            <input
-              type="text"
-              value={managerName}
-              onInput={(e) => setManagerName(e.currentTarget.value)}
-              placeholder={t('create.manager_placeholder')}
-              className="w-full p-3 bg-white border border-gray-300 rounded focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors"
-              required
-              autoFocus
-            />
-          </div>
+        {step === 1 && (
+          <div className="space-y-4 animate-slide-up">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
+                    <User size={10} /> {t('create.manager_label')}
+                  </label>
+                  <input
+                    type="text"
+                    value={managerName}
+                    onInput={(e) => setManagerName(e.currentTarget.value)}
+                    placeholder={t('create.manager_placeholder')}
+                    className="w-full bg-paper-dark/30 border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm text-ink font-serif focus:border-accent outline-none transition-all"
+                  />
+                </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-ink uppercase tracking-wider">
-              {t('create.club_label')}
-            </label>
-            <input
-              type="text"
-              value={teamName}
-              onInput={(e) => setTeamName(e.currentTarget.value)}
-              placeholder={t('create.club_placeholder')}
-              className="w-full p-3 bg-white border border-gray-300 rounded focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors"
-              required
-            />
-          </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
+                    <Shield size={10} /> {t('create.club_label')}
+                  </label>
+                  <input
+                    type="text"
+                    value={teamName}
+                    onInput={(e) => setTeamName(e.currentTarget.value)}
+                    placeholder={t('create.club_placeholder')}
+                    className="w-full bg-paper-dark/30 border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm text-ink font-serif focus:border-accent outline-none transition-all"
+                  />
+                </div>
+              </div>
 
-          <div className="pt-4 text-xs text-ink-light text-justify leading-relaxed bg-paper-dark p-3 rounded border border-gray-200">
-            <p>{t('create.charter_text')}</p>
-          </div>
+              <div className="space-y-3 pt-1">
+                <label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
+                  <Palette size={10} /> Couleurs de l'Institution
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {CLUB_COLORS.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedColor(c)}
+                      className={`group relative aspect-square rounded-lg transition-all active:scale-95 border ${selectedColor.name === c.name ? 'border-accent ring-2 ring-accent/20 scale-110 z-10' : 'border-gray-200 hover:border-gray-300'}`}
+                    >
+                       <div className="h-full w-full rounded-md overflow-hidden flex flex-col">
+                          <div className="flex-1" style={{ backgroundColor: c.primary }}></div>
+                          <div className="h-1/3" style={{ backgroundColor: c.secondary }}></div>
+                       </div>
+                       {selectedColor.name === c.name && (
+                         <div className="absolute inset-0 flex items-center justify-center bg-accent/10 rounded-md">
+                            <Check size={14} className="text-white drop-shadow-md" strokeWidth={5} />
+                         </div>
+                       )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[9px] text-center font-bold uppercase tracking-widest text-accent bg-accent/5 py-1 rounded-full">{selectedColor.name}</p>
+              </div>
+            </div>
 
-          <div className="pt-6 space-y-3">
-            <button
-              type="submit"
-              className="w-full py-4 bg-accent text-white font-bold rounded shadow-lg border-b-4 border-amber-900 active:border-b-0 active:translate-y-1 transition-all"
+            <div className="bg-paper-dark/20 p-4 rounded-xl border border-gray-200">
+               <p className="text-[11px] text-ink-light leading-relaxed font-serif italic text-center px-2 opacity-80">
+                  "{t('create.charter_text')}"
+               </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={onCancel} className="flex-1 py-3 text-ink-light font-bold text-[10px] uppercase tracking-widest hover:text-accent">Annuler</button>
+              <Button
+                onClick={() => setStep(2)}
+                disabled={!managerName || !teamName}
+                variant="primary"
+                className="flex-[2] py-3 text-sm shadow-lg"
+              >
+                Continuer
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4 animate-slide-up">
+            <div className="text-center mb-2">
+              <h2 className="text-xl font-serif font-bold text-ink leading-tight">Choisir une Partie</h2>
+              <p className="text-xs text-ink-light italic">Où souhaitez-vous sceller l'acte de fondation ?</p>
+            </div>
+            
+            <div className="space-y-3">
+              {[1, 2, 3].map((id) => {
+                const slot = slots.find((s) => s.id === id);
+                return (
+                  <button
+                    key={id}
+                    disabled={isCreating}
+                    onClick={() => handleCreate(id)}
+                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between bg-white hover:border-accent group ${isCreating ? 'opacity-50 grayscale' : ''}`}
+                  >
+                    <div className="flex items-center gap-4">
+                       <div className={`p-2.5 rounded-xl ${slot ? 'bg-amber-100 text-amber-700' : 'bg-paper-dark text-gray-400 group-hover:bg-accent/10 group-hover:text-accent transition-colors'}`}>
+                          <Scroll size={20} />
+                       </div>
+                       <div>
+                          <div className="font-bold text-sm text-ink">{slot ? slot.teamName : `Partie vierge #${id}`}</div>
+                          <div className="text-[9px] text-ink-light uppercase tracking-widest font-black">
+                             {slot ? `Saison ${slot.season || 1}` : 'Libre pour signature'}
+                          </div>
+                       </div>
+                    </div>
+                    {slot && <span className="text-[8px] font-black text-red-500 border border-red-200 px-2 py-0.5 rounded uppercase tracking-tighter">Écraser</span>}
+                  </button>
+                );
+              })}
+            </div>
+            
+            {isCreating && (
+               <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-accent font-bold animate-pulse text-[10px] uppercase tracking-widest">Sceau en cours...</p>
+               </div>
+            )}
+
+            <button 
+              disabled={isCreating}
+              onClick={() => setStep(1)} 
+              className="w-full py-2 text-ink-light font-bold text-[10px] uppercase tracking-widest hover:text-accent transition-colors"
             >
-              {t('create.sign_button')}
-            </button>
-
-            <button
-              type="button"
-              onClick={onCancel}
-              className="w-full py-3 text-ink-light hover:text-ink transition-colors text-sm"
-            >
-              {t('create.cancel')}
+              Modifier l'identité
             </button>
           </div>
-        </form>
+        )}
       </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-screen max-w-md mx-auto bg-paper p-6 overflow-hidden">
-      <header className="mb-6 text-center">
-        <h1 className="text-xl font-serif font-bold text-accent">
-          {t('create.choose_slot')}
-        </h1>
-        <p className="text-ink-light text-sm italic">{t('create.slot_desc')}</p>
-      </header>
-
-      {isCreating ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-accent font-bold animate-pulse text-center px-8">
-            {loadingStatus}
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="flex-1 overflow-y-auto space-y-3 pb-safe">
-            {slots.map((slot, index) => {
-              const slotId = index + 1;
-              return (
-                <button
-                  key={slotId}
-                  onClick={() => handleSlotSelect(slotId)}
-                  className={`w-full text-left relative border-2 rounded-lg p-3 transition-all
-                    ${
-                      slot
-                        ? 'bg-paper-dark border-gray-300 opacity-80 hover:opacity-100 hover:border-red-300'
-                        : 'bg-white border-dashed border-gray-300 hover:border-accent hover:shadow-md'
-                    }
-                  `}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-mono text-xs text-ink-light bg-gray-200 px-2 rounded">
-                      Slot {slotId}
-                    </span>
-                    {slot ? (
-                      <span className="text-xs text-red-500 font-bold">
-                        {t('create.slot_occupied')}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-green-600 font-bold">
-                        {t('create.slot_free')}
-                      </span>
-                    )}
-                  </div>
-                  {slot ? (
-                    <div className="mt-1">
-                      <div className="font-bold text-ink">{slot.teamName}</div>
-                      <div className="text-xs text-ink-light">
-                        {slot.managerName} -{' '}
-                        {slot.currentDate.toLocaleDateString()}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-center text-gray-400 text-sm">
-                      {t('create.slot_new')}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => setStep(1)}
-            className="mt-4 py-3 w-full text-ink-light hover:text-ink border-t border-gray-200"
-          >
-            {t('load.back')}
-          </button>
-        </>
-      )}
     </div>
   );
 }
