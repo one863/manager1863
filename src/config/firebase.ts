@@ -17,8 +17,11 @@ let auth: Auth | null = null;
 let googleProvider: GoogleAuthProvider | null = null;
 let db: Firestore | null = null;
 
+// DÉSACTIVATION TEMPORAIRE DU CLOUD FIREBASE
+const ENABLE_FIREBASE = false;
+
 // On n'initialise que si la clé API est présente
-if (firebaseConfig.apiKey) {
+if (ENABLE_FIREBASE && firebaseConfig.apiKey) {
   try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
@@ -28,7 +31,7 @@ if (firebaseConfig.apiKey) {
     console.warn("Firebase initialization failed. Cloud features disabled.", e);
   }
 } else {
-  console.log("No Firebase config found. Cloud features disabled.");
+  // console.log("No Firebase config found or disabled. Cloud features disabled.");
 }
 
 export { auth, googleProvider, db };

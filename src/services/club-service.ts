@@ -1,6 +1,7 @@
 import { db, Team, NewsArticle } from '@/db/db';
 import { clamp, randomInt, getRandomElement } from '@/utils/math';
 import { NewsService } from './news-service';
+import i18next from 'i18next';
 
 export const ClubService = {
   async processDailyUpdates(teamId: number, saveId: number, currentDay: number, currentDate: Date) {
@@ -27,13 +28,18 @@ export const ClubService = {
 
       await db.teams.update(teamId, updateData);
 
+      const titleKey = project.type === 'NEW_STADIUM' ? 'narratives.news.club.stadium_new_title' : 'narratives.news.club.stadium_upgrade_title';
+      const contentKey = project.type === 'NEW_STADIUM' ? 'narratives.news.club.stadium_new_content' : 'narratives.news.club.stadium_upgrade_content';
+
       await NewsService.addNews(saveId, {
         day: currentDay,
         date: currentDate,
-        title: project.type === 'NEW_STADIUM' ? "INAUGURATION DU STADE" : "TRAVAUX TERMINÉS",
-        content: project.type === 'NEW_STADIUM' 
-          ? `Le ruban est coupé ! Bienvenue au ${project.targetName}, notre nouveau foyer de ${project.targetCapacity} places.`
-          : `L'agrandissement de ${team.stadiumName} est fini. Nous pouvons désormais accueillir ${project.targetCapacity} supporters.`,
+        title: i18next.t(titleKey, { defaultValue: project.type === 'NEW_STADIUM' ? "INAUGURATION" : "TRAVAUX TERMINÉS" }),
+        content: i18next.t(contentKey, { 
+          name: project.type === 'NEW_STADIUM' ? project.targetName : team.stadiumName,
+          capacity: project.targetCapacity,
+          defaultValue: "Les travaux sont terminés."
+        }),
         type: 'CLUB',
         importance: 3
       });
@@ -63,27 +69,54 @@ export const ClubService = {
     const isDraw = myScore === oppScore;
     const goalDiff = myScore - oppScore;
 
+    // Dynamique de réputation
     let repChange = isWin ? 1 + clamp(goalDiff, 0, 3) : isDraw ? 0 : -1;
+    // Bonus de réputation si on bat une équipe plus forte (à implémenter si on avait accès à l'adversaire ici, mais on simplifie)
     const newReputation = clamp(team.reputation + repChange, 1, 100);
 
+    // Dynamique de Fans
     let fanChange = isWin ? randomInt(10, 25) + (isHome ? 10 : 0) : isDraw ? randomInt(-2, 5) : randomInt(-10, -2);
+    // Les fans viennent plus si la réputation monte
     fanChange = Math.round(fanChange * (1 + newReputation / 100));
     const newFanCount = Math.max(10, team.fanCount + fanChange);
 
+    // Dynamique de Confiance
     let confChange = isWin ? 5 : isDraw ? -1 : -8;
     const newConfidence = clamp(team.confidence + confChange, 0, 100);
 
+    // --- BILLETTERIE ---
     let ticketIncome = 0;
     if (isHome) {
-      const attendance = Math.min(team.fanCount, team.stadiumCapacity);
-      ticketIncome = Math.round(attendance * 0.15); // Prix billet légèrement augmenté
+      // Affluence de base : Fans limités par le stade
+      let baseAttendance = Math.min(team.fanCount, team.stadiumCapacity);
+      
+      // Facteur aléatoire (Météo, Jour de semaine...) : +/- 10%
+      const variation = 1 + (randomInt(-10, 10) / 100);
+      
+      // Facteur de forme : si on gagne (confiance haute), plus de monde
+      const formFactor = 1 + ((team.confidence - 50) / 200); // +/- 25% max
+
+      const attendance = Math.floor(clamp(baseAttendance * variation * formFactor, 0, team.stadiumCapacity));
+      
+      // Prix du billet : 0.15£ par défaut + prime de réputation
+      const ticketPrice = 0.15 + (team.reputation / 1000); 
+      
+      ticketIncome = Math.round(attendance * ticketPrice); 
     }
+    // -------------------
 
     let sponsorIncome = 0;
     if (team.sponsorName && team.sponsorExpiryDate && new Date(team.sponsorExpiryDate) > date) {
       sponsorIncome = team.sponsorIncome || 0;
     } else if (team.sponsorName) {
-      await NewsService.addNews(saveId, { day: 0, date, title: 'SPONSOR PARTI', content: `Le contrat avec ${team.sponsorName} est fini.`, type: 'SPONSOR', importance: 2 });
+      await NewsService.addNews(saveId, { 
+        day: 0, 
+        date, 
+        title: i18next.t('narratives.news.club.sponsor_left_title', { defaultValue: 'SPONSOR PARTI' }), 
+        content: i18next.t('narratives.news.club.sponsor_left_content', { name: team.sponsorName, defaultValue: `Le contrat avec ${team.sponsorName} est fini.` }), 
+        type: 'SPONSOR', 
+        importance: 2 
+      });
       await db.teams.update(teamId, { sponsorName: undefined, sponsorIncome: 0 });
     }
 
@@ -129,25 +162,56 @@ export const ClubService = {
   async checkSacking(teamId: number, saveId: number, date: Date) {
     const team = await db.teams.get(teamId);
     if (team && team.confidence <= 0) {
-      await NewsService.addNews(saveId, { day: 0, date, title: 'CONTRAT ROMPU', content: `Le board a décidé de vous licencier.`, type: 'CLUB', importance: 3 });
+      await NewsService.addNews(saveId, { 
+        day: 0, 
+        date, 
+        title: i18next.t('narratives.news.club.sacked_title', { defaultValue: 'CONTRAT ROMPU' }), 
+        content: i18next.t('narratives.news.club.sacked_content', { defaultValue: 'Le board a décidé de vous licencier.' }), 
+        type: 'CLUB', 
+        importance: 3 
+      });
       return true;
     }
     return false;
   },
 
   async getSponsorOffers(reputation: number, currentDate: Date) {
-    const historicalSponsors = [
-      { name: 'London Steam Engines Co.', baseIncome: 20, durationMonths: 6 },
-      { name: 'Victorian Tea Imports', baseIncome: 15, durationMonths: 12 },
-      { name: 'Royal Textile Mill', baseIncome: 25, durationMonths: 4 },
-      { name: "The Gentleman's Hat Shop", baseIncome: 10, durationMonths: 24 },
-      { name: 'Iron Bridge Foundries', baseIncome: 30, durationMonths: 3 },
+    const allSponsors = [
+      { name: 'The Local Bakery', baseIncome: 8, durationMonths: 6, minRep: 0 },
+      { name: 'Smith & Sons Tools', baseIncome: 12, durationMonths: 12, minRep: 10 },
+      { name: 'London Steam Engines Co.', baseIncome: 25, durationMonths: 12, minRep: 30 },
+      { name: 'Victorian Tea Imports', baseIncome: 35, durationMonths: 24, minRep: 40 },
+      { name: 'Royal Textile Mill', baseIncome: 50, durationMonths: 36, minRep: 60 },
+      { name: "The Gentleman's Hat Shop", baseIncome: 15, durationMonths: 12, minRep: 20 },
+      { name: 'Iron Bridge Foundries', baseIncome: 40, durationMonths: 12, minRep: 50 },
+      { name: 'East India Company', baseIncome: 100, durationMonths: 48, minRep: 80 },
     ];
-    return historicalSponsors.sort(() => 0.5 - Math.random()).slice(0, 3).map((s) => {
-      const expiryDate = new Date(currentDate);
-      expiryDate.setMonth(expiryDate.getMonth() + s.durationMonths);
-      return { ...s, income: Math.round(s.baseIncome * (reputation / 50)), expiryDate };
-    });
+
+    // Filtrer les sponsors éligibles selon la réputation
+    const eligibleSponsors = allSponsors.filter(s => reputation >= s.minRep);
+
+    // Déterminer combien d'offres montrer (1 à 3) selon la réputation
+    // Rep 0-20: 1 offre
+    // Rep 21-50: 2 offres
+    // Rep 51+: 3 offres
+    let offerCount = 1;
+    if (reputation > 50) offerCount = 3;
+    else if (reputation > 20) offerCount = 2;
+
+    // Mélanger et prendre le nombre défini
+    return eligibleSponsors
+      .sort(() => 0.5 - Math.random())
+      .slice(0, offerCount)
+      .map((s) => {
+        const expiryDate = new Date(currentDate);
+        expiryDate.setMonth(expiryDate.getMonth() + s.durationMonths);
+        
+        // Petite variation aléatoire sur l'offre (+/- 10%)
+        const variance = 0.9 + (Math.random() * 0.2);
+        const finalIncome = Math.round(s.baseIncome * (1 + reputation / 100) * variance);
+        
+        return { ...s, income: finalIncome, expiryDate };
+      });
   },
 
   async signSponsor(teamId: number, offer: any) {

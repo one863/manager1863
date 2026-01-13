@@ -81,14 +81,29 @@ async function generateTutorialNews(saveId: number, managerName: string) {
     }
   ];
 
-  const newsItems: NewsArticle[] = tutorials.map(tuto => ({
+  // Le premier message est immédiat
+  const initialNews = {
+    saveId,
+    day: tutorials[0].day,
+    date: new Date(1863, 8, tutorials[0].day),
+    title: tutorials[0].title,
+    content: tutorials[0].content,
+    type: 'BOARD',
+    importance: 1,
+    isRead: false
+  };
+
+  await db.news.add(initialNews as NewsArticle);
+
+  // Les autres messages sont "programmés" pour apparaître plus tard
+  const newsItems: NewsArticle[] = tutorials.slice(1).map(tuto => ({
     saveId,
     day: tuto.day,
-    date: new Date(1863, 8, tuto.day), // Septembre 1863
+    date: new Date(1863, 8, tuto.day), 
     title: tuto.title,
     content: tuto.content,
     type: 'BOARD',
-    importance: 1, // Haute importance pour être vu
+    importance: 1, 
     isRead: false
   }));
 
@@ -121,13 +136,18 @@ export const WorldGenerator = {
       const teamsCount = level === DIVISIONS ? TEAMS_PER_DIV - 1 : TEAMS_PER_DIV; // Une place pour le joueur en Div 5
       
       // Définir la force moyenne de la division (Div 1 = fort, Div 5 = faible)
-      // Div 1: 85, Div 2: 75, Div 3: 65, Div 4: 55, Div 5: 45
-      const baseSkill = 95 - (level * 10); 
+      let baseSkill = 95 - (level * 10); 
 
       for (let i = 0; i < teamsCount; i++) {
         const name = generateTeamName(usedNames);
         const stadiumName = `${name.split(' ')[0]} ${getRandomElement(STADIUM_SUFFIXES)}`;
         
+        let teamSkill = baseSkill;
+        // Ajustement pour la Division 6 (joueur) : niveau aléatoire entre 25 et 35
+        if (level === DIVISIONS) {
+            teamSkill = randomInt(25, 35);
+        }
+
         const teamId = await db.teams.add({
           saveId,
           leagueId,
@@ -137,19 +157,19 @@ export const WorldGenerator = {
           secondaryColor: generateColor(),
           matchesPlayed: 0,
           points: 0,
-          budget: baseSkill * 1000,
-          reputation: baseSkill,
-          fanCount: baseSkill * 50,
+          budget: teamSkill * 1000,
+          reputation: teamSkill,
+          fanCount: teamSkill * 50,
           confidence: 50,
           stadiumName,
-          stadiumCapacity: baseSkill * 200,
-          stadiumLevel: Math.ceil(baseSkill / 20),
+          stadiumCapacity: teamSkill * 200,
+          stadiumLevel: Math.ceil(teamSkill / 20),
           tacticType: 'NORMAL',
           formation: '4-4-2',
           version: 1
         } as Team);
 
-        await generateSquad(saveId, teamId as number, baseSkill);
+        await generateSquad(saveId, teamId as number, teamSkill);
       }
 
       // Ajouter l'équipe du joueur en Division 6
@@ -177,7 +197,7 @@ export const WorldGenerator = {
           version: 1
         } as Team) as number;
 
-        // Générer l'équipe du joueur (skill moyen pour Div 6 ~35)
+        // Le joueur commence à 35, donc il sera dans le haut du panier de sa division (25-35)
         await generateSquad(saveId, userTeamId, 35);
       }
     }

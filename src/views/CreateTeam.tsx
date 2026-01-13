@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { db, CURRENT_DATA_VERSION } from '@/db/db';
 import { WorldGenerator } from '@/data/world-generator';
+import { generateSeasonFixtures } from '@/data/league-templates';
 import Button from '@/components/Common/Button';
 import { useTranslation } from 'react-i18next';
 import { Scroll, Palette, Shield, User, Check } from 'lucide-preact';
@@ -32,7 +33,8 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
   const initializeStore = useGameStore(state => state.initialize);
   
   const [step, setStep] = useState(1);
-  const [managerName, setManagerName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [teamName, setTeamName] = useState('');
   const [selectedColor, setSelectedColor] = useState(CLUB_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
@@ -43,7 +45,8 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
   }, []);
 
   const handleCreate = async (slotId: number) => {
-    if (!managerName || !teamName || isCreating) return;
+    const managerName = `${firstName.trim()} ${lastName.trim()}`;
+    if (!firstName || !lastName || !teamName || isCreating) return;
     setIsCreating(true);
 
     try {
@@ -69,16 +72,9 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
         selectedColor.secondary
       );
       
-      // On doit générer les matchs pour la division du joueur (et les autres si possible, mais au moins celle du joueur)
-      // generateWorld ne lance pas generateSeasonFixtures. On doit le faire ici pour la ligue du joueur.
       const userTeam = await db.teams.get(teamId);
       if (userTeam) {
-          // On génère le calendrier pour TOUTES les ligues du saveId
-          // Pour l'instant, le moteur ne simule que les matchs de la ligue courante dans MatchService.checkSeasonEnd
-          // Pour la cohérence, générons le calendrier de la division du joueur.
-          // Idéalement, on génère pour toutes les divisions pour avoir un univers vivant.
           const leagues = await db.leagues.where('saveId').equals(slotId).toArray();
-          const { generateSeasonFixtures } = await import('@/data/league-templates'); // Lazy import
           
           for (const league of leagues) {
              const teamsInLeague = await db.teams.where('leagueId').equals(league.id!).primaryKeys();
@@ -116,15 +112,24 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1">
                   <label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
-                    <User size={10} /> {t('create.manager_label')}
+                    <User size={10} /> Identité du Manager
                   </label>
-                  <input
-                    type="text"
-                    value={managerName}
-                    onInput={(e) => setManagerName(e.currentTarget.value)}
-                    placeholder={t('create.manager_placeholder')}
-                    className="w-full bg-paper-dark/30 border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm text-ink font-serif focus:border-accent outline-none transition-all"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={firstName}
+                      onInput={(e) => setFirstName(e.currentTarget.value)}
+                      placeholder="Prénom"
+                      className="w-1/2 bg-paper-dark/30 border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm text-ink font-serif focus:border-accent outline-none transition-all"
+                    />
+                    <input
+                      type="text"
+                      value={lastName}
+                      onInput={(e) => setLastName(e.currentTarget.value)}
+                      placeholder="Nom"
+                      className="w-1/2 bg-paper-dark/30 border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm text-ink font-serif focus:border-accent outline-none transition-all"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -178,7 +183,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: { onGameCreated:
               <button onClick={onCancel} className="flex-1 py-3 text-ink-light font-bold text-[10px] uppercase tracking-widest hover:text-accent">Annuler</button>
               <Button
                 onClick={() => setStep(2)}
-                disabled={!managerName || !teamName}
+                disabled={!firstName || !lastName || !teamName}
                 variant="primary"
                 className="flex-[2] py-3 text-sm shadow-lg"
               >

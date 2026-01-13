@@ -1,19 +1,41 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useGameStore } from '@/store/gameSlice';
 import { NewsService } from '@/services/news-service';
-import { NewsArticle } from '@/db/db';
+import { NewsArticle, Player } from '@/db/db'; // Import Player
+import { db } from '@/db/db'; // Import db
 import Card from '@/components/Common/Card';
 import { Newspaper, Bell, Info, ArrowLeft, CheckCircle, Target, Building2, ChevronLeft, ChevronRight, Shield } from 'lucide-preact';
 import { useTranslation } from 'react-i18next';
 
-export default function NewsView() {
+// Import des composants pour les modales
+import ClubDetails from '@/components/ClubDetails';
+import PlayerCard from '@/components/PlayerCard';
+
+interface NewsListProps {
+  onNavigate?: (view: any) => void;
+}
+
+const VIEW_MAPPING: Record<string, string> = {
+  'Tableau de Bord': 'dashboard',
+  'Effectif': 'squad',
+  'Club': 'club',
+  'Marché': 'transfers',
+  'Classement': 'league',
+  'Entraînement': 'training',
+  'Tactique': 'squad'
+};
+
+export default function NewsView({ onNavigate }: NewsListProps) {
   const { t } = useTranslation();
   const currentSaveId = useGameStore((state) => state.currentSaveId);
-  const season = useGameStore((state) => state.season);
   const refreshUnreadNewsCount = useGameStore((state) => state.refreshUnreadNewsCount);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // États pour les modales
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   useEffect(() => {
     const loadNews = async () => {
@@ -47,6 +69,65 @@ export default function NewsView() {
     }
   };
 
+  const handleLinkClick = async (type: string, id: string, label: string) => {
+    if (type === 'view' && onNavigate) {
+      onNavigate(id);
+    } else if (type === 'team') {
+      setSelectedTeamId(parseInt(id, 10));
+    } else if (type === 'player') {
+      const player = await db.players.get(parseInt(id, 10));
+      if (player) setSelectedPlayer(player);
+    }
+  };
+
+  const renderRichText = (text: string) => {
+    // 1. Gérer les liens explicites [[type:id|Label]]
+    // 2. Gérer le gras Markdown **Texte** -> Si "Texte" est une vue, on en fait un lien
+
+    const parts = text.split(/(\[\[.+?\]\]|\*\*.+?\*\*)/g);
+
+    return parts.map((part, index) => {
+      // Lien interne [[type:id|Label]]
+      const linkMatch = part.match(/^\[\[(\w+):(.+?)\|(.+?)\]\]$/);
+      if (linkMatch) {
+        const [, type, id, label] = linkMatch;
+        return (
+          <span 
+            key={index} 
+            className="text-accent font-bold cursor-pointer hover:underline"
+            onClick={(e) => { e.stopPropagation(); handleLinkClick(type, id, label); }}
+          >
+            {label}
+          </span>
+        );
+      }
+
+      // Gras Markdown **Texte**
+      const boldMatch = part.match(/^\*\*(.+?)\*\*$/);
+      if (boldMatch) {
+        const content = boldMatch[1];
+        // Vérifier si c'est un lien de navigation connu
+        const viewKey = Object.keys(VIEW_MAPPING).find(key => content.includes(key));
+        
+        if (viewKey && onNavigate) {
+           return (
+            <span 
+              key={index} 
+              className="text-accent font-bold cursor-pointer hover:underline"
+              onClick={(e) => { e.stopPropagation(); handleLinkClick('view', VIEW_MAPPING[viewKey], content); }}
+            >
+              {content}
+            </span>
+           );
+        }
+
+        return <strong key={index} className="text-ink font-bold">{content}</strong>;
+      }
+
+      return part;
+    });
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'PRESS': return <Newspaper className="text-blue-600" size={20} />;
@@ -65,6 +146,10 @@ export default function NewsView() {
 
     return (
       <div className="space-y-4 animate-fade-in pb-24">
+        {/* Modales */}
+        {selectedTeamId && <ClubDetails teamId={selectedTeamId} onClose={() => setSelectedTeamId(null)} />}
+        {selectedPlayer && <PlayerCard player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
+
         <div className="flex justify-between items-center px-1">
           <button onClick={() => setSelectedArticleId(null)} className="flex items-center gap-1 text-ink-light hover:text-accent transition-colors py-2 text-sm">
             <ArrowLeft size={16} /> <span>Retour</span>
@@ -106,7 +191,7 @@ export default function NewsView() {
           </div>
 
           <div className="flex-1 text-ink leading-relaxed font-serif text-lg whitespace-pre-wrap italic relative z-10 px-2">
-            "{selectedArticle.content}"
+            {renderRichText(selectedArticle.content)}
           </div>
 
           <div className="mt-12 pt-6 border-t border-gray-100 text-center relative z-10">

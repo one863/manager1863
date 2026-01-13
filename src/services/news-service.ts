@@ -1,6 +1,7 @@
 import { db, NewsArticle, Player } from '@/db/db';
 import { getNarrative } from '@/data/narratives';
 import { probability, getRandomElement } from '@/utils/math';
+import i18next from 'i18next';
 
 export const NewsService = {
   async addNews(saveId: number, article: Omit<NewsArticle, 'id' | 'saveId' | 'isRead'>) {
@@ -8,11 +9,25 @@ export const NewsService = {
   },
 
   async getLatestNews(saveId: number, limit: number = 5) {
-    return await db.news.where('saveId').equals(saveId).reverse().limit(limit).toArray();
+    const gameState = await db.gameState.get(saveId);
+    if (!gameState) return [];
+
+    const allNews = await db.news.where('saveId').equals(saveId).toArray();
+    const visibleNews = allNews.filter(n => n.day <= gameState.day);
+    visibleNews.sort((a, b) => b.day - a.day);
+    
+    return visibleNews.slice(0, limit);
   },
 
   async getAllNews(saveId: number) {
-    return await db.news.where('saveId').equals(saveId).reverse().toArray();
+    const gameState = await db.gameState.get(saveId);
+    if (!gameState) return [];
+
+    const allNews = await db.news.where('saveId').equals(saveId).toArray();
+    const visibleNews = allNews.filter(n => n.day <= gameState.day);
+    visibleNews.sort((a, b) => b.day - a.day);
+    
+    return visibleNews;
   },
 
   async markAsRead(newsId: number) {
@@ -20,33 +35,42 @@ export const NewsService = {
   },
 
   async cleanupOldNews(saveId: number, currentSeason: number) {
-    // Keep news only for current and previous season
-    const keepFromSeason = currentSeason - 1;
-    // We need to fetch news and filter because we don't store season in news directly
-    // Or simpler: delete news older than X days if we had a date index, but day index is per save
-    // However, news has a 'day' field. Assuming a season is ~40-50 weeks * 7 days.
-    // Let's approximate: 1 season ~ 300 days (to be safe).
-    // Better strategy: Count total news, if > 200, delete oldest ones.
-    
     const count = await db.news.where('saveId').equals(saveId).count();
     const MAX_NEWS = 200;
     
     if (count > MAX_NEWS) {
       const deleteCount = count - MAX_NEWS;
-      // Get IDs of oldest news
       const oldestNews = await db.news.where('saveId').equals(saveId).limit(deleteCount).primaryKeys();
       await db.news.bulkDelete(oldestNews);
     }
+  },
+
+  async processDailyNews(saveId: number, day: number, date: Date, teamId: number) {
+    if (day % 7 === 1) await this.generateWeeklyEvents(saveId, date, teamId, day);
+    if (day % 7 === 3) await this.generateTrainingReport(saveId, date, teamId, day);
+    if (day % 7 === 0 && day > 0) await this.generateSundayBoardReport(saveId, date, teamId, day);
   },
 
   async generateMatchNews(saveId: number, date: Date, teamName: string, opponentName: string, myScore: number, oppScore: number) {
     const isWin = myScore > oppScore;
     const isDraw = myScore === oppScore;
     const type = isWin ? 'victory' : isDraw ? 'draw' : 'loss';
+    
     const userTeam = await db.teams.where('saveId').equals(saveId).and(t => t.name === teamName).first();
+    const opponentTeam = await db.teams.where('saveId').equals(saveId).and(t => t.name === opponentName).first();
     const state = await db.gameState.get(saveId);
     
-    const narrative = getNarrative('news', type, { team: teamName, opponent: opponentName, score: `${myScore}-${oppScore}`, stadium: userTeam?.stadiumName || "le stade" });
+    // Création des liens riches pour les équipes
+    const teamLink = userTeam ? `[[team:${userTeam.id}|${teamName}]]` : teamName;
+    const opponentLink = opponentTeam ? `[[team:${opponentTeam.id}|${opponentName}]]` : opponentName;
+
+    const narrative = getNarrative('news', type, { 
+      team: teamLink, 
+      opponent: opponentLink, 
+      score: `${myScore}-${oppScore}`, 
+      stadium: userTeam?.stadiumName || "le stade" 
+    });
+
     await this.addNews(saveId, { 
       day: state?.day || 0,
       date, 
@@ -58,7 +82,13 @@ export const NewsService = {
   },
 
   async announceMatchDay(saveId: number, date: Date, teamName: string, opponentName: string, stadiumName: string) {
-    const narrative = getNarrative('news', 'matchDay', { team: teamName, opponent: opponentName, stadium: stadiumName });
+    const userTeam = await db.teams.where('saveId').equals(saveId).and(t => t.name === teamName).first();
+    const opponentTeam = await db.teams.where('saveId').equals(saveId).and(t => t.name === opponentName).first();
+
+    const teamLink = userTeam ? `[[team:${userTeam.id}|${teamName}]]` : teamName;
+    const opponentLink = opponentTeam ? `[[team:${opponentTeam.id}|${opponentName}]]` : opponentName;
+
+    const narrative = getNarrative('news', 'matchDay', { team: teamLink, opponent: opponentLink, stadium: stadiumName });
     const state = await db.gameState.get(saveId);
     await this.addNews(saveId, { 
       day: state?.day || 0,
@@ -70,14 +100,18 @@ export const NewsService = {
     });
   },
 
-  async generateTrainingReport(saveId: number, date: Date, teamId: number) {
+  async generateTrainingReport(saveId: number, date: Date, teamId: number, forcedDay?: number) {
     const players = await db.players.where('[saveId+teamId]').equals([saveId, teamId]).toArray();
     const topPlayer = getRandomElement(players);
-    const narrative = getNarrative('training', 'wednesdayReport', { player: topPlayer ? topPlayer.lastName : "L'effectif" });
+    
+    // Lien riche pour le joueur
+    const playerLabel = topPlayer ? `[[player:${topPlayer.id}|${topPlayer.lastName}]]` : "L'effectif";
+    
+    const narrative = getNarrative('training', 'wednesdayReport', { player: playerLabel });
     const state = await db.gameState.get(saveId);
 
     await this.addNews(saveId, { 
-      day: state?.day || 0,
+      day: forcedDay || state?.day || 0,
       date, 
       title: narrative.title || "Rapport d'entraînement", 
       content: narrative.content, 
@@ -86,7 +120,7 @@ export const NewsService = {
     });
   },
 
-  async generateSundayBoardReport(saveId: number, date: Date, teamId: number) {
+  async generateSundayBoardReport(saveId: number, date: Date, teamId: number, forcedDay?: number) {
     const team = await db.teams.get(teamId);
     if (!team) return;
 
@@ -99,12 +133,12 @@ export const NewsService = {
       position: pos,
       budget: team.budget,
       confidence: team.confidence,
-      team: team.name,
+      team: team.name, // On pourrait mettre un lien mais c'est l'équipe du joueur
       goal: team.seasonGoal || "Non défini"
     });
 
     await this.addNews(saveId, { 
-      day: state?.day || 0,
+      day: forcedDay || state?.day || 0,
       date, 
       title: narrative.title || "Bilan de la Direction", 
       content: narrative.content, 
@@ -113,20 +147,20 @@ export const NewsService = {
     });
   },
 
-  async generateWeeklyEvents(saveId: number, date: Date, teamId: number) {
+  async generateWeeklyEvents(saveId: number, date: Date, teamId: number, forcedDay?: number) {
     const isPositive = probability(0.6);
     const narrative = getNarrative('weekly', isPositive ? 'positive' : 'negative', { team: 'votre club' });
     const team = await db.teams.get(teamId);
     if (!team) return;
 
-    if (narrative.title === "Mécénat inattendu") await db.teams.update(teamId, { budget: team.budget + 100 });
-    else if (narrative.title === "Ballons crevés") await db.teams.update(teamId, { budget: Math.max(0, team.budget - 20) });
-    else if (narrative.title === "Critique acerbe") await db.teams.update(teamId, { confidence: Math.max(0, team.confidence - 5) });
-    else if (narrative.title === "Hymne du club") await db.teams.update(teamId, { reputation: Math.min(100, team.reputation + 2) });
+    if (narrative.title === "Mécénat inattendu" || narrative.title?.includes("Patronage")) await db.teams.update(teamId, { budget: team.budget + 100 });
+    else if (narrative.title === "Ballons crevés" || narrative.title?.includes("Balls")) await db.teams.update(teamId, { budget: Math.max(0, team.budget - 20) });
+    else if (narrative.title === "Critique acerbe" || narrative.title?.includes("Criticism")) await db.teams.update(teamId, { confidence: Math.max(0, team.confidence - 5) });
+    else if (narrative.title === "Hymne du club" || narrative.title?.includes("Anthem")) await db.teams.update(teamId, { reputation: Math.min(100, team.reputation + 2) });
 
     const state = await db.gameState.get(saveId);
     await this.addNews(saveId, { 
-      day: state?.day || 0,
+      day: forcedDay || state?.day || 0,
       date, 
       title: narrative.title || "Nouvelles du club", 
       content: narrative.content, 

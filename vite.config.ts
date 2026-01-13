@@ -5,9 +5,15 @@ import path from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
-    preact(),
+    preact({
+      babel: {
+        plugins: [
+          mode === 'development' && '@babel/plugin-transform-react-jsx-source',
+        ].filter(Boolean),
+      },
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
@@ -50,4 +56,4 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
   },
-});
+}));

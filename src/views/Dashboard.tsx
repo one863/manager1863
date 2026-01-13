@@ -37,7 +37,6 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (view: any) => 
           leagueTeams.sort((a, b) => (b.points || 0) - (a.points || 0));
           setPosition(leagueTeams.findIndex((t) => t.id === userTeamId) + 1);
           
-          // CORRECTION ICI : Utiliser day au lieu de date
           const futureMatches = await db.matches
             .where('[saveId+day]')
             .between([currentSaveId, day], [currentSaveId, 999])
@@ -69,9 +68,9 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (view: any) => 
         <div className="flex justify-between items-end mb-1.5">
           <div className="flex items-center gap-2 text-accent font-serif font-bold">
             <CalendarIcon size={16} />
-            <span>Saison {season}</span>
+            <span>{t('dashboard.season', { season })}</span>
           </div>
-          <span className="text-[10px] font-bold text-ink-light uppercase">Progression : {Math.round(seasonProgress)}%</span>
+          <span className="text-[10px] font-bold text-ink-light uppercase">{t('dashboard.progress', { progress: Math.round(seasonProgress) })}</span>
         </div>
         <div className="h-2 bg-paper-dark rounded-full overflow-hidden border border-gray-200 shadow-inner">
           <div 
@@ -80,8 +79,8 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (view: any) => 
           />
         </div>
         <div className="flex justify-between mt-1 px-0.5">
-           <span className="text-[9px] text-ink-light font-bold">JOUR 1</span>
-           <span className="text-[9px] text-ink-light font-bold">FIN : JOUR {seasonLength}</span>
+           <span className="text-[9px] text-ink-light font-bold">{t('dashboard.day', { day: 1 })}</span>
+           <span className="text-[9px] text-ink-light font-bold">{t('dashboard.end_day', { day: seasonLength })}</span>
         </div>
       </div>
 
@@ -90,12 +89,12 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (view: any) => 
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-full"><AlertTriangle size={20} /></div>
             <div>
-              <p className="font-serif font-bold text-sm leading-tight uppercase">Jour de Match !</p>
-              <p className="text-[10px] opacity-90 italic">Préparez vos titulaires avant de jouer.</p>
+              <p className="font-serif font-bold text-sm leading-tight uppercase">{t('dashboard.match_day')}</p>
+              <p className="text-[10px] opacity-90 italic">{t('dashboard.prepare_lineup')}</p>
             </div>
           </div>
           <button onClick={() => onNavigate?.('squad')} className="bg-white text-accent px-4 py-1.5 rounded-full text-[10px] font-bold shadow-sm hover:scale-105 transition-transform">
-             TACTIQUE
+             {t('dashboard.tactics_btn')}
           </button>
         </div>
       )}
@@ -116,11 +115,11 @@ export default function Dashboard({ onNavigate }: { onNavigate?: (view: any) => 
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => onNavigate?.('news')} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:border-accent group">
           <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors"><Newspaper size={18} /></div>
-          <span className="text-xs font-bold text-ink uppercase tracking-tighter">Presse</span>
+          <span className="text-xs font-bold text-ink uppercase tracking-tighter">{t('dashboard.press_btn')}</span>
         </button>
         <button onClick={() => onNavigate?.('transfers')} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:border-accent group">
           <div className="p-2 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-600 group-hover:text-white transition-colors"><ShoppingCart size={18} /></div>
-          <span className="text-xs font-bold text-ink uppercase tracking-tighter">Mercato</span>
+          <span className="text-xs font-bold text-ink uppercase tracking-tighter">{t('dashboard.market_btn')}</span>
         </button>
       </div>
 

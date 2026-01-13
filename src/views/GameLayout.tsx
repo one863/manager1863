@@ -11,6 +11,7 @@ import { SidebarMenu } from '@/components/Layout/SidebarMenu';
 import { SaveOverlay } from '@/components/Layout/SaveOverlay';
 import { GameOverOverlay } from '@/components/Layout/GameOverOverlay';
 import { MatchReadyOverlay } from '@/components/Layout/MatchReadyOverlay';
+import { ErrorBoundary } from '@/components/Common/ErrorBoundary';
 
 // Importations dynamiques
 const Dashboard = lazy(() => import('@/views/Dashboard'));
@@ -144,9 +145,11 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
       )}
 
       <main className="flex-1 overflow-y-auto p-4 mb-16 scroll-smooth">
-        <Suspense fallback={<ViewLoader />}>
-          {renderView(currentView, setCurrentView)}
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<ViewLoader />}>
+            {renderView(currentView, setCurrentView)}
+          </Suspense>
+        </ErrorBoundary>
       </main>
 
       <Navigation 
@@ -173,7 +176,7 @@ function renderView(view: View, setView: (v: View) => void) {
     case 'league': return <LeagueTable />;
     case 'calendar': return <Calendar />;
     case 'training': return <Training />;
-    case 'news': return <NewsList />;
+    case 'news': return <NewsList onNavigate={setView} />;
     case 'transfers': return <TransferMarket />;
     case 'club': return <ClubManagement />;
     case 'finances': return <SponsorsFinances />;

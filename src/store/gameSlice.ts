@@ -87,10 +87,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   refreshUnreadNewsCount: async () => {
-    const { currentSaveId } = get();
+    const { currentSaveId, day } = get();
     if (!currentSaveId) return;
-    const count = await db.news.where('saveId').equals(currentSaveId).and(n => !n.isRead).count();
-    set({ unreadNewsCount: count });
+    
+    const unreadNews = await db.news.where('saveId').equals(currentSaveId).and(n => !n.isRead).toArray();
+    const visibleUnreadCount = unreadNews.filter(n => n.day <= day).length;
+    
+    set({ unreadNewsCount: visibleUnreadCount });
   },
 
   advanceDate: async () => {
@@ -98,16 +101,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (currentSaveId === null || userTeamId === null || isGameOver) return;
     set({ isProcessing: true });
 
+    // Calcul du jour suivant (pour dater les événements du lendemain matin)
+    const nextDay = day + 1;
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
     const pendingUserMatch = await MatchService.simulateDayByDay(currentSaveId, day, userTeamId, currentDate);
-    await ClubService.processDailyUpdates(userTeamId, currentSaveId, day, currentDate);
-    await TrainingService.processDailyUpdates(userTeamId, currentSaveId, day, currentDate);
+    
+    // On passe nextDay/nextDate pour que les news générées soient datées du jour où le joueur les verra (le lendemain)
+    await Promise.all([
+      ClubService.processDailyUpdates(userTeamId, currentSaveId, nextDay, nextDate),
+      TrainingService.processDailyUpdates(userTeamId, currentSaveId, nextDay, nextDate),
+      NewsService.processDailyNews(currentSaveId, nextDay, nextDate, userTeamId)
+    ]);
     
     // Purge old news every 30 days
     if (day % 30 === 0) {
       await NewsService.cleanupOldNews(currentSaveId, season);
     }
-
-    await get().refreshUnreadNewsCount();
 
     if (pendingUserMatch) {
       // Init live match via the new store
@@ -118,11 +129,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         pendingUserMatch.result
       );
       set({ isProcessing: false });
+      await get().refreshUnreadNewsCount();
     } else {
-      const nextDay = day + 1;
-      const nextDate = new Date(currentDate);
-      nextDate.setDate(nextDate.getDate() + 1);
-
       const userTeam = await db.teams.get(userTeamId);
       if (userTeam) {
         const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId);
@@ -130,12 +138,14 @@ export const useGameStore = create<GameState>((set, get) => ({
            const nextSeason = season + 1;
            await updateGameState(currentSaveId, userTeamId, 1, nextSeason, nextDate);
            set({ day: 1, season: nextSeason, currentDate: nextDate, isProcessing: false });
+           await get().refreshUnreadNewsCount();
            return;
         }
       }
       
       await updateGameState(currentSaveId, userTeamId, nextDay, season, nextDate);
       set({ day: nextDay, currentDate: nextDate, isProcessing: false });
+      await get().refreshUnreadNewsCount();
     }
   },
 

@@ -1,5 +1,6 @@
 import { db, Player, Team } from '@/db/db';
 import { generatePlayer } from '@/data/players-generator';
+import { randomInt } from '@/utils/math';
 
 const MAX_SQUAD_SIZE = 25; // Limite d'effectif
 
@@ -11,6 +12,44 @@ export const TransferService = {
       players.push({ ...p, saveId, teamId: -1 });
     }
     return await db.players.bulkAdd(players);
+  },
+
+  /**
+   * Met à jour le marché des transferts en fonction de la réputation de l'équipe.
+   * Supprime les joueurs trop faibles (hors scope) et génère de nouveaux joueurs adaptés.
+   */
+  async refreshMarketForReputation(saveId: number, reputation: number) {
+    // Calibrage : Niveau cible = Réputation + 15 (Pour proposer des améliorations)
+    // Avec un plancher à 35 (niveau min Div 6)
+    const targetSkill = Math.max(reputation + 15, 35);
+    const minSkill = targetSkill - 10;
+    const maxSkill = targetSkill + 15;
+
+    // 1. Nettoyage : Supprimer les joueurs du marché (teamId = -1) qui sont hors de la fourchette pertinente
+    // Cela simule le fait que les joueurs trop nuls ne intéressent plus le club, 
+    // et les joueurs trop forts ne veulent pas venir.
+    const outdatedPlayers = await db.players
+      .where('[saveId+teamId+skill]')
+      .between([saveId, -1, 0], [saveId, -1, 100]) // Tous les joueurs du marché
+      .filter(p => p.skill < minSkill || p.skill > maxSkill) // Filtrage manuel car between est sur l'index composé
+      .primaryKeys();
+
+    if (outdatedPlayers.length > 0) {
+      await db.players.bulkDelete(outdatedPlayers);
+    }
+
+    // 2. Vérifier combien de joueurs restent
+    const currentMarketCount = await db.players
+      .where('[saveId+teamId]')
+      .equals([saveId, -1])
+      .count();
+
+    // 3. Compléter si nécessaire (maintenir environ 15-20 joueurs)
+    const TARGET_MARKET_SIZE = 15;
+    if (currentMarketCount < TARGET_MARKET_SIZE) {
+      const needed = TARGET_MARKET_SIZE - currentMarketCount;
+      await this.generateMarket(saveId, needed, targetSkill);
+    }
   },
 
   async buyPlayer(playerId: number, buyerTeamId: number) {
@@ -31,11 +70,6 @@ export const TransferService = {
     return true;
   },
 
-  /**
-   * Licencier ou vendre un joueur.
-   * Si le joueur a une valeur > 0, on récupère 70% de sa valeur (revente).
-   * Si on le licencie, on pourrait imaginer une petite indemnité à payer plus tard.
-   */
   async sellPlayer(playerId: number, teamId: number) {
     const player = await db.players.get(playerId);
     const team = await db.teams.get(teamId);
@@ -44,7 +78,6 @@ export const TransferService = {
     const sellValue = Math.round(player.marketValue * 0.7);
 
     await db.transaction('rw', db.players, db.teams, async () => {
-      // Le joueur retourne sur le marché ou est supprimé. Ici on le supprime pour libérer de la place.
       await db.players.delete(playerId);
       await db.teams.update(teamId, { budget: team.budget + sellValue });
     });

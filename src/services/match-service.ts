@@ -45,9 +45,7 @@ export const MatchService = {
   },
 
   async simulateDayByDay(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
-    if (day % 7 === 1) await NewsService.generateWeeklyEvents(saveId, date, userTeamId);
-    if (day % 7 === 3) await NewsService.generateTrainingReport(saveId, date, userTeamId);
-    if (day % 7 === 0 && day > 0) await NewsService.generateSundayBoardReport(saveId, date, userTeamId);
+    // SUPPRESSION DES APPELS NEWS ICI. Ils sont déplacés dans processDailyNews appelé par gameSlice.
 
     const todaysMatches = await db.matches
       .where('[saveId+day]')

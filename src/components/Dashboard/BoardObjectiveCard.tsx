@@ -1,4 +1,4 @@
-import { Target, TrendingUp, AlertCircle, Trophy, ShieldAlert } from 'lucide-preact';
+import { Target, TrendingUp, AlertCircle, Trophy, ShieldAlert, CalendarClock } from 'lucide-preact';
 import { Team } from '@/db/db';
 
 interface BoardObjectiveProps {
@@ -8,6 +8,10 @@ interface BoardObjectiveProps {
 
 export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
   if (!team) return null;
+
+  const matchesPlayed = team.matchesPlayed || 0;
+  // Période de grâce de 3 matchs
+  const isGracePeriod = matchesPlayed < 4;
 
   const getObjectiveLabel = (goal?: string) => {
     switch (goal) {
@@ -20,16 +24,49 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
   };
 
   const isAtRisk = () => {
+    // Pas de risque pendant la période de grâce, sauf si la confiance est catastrophique
+    if (isGracePeriod) return false;
+    
     if (!team.seasonGoal) return false;
-    if (team.seasonGoal === 'CHAMPION' && position > 1) return true;
-    if (team.seasonGoal === 'PROMOTION' && position > 3) return true;
-    if (team.seasonGoal === 'MID_TABLE' && position > 6) return true;
+    if (team.seasonGoal === 'CHAMPION' && position > 2) return true; // Tolérance légère
+    if (team.seasonGoal === 'PROMOTION' && position > 5) return true; // Tolérance légère
+    if (team.seasonGoal === 'MID_TABLE' && position > 8) return true;
+    if (team.seasonGoal === 'AVOID_RELEGATION' && position > 8) return true;
     return false;
   };
 
+  const showWarning = isAtRisk() && !isGracePeriod;
+
   const getStatusIcon = () => {
-    if (isAtRisk()) return <ShieldAlert className="text-red-500" size={20} />;
+    if (isGracePeriod) return <CalendarClock className="text-accent" size={20} />;
+    if (showWarning) return <ShieldAlert className="text-red-500" size={20} />;
     return <TrendingUp className="text-green-600" size={20} />;
+  };
+
+  const getStatusMessage = () => {
+    if (isGracePeriod) {
+      return (
+        <div className="px-4 py-2 bg-blue-50/50 border-t border-blue-100 flex items-start gap-2">
+          <CalendarClock size={14} className="text-accent shrink-0 mt-0.5" />
+          <p className="text-[10px] text-blue-800 italic leading-tight">
+            La saison ne fait que commencer. Les dirigeants attendent de voir les premiers résultats avant de juger.
+          </p>
+        </div>
+      );
+    }
+    
+    if (showWarning) {
+      return (
+        <div className="px-4 py-2 bg-red-50/50 border-t border-red-100 flex items-start gap-2">
+          <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-red-700 italic leading-tight">
+            Les dirigeants ne sont pas satisfaits. Améliorez votre classement pour éviter le licenciement.
+          </p>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -39,15 +76,20 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
           <Target size={14} className="text-accent" />
           Objectif de la Direction
         </h3>
-        {isAtRisk() && (
+        {showWarning && (
           <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse">
             SIÈGE ÉJECTABLE
+          </span>
+        )}
+        {isGracePeriod && (
+          <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-2 py-0.5 rounded-full">
+            DÉBUT DE SAISON
           </span>
         )}
       </div>
       
       <div className="p-4 flex items-center gap-4">
-        <div className={`p-3 rounded-xl ${isAtRisk() ? 'bg-red-50' : 'bg-green-50'}`}>
+        <div className={`p-3 rounded-xl ${showWarning ? 'bg-red-50' : (isGracePeriod ? 'bg-blue-50' : 'bg-green-50')}`}>
           {getStatusIcon()}
         </div>
         
@@ -56,7 +98,7 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
             {getObjectiveLabel(team.seasonGoal)}
           </div>
           <div className="text-xs text-ink-light mt-0.5">
-            Position actuelle : <span className={`font-bold ${isAtRisk() ? 'text-red-600' : 'text-green-600'}`}>{position}e</span>
+            Position actuelle : <span className={`font-bold ${showWarning ? 'text-red-600' : 'text-green-600'}`}>{position}e</span>
           </div>
         </div>
 
@@ -68,14 +110,7 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
         </div>
       </div>
 
-      {isAtRisk() && (
-        <div className="px-4 py-2 bg-red-50/50 border-t border-red-100 flex items-start gap-2">
-          <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-700 italic leading-tight">
-            Les dirigeants ne sont pas satisfaits. Améliorez votre classement pour éviter le licenciement à la fin de la saison.
-          </p>
-        </div>
-      )}
+      {getStatusMessage()}
     </div>
   );
 }
