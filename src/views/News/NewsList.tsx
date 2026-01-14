@@ -196,8 +196,8 @@ export default function NewsView({ onNavigate }: NewsListProps) {
           </div>
 
           <div className="mt-12 pt-6 border-t border-gray-100 text-center relative z-10">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-ink-light font-bold mb-1">Gazette Officielle</p>
-            <p className="text-xs italic text-ink-light opacity-60">— The Football Chronicle 1863 —</p>
+            <p className="text-[10px] tracking-[0.2em] uppercase text-ink-light font-bold mb-1">Actualités</p>
+            <p className="text-xs italic text-ink-light opacity-60">— Official Football Feed 2026 —</p>
           </div>
         </Card>
 
@@ -216,15 +216,14 @@ export default function NewsView({ onNavigate }: NewsListProps) {
         <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
           <Newspaper className="text-accent" /> {t('dashboard.news')}
         </h2>
-        <div className="flex items-center gap-4">
-            <span className="text-xs text-ink-light italic">Archives du club</span>
+        <div className="flex items-center gap-2">
             {articles.some(a => !a.isRead) && (
                 <button 
                     onClick={handleMarkAllRead} 
-                    className="flex items-center gap-1 text-xs text-ink-light hover:text-accent transition-colors bg-gray-50 px-2 py-1 rounded-full border border-gray-200" 
+                    className="p-2 text-ink-light hover:text-accent transition-colors bg-gray-50 rounded-full border border-gray-200 shadow-sm" 
                     title="Tout marquer comme lu"
                 >
-                    <CheckCheck size={14} /> Tout lire
+                    <CheckCheck size={16} />
                 </button>
             )}
         </div>

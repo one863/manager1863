@@ -128,10 +128,10 @@
   "narratives": {
     "match": {
       "goal": [
-        "{{player}} smashes the ball into the net with a clinical finish!",
-        "The stadium erupts! {{player}} beats the keeper after a beautiful team move.",
-        "Goal! {{player}} takes advantage of a defensive error to score.",
-        "What a strike! {{player}} curls it into the top corner!"
+        "Goal for {{team}}! {{player}} smashes the ball into the net with a clinical finish!",
+        "Goal for {{team}}! The stadium erupts as {{player}} beats the keeper.",
+        "Goal for {{team}}! {{player}} takes advantage of a defensive error to score.",
+        "Goal for {{team}}! What a strike by {{player}} into the top corner!"
       ],
       "miss": [
         "{{player}} tries his luck but the ball flies over the bar.",

@@ -1,5 +1,5 @@
 import { 
-  Calendar as CalendarIcon, 
+  Trophy, 
   Dumbbell, 
   Building2, 
   Coins, 
@@ -28,10 +28,10 @@ export function SidebarMenu({ currentView, onNavigate, onQuit, onClose }: Sideba
         className="absolute top-0 left-0 h-full w-72 bg-paper shadow-2xl border-r border-gray-200 z-[70] overflow-hidden animate-slide-right flex flex-col"
       >
         {/* Header du Menu */}
-        <div className="p-6 bg-accent text-white flex justify-between items-center shadow-md">
+        <div className="p-6 bg-black text-white flex justify-between items-center shadow-md">
            <div>
               <h2 className="text-xl font-serif font-black tracking-tight leading-none">1863</h2>
-              <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Football Association</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Football Manager</p>
            </div>
            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
               <X size={24} />
@@ -55,6 +55,12 @@ export function SidebarMenu({ currentView, onNavigate, onQuit, onClose }: Sideba
             onClick={() => onNavigate('squad')}
           />
           <MenuLink
+            icon={Trophy}
+            label="League"
+            active={currentView === 'league'}
+            onClick={() => onNavigate('league')}
+          />
+          <MenuLink
             icon={Dumbbell}
             label="Académie & Staff"
             active={currentView === 'training'}
@@ -65,12 +71,6 @@ export function SidebarMenu({ currentView, onNavigate, onQuit, onClose }: Sideba
             label="Marché des Transferts"
             active={currentView === 'transfers'}
             onClick={() => onNavigate('transfers')}
-          />
-          <MenuLink
-            icon={CalendarIcon}
-            label="Calendrier & Résultats"
-            active={currentView === 'calendar'}
-            onClick={() => onNavigate('calendar')}
           />
 
           <div className="pt-4 pb-1 px-4 text-[9px] font-black text-ink-light uppercase tracking-[0.2em] opacity-50">Institution</div>
@@ -111,7 +111,7 @@ function MenuLink({ icon: Icon, label, active, onClick }: any) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-4 p-4 transition-all rounded-2xl text-sm font-bold active:scale-95 ${active ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-ink hover:bg-paper-dark'}`}
+      className={`w-full flex items-center gap-4 p-4 transition-all rounded-2xl text-sm font-bold active:scale-95 ${active ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-ink hover:bg-paper-dark'}`}
     >
       <Icon size={20} strokeWidth={active ? 2.5 : 2} />
       <span className="flex-1 text-left tracking-tight">{label}</span>

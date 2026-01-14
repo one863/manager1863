@@ -15,22 +15,23 @@ import { ErrorBoundary } from '@/components/Common/ErrorBoundary';
 
 const Dashboard = lazy(() => import('@/views/Dashboard'));
 const Squad = lazy(() => import('@/views/Squad'));
-const LeagueTable = lazy(() => import('@/views/LeagueTable'));
-const Calendar = lazy(() => import('@/views/Calendar'));
+const LeagueView = lazy(() => import('@/views/LeagueView'));
 const MatchLive = lazy(() => import('@/components/MatchLive'));
 const Training = lazy(() => import('@/views/Training'));
 const NewsList = lazy(() => import('@/views/News/NewsList'));
 const TransferMarket = lazy(() => import('@/views/Transfers/TransferMarket'));
 const ClubManagement = lazy(() => import('@/views/Club/ClubManagement'));
 const SponsorsFinances = lazy(() => import('@/views/Club/SponsorsFinances'));
+const MatchReportView = lazy(() => import('@/views/MatchReportView'));
 
-type View = 'dashboard' | 'squad' | 'league' | 'calendar' | 'match' | 'training' | 'news' | 'transfers' | 'club' | 'finances';
+type View = 'dashboard' | 'squad' | 'league' | 'training' | 'news' | 'transfers' | 'club' | 'finances' | 'match-report';
 
 export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'verified' | 'error'>('idle');
   const [showMatchConfirm, setShowMatchConfirm] = useState(false);
+  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
   const currentDate = useGameStore((state) => state.currentDate);
   const currentSaveId = useGameStore((state) => state.currentSaveId);
@@ -50,7 +51,6 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   }, [liveMatch]);
 
   const handleContinueClick = async () => {
-    // Gestion Match Live : Le bouton du Header sert à terminer le match
     const liveState = useLiveMatchStore.getState();
     if (liveState.liveMatch) {
         if (liveState.liveMatch.currentMinute >= 90) {
@@ -62,7 +62,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
     if (isGameOver || isProcessing) return;
     
     if (currentSaveId && userTeamId) {
-      const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, currentDate, userTeamId);
+      const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, useGameStore.getState().day, userTeamId);
       if (hasMatch) {
         setShowMatchConfirm(true);
         return;
@@ -108,6 +108,11 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
     setCurrentView('squad');
   };
 
+  const handleSelectMatchForReport = (id: number) => {
+    setSelectedMatchId(id);
+    setCurrentView('match-report');
+  };
+
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper border-x border-paper-dark shadow-2xl overflow-hidden relative">
       {isGameOver && <GameOverOverlay onRestart={handleRestart} />}
@@ -139,10 +144,14 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
         />
       )}
 
-      <main className={`flex-1 flex flex-col ${liveMatch ? 'overflow-hidden p-0' : 'overflow-y-auto p-4'} mb-16 scroll-smooth relative`}>
+      <main className={`flex-1 flex flex-col ${liveMatch ? 'overflow-hidden p-0' : (currentView === 'match-report' || currentView === 'league' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4')} mb-16 scroll-smooth relative`}>
         <ErrorBoundary>
           <Suspense fallback={<ViewLoader />}>
-            {liveMatch ? <MatchLive /> : renderView(currentView, setCurrentView)}
+            {liveMatch ? (
+                <MatchLive />
+            ) : (
+                renderView(currentView, setCurrentView, handleSelectMatchForReport, selectedMatchId)
+            )}
           </Suspense>
         </ErrorBoundary>
       </main>
@@ -158,23 +167,23 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 function ViewLoader() {
   return (
     <div className="flex flex-col items-center justify-center h-full animate-pulse">
-      <Loader2 size={32} className="text-accent animate-spin mb-2" />
+      <Loader2 size={32} className="text-black animate-spin mb-2" />
       <p className="text-ink-light text-xs italic font-serif">Déploiement des archives...</p>
     </div>
   );
 }
 
-function renderView(view: View, setView: (v: View) => void) {
+function renderView(view: View, setView: (v: View) => void, onSelectMatch: (id: number) => void, selectedMatchId: number | null) {
   switch (view) {
     case 'dashboard': return <Dashboard onNavigate={setView} />;
     case 'squad': return <Squad />;
-    case 'league': return <LeagueTable />;
-    case 'calendar': return <Calendar />;
+    case 'league': return <LeagueView onSelectMatch={onSelectMatch} />;
     case 'training': return <Training />;
     case 'news': return <NewsList onNavigate={setView} />;
     case 'transfers': return <TransferMarket />;
     case 'club': return <ClubManagement />;
     case 'finances': return <SponsorsFinances />;
+    case 'match-report': return <MatchReportView matchId={selectedMatchId!} onBack={() => setView('league')} />;
     default: return <Dashboard onNavigate={setView} />;
   }
 }

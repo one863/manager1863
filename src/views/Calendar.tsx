@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { db, Match, Team, League } from '@/db/db';
 import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
-import MatchReport from '@/components/MatchReport';
 import ClubDetails from '@/components/ClubDetails';
 import { Calendar as CalendarIcon, Trophy, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-preact';
 
-export default function Calendar() {
+interface CalendarProps {
+  onSelectMatch: (matchId: number) => void;
+  hideHeader?: boolean;
+}
+
+export default function Calendar({ onSelectMatch, hideHeader = false }: CalendarProps) {
   const { t } = useTranslation();
   const currentSaveId = useGameStore((state) => state.currentSaveId);
   const userTeamId = useGameStore((state) => state.userTeamId);
@@ -17,10 +21,10 @@ export default function Calendar() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [currentLeagueIndex, setCurrentLeagueIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
-  // Charger les ligues et déterminer la ligue du joueur
+  const nextMatchRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const init = async () => {
       if (!currentSaveId) return;
@@ -62,7 +66,6 @@ export default function Calendar() {
     init();
   }, [currentSaveId, userTeamId]);
 
-  // Charger les matchs et équipes quand la ligue change
   useEffect(() => {
     const loadData = async () => {
       if (currentSaveId === null || leagues.length === 0) {
@@ -97,6 +100,15 @@ export default function Calendar() {
     loadData();
   }, [currentSaveId, leagues, currentLeagueIndex]);
 
+  useEffect(() => {
+      if (!isLoading && nextMatchRef.current) {
+          const timer = setTimeout(() => {
+              nextMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 300);
+          return () => clearTimeout(timer);
+      }
+  }, [isLoading]);
+
   const handlePrevLeague = () => {
     setCurrentLeagueIndex(prev => Math.max(0, prev - 1));
   };
@@ -105,7 +117,6 @@ export default function Calendar() {
     setCurrentLeagueIndex(prev => Math.min(leagues.length - 1, prev + 1));
   };
 
-  // Grouper les matchs par journée (jour global du jeu)
   const matchesByDay = matches.reduce((acc, match) => {
     if (!acc[match.day]) {
       acc[match.day] = [];
@@ -114,26 +125,25 @@ export default function Calendar() {
     return acc;
   }, {} as Record<number, Match[]>);
 
-  // Liste ordonnée des jours où il y a des matchs
   const days = Object.keys(matchesByDay).map(Number).sort((a, b) => a - b);
+  const nextActiveDay = days.find(d => d >= currentDay) || days[days.length - 1];
 
   if (isLoading && leagues.length === 0) return <div className="p-8 text-center animate-pulse">{t('game.loading')}</div>;
 
   return (
-    <div className="pb-20 space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 mb-4 px-2">
-        <div className="flex justify-between items-center">
-          <div>
+    <div className="animate-fade-in">
+      {!hideHeader && (
+        <div className="flex flex-col gap-4 mb-4 px-2">
             <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
-              <CalendarIcon className="text-accent" />
+              <CalendarIcon className="text-black" />
               Programme de la Saison
             </h2>
             <p className="text-[10px] text-ink-light uppercase tracking-widest font-bold">Chronologie des rencontres</p>
-          </div>
         </div>
+      )}
 
-        {leagues.length > 0 && (
-          <div className="flex items-center justify-between bg-white p-2 rounded-lg shadow-sm border border-gray-200">
+      {leagues.length > 0 && (
+          <div className="flex items-center justify-between bg-white p-2 rounded-lg shadow-sm border border-gray-200 mb-6">
             <button 
               onClick={handlePrevLeague}
               disabled={currentLeagueIndex === 0}
@@ -152,22 +162,21 @@ export default function Calendar() {
               <ChevronRight size={20} />
             </button>
           </div>
-        )}
-      </div>
+      )}
 
       {isLoading ? (
         <div className="p-8 text-center animate-pulse">
-           <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+           <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
            <p className="text-xs italic text-ink-light">Chargement du calendrier...</p>
         </div>
       ) : (
         <div className="space-y-8">
           {days.map((day, index) => (
-            <div key={day} className="space-y-3">
+            <div key={day} className="space-y-3" ref={day === nextActiveDay ? nextMatchRef : null}>
               <div className="flex items-center gap-4 px-2">
                 <div className={`
                   px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                  ${day < currentDay ? 'bg-gray-200 text-gray-500' : day === currentDay ? 'bg-accent text-white' : 'bg-paper-dark text-ink'}
+                  ${day < currentDay ? 'bg-gray-200 text-gray-500' : day === currentDay ? 'bg-black text-white' : 'bg-paper-dark text-ink'}
                 `}>
                   Journée {index + 1}
                   <span className="ml-2 opacity-50 font-normal normal-case italic">(Jour {day})</span>
@@ -180,7 +189,6 @@ export default function Calendar() {
                   const homeTeam = teams[match.homeTeamId];
                   const awayTeam = teams[match.awayTeamId];
                   const isUserMatch = match.homeTeamId === userTeamId || match.awayTeamId === userTeamId;
-                  const isPassed = match.day < currentDay;
                   const isToday = match.day === currentDay;
 
                   return (
@@ -188,21 +196,20 @@ export default function Calendar() {
                       key={match.id}
                       className={`
                         group relative bg-white rounded-xl border-2 transition-all p-3 flex items-center gap-4
-                        ${isUserMatch ? 'border-accent shadow-sm' : 'border-gray-100 opacity-60'}
-                        ${isToday ? 'ring-2 ring-accent ring-offset-2' : ''}
+                        ${isUserMatch ? 'border-black shadow-sm' : 'border-gray-100 opacity-60'}
+                        ${isToday ? 'ring-2 ring-black ring-offset-2' : ''}
                       `}
                     >
-                      {/* Contenu Match */}
                       <div className="flex-1 flex items-center justify-between overflow-hidden">
                         <button 
                           onClick={() => setSelectedTeamId(match.homeTeamId)}
-                          className={`flex-1 text-right text-xs hover:underline truncate px-1 font-serif ${match.homeTeamId === userTeamId ? 'font-bold text-accent' : 'text-ink'}`}
+                          className={`flex-1 text-right text-xs hover:underline truncate px-1 font-serif ${match.homeTeamId === userTeamId ? 'font-bold text-black' : 'text-ink'}`}
                         >
                           {homeTeam?.name || '???'}
                         </button>
 
                         <div 
-                          onClick={() => match.played && setSelectedMatch(match)}
+                          onClick={() => match.played && onSelectMatch(match.id!)}
                           className={`
                             px-2 py-1 font-mono font-bold text-xs rounded-lg mx-2 min-w-[3rem] text-center border transition-all
                             ${match.played ? 'bg-paper-dark border-gray-300 text-ink cursor-pointer hover:bg-gray-200' : 'bg-transparent border-transparent text-gray-400'}
@@ -213,13 +220,12 @@ export default function Calendar() {
 
                         <button 
                           onClick={() => setSelectedTeamId(match.awayTeamId)}
-                          className={`flex-1 text-left text-xs hover:underline truncate px-1 font-serif ${match.awayTeamId === userTeamId ? 'font-bold text-accent' : 'text-ink'}`}
+                          className={`flex-1 text-left text-xs hover:underline truncate px-1 font-serif ${match.awayTeamId === userTeamId ? 'font-bold text-black' : 'text-ink'}`}
                         >
                           {awayTeam?.name || '???'}
                         </button>
                       </div>
 
-                      {/* Statut */}
                       {match.played && (
                         <div className="flex-shrink-0 text-green-600">
                           <CheckCircle2 size={16} />
@@ -237,15 +243,6 @@ export default function Calendar() {
             </div>
           )}
         </div>
-      )}
-
-      {selectedMatch && (
-        <MatchReport
-          match={selectedMatch}
-          homeTeam={teams[selectedMatch.homeTeamId]}
-          awayTeam={teams[selectedMatch.awayTeamId]}
-          onClose={() => setSelectedMatch(null)}
-        />
       )}
 
       {selectedTeamId && (

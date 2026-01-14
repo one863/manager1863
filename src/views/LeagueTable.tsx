@@ -14,7 +14,7 @@ interface TableRow extends Team {
   lost: number;
 }
 
-export default function LeagueTable() {
+export default function LeagueTable({ hideHeader = false }: { hideHeader?: boolean }) {
   const { t } = useTranslation();
   const currentSaveId = useGameStore((state) => state.currentSaveId);
   const userTeamId = useGameStore((state) => state.userTeamId);
@@ -26,39 +26,31 @@ export default function LeagueTable() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [currentLeagueIndex, setCurrentLeagueIndex] = useState(0);
 
-  // Charger les ligues et déterminer la ligue du joueur
   useEffect(() => {
     const init = async () => {
       if (!currentSaveId) return;
 
       try {
-        // 1. Récupérer d'abord TOUTES les équipes de la sauvegarde pour identifier les ligues actives
         const allTeamsInSave = await db.teams
           .where('saveId')
           .equals(currentSaveId)
           .toArray();
 
-        // Extraire les IDs de ligues qui ont réellement des équipes
         const activeLeagueIds = new Set(allTeamsInSave.map(t => t.leagueId));
 
-        // 2. Récupérer toutes les ligues potentielles
         const allLeaguesPotentially = await db.leagues
           .where('saveId')
           .equals(currentSaveId)
           .sortBy('level');
         
-        // 3. NE GARDER QUE les ligues actives (qui contiennent des équipes)
-        // Cela élimine les centaines de ligues fantômes
         const activeLeagues = allLeaguesPotentially.filter(l => activeLeagueIds.has(l.id!));
         
         if (activeLeagues.length === 0) {
-            // Fallback si jamais (ex: début de partie sans équipes générées ?)
             setLeagues(allLeaguesPotentially);
         } else {
             setLeagues(activeLeagues);
         }
 
-        // 4. Trouver l'équipe du joueur pour connaître sa ligue et positionner l'index
         if (userTeamId) {
           const userTeam = await db.teams.get(userTeamId);
           if (userTeam) {
@@ -76,7 +68,6 @@ export default function LeagueTable() {
     init();
   }, [currentSaveId, userTeamId]);
 
-  // Charger le classement quand l'index de ligue change
   useEffect(() => {
     let isMounted = true;
     const loadTable = async () => {
@@ -86,17 +77,14 @@ export default function LeagueTable() {
       try {
         const targetLeagueId = leagues[currentLeagueIndex].id!;
 
-        // METHODE ROBUSTE: Récupérer TOUTES les équipes du save
         const allTeamsInSave = await db.teams
           .where('saveId')
           .equals(currentSaveId)
           .toArray();
         
-        // Filtrage souple (==) pour gérer string/number mismatch éventuel
         // eslint-disable-next-line eqeqeq
         const teams = allTeamsInSave.filter(t => t.leagueId == targetLeagueId);
 
-        // Fetch matches
         const allMatchesInSave = await db.matches
            .where('saveId')
            .equals(currentSaveId)
@@ -106,7 +94,6 @@ export default function LeagueTable() {
         // eslint-disable-next-line eqeqeq
         const matches = allMatchesInSave.filter(m => m.leagueId == targetLeagueId);
 
-        // Calculer les stats
         const rows: TableRow[] = teams.map((team) => {
            let won = 0, drawn = 0, lost = 0, gf = 0, ga = 0;
            
@@ -139,6 +126,8 @@ export default function LeagueTable() {
             return (b.points || 0) - (a.points || 0);
           if (b.goalDiff !== a.goalDiff)
              return b.goalDiff - a.goalDiff;
+          if (b.goalsFor !== a.goalsFor)
+             return b.goalsFor - a.goalsFor;
           return (b.reputation || 0) - (a.reputation || 0);
         });
 
@@ -182,21 +171,23 @@ export default function LeagueTable() {
   if (isLoading && leagues.length === 0)
     return (
       <div className="p-8 text-center animate-pulse flex flex-col items-center gap-2">
-        <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
         <span className="font-serif italic text-ink-light">{t('game.loading')}</span>
       </div>
     );
 
   return (
-    <div className="pb-20 animate-fade-in">
+    <div className="animate-fade-in">
       {/* Header avec sélecteur de ligue */}
       <div className="flex flex-col gap-4 mb-6 px-2">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
-            <Trophy size={20} className="text-accent" />
-            {t('league_table.title')}
-          </h2>
-        </div>
+        {!hideHeader && (
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
+              <Trophy size={20} className="text-black" />
+              {t('league_table.title')}
+            </h2>
+          </div>
+        )}
 
         {leagues.length > 0 && (
           <div className="flex items-center justify-between bg-white p-2 rounded-lg shadow-sm border border-gray-200">
@@ -223,7 +214,7 @@ export default function LeagueTable() {
 
       {isLoading ? (
         <div className="p-8 text-center animate-pulse">
-           <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+           <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
            <p className="text-xs italic text-ink-light">Chargement du classement...</p>
         </div>
       ) : (
@@ -238,7 +229,9 @@ export default function LeagueTable() {
                   <th className="px-1 py-3 text-center w-8" title="Gagnés">G</th>
                   <th className="px-1 py-3 text-center w-8" title="Nuls">N</th>
                   <th className="px-1 py-3 text-center w-8" title="Perdus">P</th>
-                  <th className="px-1 py-3 text-center w-8 hidden sm:table-cell" title="Différence de buts">Diff</th>
+                  <th className="px-1 py-3 text-center w-8 hidden sm:table-cell" title="Buts Pour">{t('league_table.gf')}</th>
+                  <th className="px-1 py-3 text-center w-8 hidden sm:table-cell" title="Buts Contre">{t('league_table.ga')}</th>
+                  <th className="px-1 py-3 text-center w-8" title="Différence de buts">Diff</th>
                   <th className="px-2 py-3 text-center w-10 font-bold text-ink bg-paper-dark/50 italic">
                     {t('league_table.pts')}
                   </th>
@@ -250,7 +243,7 @@ export default function LeagueTable() {
                     <tr
                       key={row.id}
                       onClick={() => setSelectedTeamId(row.id!)}
-                      className={`cursor-pointer ${row.id === userTeamId ? 'bg-accent/5 font-bold ring-1 ring-inset ring-accent/20' : ''} hover:bg-gray-50 transition-colors ${getPositionStyle(index)}`}
+                      className={`cursor-pointer ${row.id === userTeamId ? 'bg-black/5 font-bold ring-1 ring-inset ring-black/20' : ''} hover:bg-gray-50 transition-colors ${getPositionStyle(index)}`}
                     >
                       <td className="px-2 py-4 text-center text-ink-light font-mono text-xs border-r border-gray-100/50 relative">
                         {index + 1}
@@ -279,17 +272,23 @@ export default function LeagueTable() {
                       <td className="px-1 py-4 text-center text-ink-light font-mono text-xs">
                         {row.lost}
                       </td>
-                       <td className="px-1 py-4 text-center text-ink-light font-mono text-xs hidden sm:table-cell">
+                      <td className="px-1 py-4 text-center text-ink-light font-mono text-xs hidden sm:table-cell">
+                        {row.goalsFor}
+                      </td>
+                      <td className="px-1 py-4 text-center text-ink-light font-mono text-xs hidden sm:table-cell">
+                        {row.goalsAgainst}
+                      </td>
+                       <td className="px-1 py-4 text-center text-ink-light font-mono text-xs">
                         {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
                       </td>
-                      <td className="px-2 py-4 text-center font-bold text-accent bg-accent/5 italic border-l border-gray-100/50">
+                      <td className="px-2 py-4 text-center font-bold text-black bg-black/5 italic border-l border-gray-100/50">
                         {row.points || 0}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-3 py-8 text-center text-ink-light italic">
+                    <td colSpan={10} className="px-3 py-8 text-center text-ink-light italic">
                       Aucune équipe trouvée dans cette ligue.
                     </td>
                   </tr>

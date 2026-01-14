@@ -160,7 +160,9 @@ export const MatchService = {
           homeTeamId: match.homeTeamId,
           awayTeamId: match.awayTeamId,
           homePlayers,
-          awayPlayers
+          awayPlayers,
+          homeName: homeT?.name || 'Home',
+          awayName: awayT?.name || 'Away',
         });
       }
       this.runBatchSimulation(matchesToSimulate, saveId, date);
@@ -185,7 +187,9 @@ export const MatchService = {
         homeTeamId: userMatch.homeTeamId,
         awayTeamId: userMatch.awayTeamId,
         homePlayers,
-        awayPlayers
+        awayPlayers,
+        homeName: homeT?.name || 'Home',
+        awayName: awayT?.name || 'Away',
       };
 
       const result = await runMatchInWorker(matchData, i18next.language);
@@ -281,9 +285,20 @@ export const MatchService = {
     const team = await db.teams.get(teamId);
     if (!team) return;
     let pts = team.points || 0;
-    if (goalsFor > goalsAgainst) pts += 3; // VICTOIRE = 3 POINTS
+    if (goalsFor > goalsAgainst) pts += 3;
     else if (goalsFor === goalsAgainst) pts += 1;
-    await db.teams.update(teamId, { matchesPlayed: (team.matchesPlayed || 0) + 1, points: pts });
+    
+    const newGF = (team.goalsFor || 0) + goalsFor;
+    const newGA = (team.goalsAgainst || 0) + goalsAgainst;
+    const newGD = newGF - newGA;
+
+    await db.teams.update(teamId, { 
+        matchesPlayed: (team.matchesPlayed || 0) + 1, 
+        points: pts,
+        goalsFor: newGF,
+        goalsAgainst: newGA,
+        goalDifference: newGD
+    });
   },
 
   async checkSeasonEnd(saveId: number, userLeagueId: number) {
@@ -331,7 +346,8 @@ export const MatchService = {
       const hasMatches = (await db.matches.where('leagueId').equals(league.id!).count()) > 0;
       
       if (hasMatches) {
-         teams.sort((a, b) => (b.points || 0) - (a.points || 0));
+         // Tri avec Goal Difference
+         teams.sort((a, b) => (b.points || 0) - (a.points || 0) || (b.goalDifference || 0) - (a.goalDifference || 0));
       } else {
          // Simulation aléatoire pondérée par la réputation pour les ligues non jouées
          teams.sort((a, b) => (b.reputation + randomInt(-10, 10)) - (a.reputation + randomInt(-10, 10)));
@@ -432,7 +448,7 @@ export const MatchService = {
         
         // Reset stats
         for (const t of currentTeams) {
-            await db.teams.update(t.id!, { points: 0, matchesPlayed: 0 });
+            await db.teams.update(t.id!, { points: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0 });
         }
 
         // Générer nouveau calendrier

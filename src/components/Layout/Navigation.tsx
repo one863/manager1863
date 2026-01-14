@@ -50,7 +50,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         <li className="relative -mt-6">
           <button
             onClick={() => onNavigate('news')}
-            className={`flex flex-col items-center justify-center bg-paper border-4 ${currentView === 'news' ? 'border-accent text-accent' : 'border-gray-200 text-ink-light'} rounded-full h-16 w-16 shadow-lg active:scale-95 transition-all`}
+            className={`flex flex-col items-center justify-center bg-paper border-4 ${currentView === 'news' ? 'border-black text-black' : 'border-gray-200 text-ink-light'} rounded-full h-16 w-16 shadow-lg active:scale-95 transition-all`}
           >
             <Newspaper size={24} className={currentView === 'news' ? 'animate-pulse' : ''} />
             {unreadCount > 0 && (
@@ -71,7 +71,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
         <NavIcon
           icon={Trophy}
           label={t('game.league')}
-          active={currentView === 'league'}
+          active={currentView === 'league' || currentView === 'match-report'}
           onClick={() => onNavigate('league')}
         />
       </ul>
@@ -84,7 +84,7 @@ function NavIcon({ icon: Icon, label, active, onClick, dot }: any) {
     <li>
       <button
         onClick={onClick}
-        className={`flex flex-col items-center justify-center gap-1 transition-all relative w-16 h-full py-1 rounded-xl active:bg-gray-200/50 ${active ? 'text-accent' : 'text-ink-light hover:text-ink'}`}
+        className={`flex flex-col items-center justify-center gap-1 transition-all relative w-16 h-full py-1 rounded-xl active:bg-gray-200/50 ${active ? 'text-black' : 'text-ink-light hover:text-ink'}`}
       >
         <div className={`transition-transform duration-200 ${active ? '-translate-y-1' : ''}`}>
            <Icon size={22} strokeWidth={active ? 2.5 : 2} />
@@ -93,7 +93,7 @@ function NavIcon({ icon: Icon, label, active, onClick, dot }: any) {
           {label}
         </span>
         {dot && (
-           <span className="absolute top-2 right-4 w-2 h-2 bg-accent rounded-full border border-paper-dark animate-pulse"></span>
+           <span className="absolute top-2 right-4 w-2 h-2 bg-black rounded-full border border-paper-dark animate-pulse"></span>
         )}
       </button>
     </li>

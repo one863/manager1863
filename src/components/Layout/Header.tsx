@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Menu, X, ChevronRight, Loader2, Trophy, CircleDot } from 'lucide-preact';
 import { useGameStore } from '@/store/gameSlice';
+import { useLiveMatchStore } from '@/store/liveMatchStore';
 import { useEffect, useState } from 'preact/hooks';
 import { MatchService } from '@/services/match-service';
 
@@ -27,18 +28,22 @@ export function Header({
   const currentSaveId = useGameStore(state => state.currentSaveId);
   const userTeamId = useGameStore(state => state.userTeamId);
   
+  const liveMatch = useLiveMatchStore((state) => state.liveMatch);
+  const isLiveFinished = liveMatch && liveMatch.currentMinute >= 90;
+
   const [hasMatchToday, setHasMatchToday] = useState(false);
 
   useEffect(() => {
     const checkMatch = async () => {
         if (currentSaveId && userTeamId) {
-            // FIX: Pass 'day' (number) instead of 'currentDate'
             const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, day, userTeamId);
             setHasMatchToday(hasMatch);
         }
     };
     checkMatch();
-  }, [day, currentSaveId, userTeamId]); // FIX: Depend on 'day'
+  }, [day, currentSaveId, userTeamId]);
+
+  const showBall = hasMatchToday && !isLiveFinished;
 
   return (
     <header className="bg-paper-dark p-4 border-b border-gray-300 flex justify-between items-center sticky top-0 z-30">
@@ -67,13 +72,13 @@ export function Header({
           className={`
             font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 
             hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:scale-100
-            ${hasMatchToday ? 'bg-white text-black border-2 border-black' : 'bg-black text-white border-2 border-transparent'}
+            ${showBall ? 'bg-white text-black border-2 border-black' : 'bg-black text-white border-2 border-transparent'}
           `}
-          title={hasMatchToday ? "Match aujourd'hui" : "Jour suivant"}
+          title={showBall ? "Match aujourd'hui" : "Jour suivant"}
         >
           {isProcessing || showOverlay ? (
             <Loader2 size={16} className="animate-spin" />
-          ) : hasMatchToday ? (
+          ) : showBall ? (
              <CircleDot size={18} strokeWidth={3} />
           ) : (
             <ChevronRight size={18} strokeWidth={3} />
