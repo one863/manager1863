@@ -98,7 +98,7 @@ export const ClubService = {
 
       const attendance = Math.floor(clamp(baseAttendance * variation * formFactor, 0, team.stadiumCapacity));
       
-      // Prix du billet : 0.15£ par défaut + prime de réputation
+      // Prix du billet : 0.15M par défaut + prime de réputation
       const ticketPrice = 0.15 + (team.reputation / 1000); 
       
       ticketIncome = Math.round(attendance * ticketPrice); 

@@ -295,12 +295,16 @@ export const MatchService = {
     if (!state) return false;
 
     // --- CLEANUP DE FIN DE SAISON ---
+    // Supprimer les vieilles news (on garde juste les 30 dernières ou on vide tout ?)
+    // Ici, on décide de vider toute la table news à chaque fin de saison pour repartir à neuf.
+    await db.news.where('saveId').equals(saveId).delete();
+
     const oldSeason = state.season - 5;
     if (oldSeason > 0) {
         const oldHistory = await db.history.where('saveId').equals(saveId).and(h => h.seasonYear <= oldSeason).primaryKeys();
         await db.history.bulkDelete(oldHistory);
     }
-    await db.news.where('saveId').equals(saveId).delete();
+    
     const matchesToClean = await db.matches.where('saveId').equals(saveId).toArray();
     for (const m of matchesToClean) {
       if (m.details && m.details.commentary) {

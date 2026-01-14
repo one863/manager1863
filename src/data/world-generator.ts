@@ -77,7 +77,7 @@ async function generateTutorialNews(saveId: number, managerName: string) {
     {
       day: 7,
       title: 'Jour de Match : La Tactique',
-      content: "C'est le grand jour. Avant le coup d'envoi, rendez-vous sur l'écran **Tactique** (via l'Effectif ou l'avant-match). Choisissez votre formation (2-3-5 est classique, mais oserez-vous innover ?) et donnez vos consignes. La victoire dépend de vos choix stratégiques aujourd'hui. Bonne chance !"
+      content: "C'est le grand jour. Avant le coup d'envoi, rendez-vous sur l'écran **Tactique** (via l'Effectif ou l'avant-match). Choisissez votre formation et donnez vos consignes. La victoire dépend de vos choix stratégiques aujourd'hui. Bonne chance !"
     }
   ];
 

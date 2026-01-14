@@ -12,8 +12,8 @@ function getCacheKey(starters: Player[], tactic: string): string {
   return `${ids}-${tactic}`;
 }
 
-function calculateSector(starters: Player[], weights: Record<Player['position'], number>): number {
-  return starters.reduce((acc, p) => acc + (p.skill * (weights[p.position] || 0)), 0);
+function calculateSector(starters: Player[], weights: Record<Player['position'], number>, bonus: number = 1.0): number {
+  return starters.reduce((acc, p) => acc + (p.skill * (weights[p.position] || 0) * (p.condition / 100)), 0) * bonus;
 }
 
 export function calculateTeamRatings(

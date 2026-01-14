@@ -204,7 +204,7 @@ export default function Training() {
                        <div className="flex items-center gap-4">
                           <div className="text-right">
                              <div className="text-[9px] font-bold text-accent uppercase">Niv. {s.skill}</div>
-                             <div className="text-[9px] font-mono text-ink-light">£{s.wage}/jour</div>
+                             <div className="text-[9px] font-mono text-ink-light">M{s.wage}/jour</div>
                           </div>
                           <button onClick={() => fireStaff(s.id!)} className="p-2 text-gray-300 hover:text-red-600 transition-colors">
                              <Trash2 size={16} />
@@ -235,7 +235,7 @@ export default function Training() {
                      <div className="flex items-center gap-3">
                         <div className="text-right">
                            <div className="text-[9px] font-bold text-accent uppercase">Talent : {s.skill}</div>
-                           <div className="text-[9px] font-mono text-ink-light">Salaire : £{s.wage}</div>
+                           <div className="text-[9px] font-mono text-ink-light">Salaire : M{s.wage}</div>
                         </div>
                         <button 
                           onClick={() => hireStaff(s)}

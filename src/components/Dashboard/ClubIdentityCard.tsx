@@ -72,7 +72,7 @@ export default function ClubIdentityCard({ team, league, position, onClick }: Cl
         </div>
         <div className="flex items-center gap-3 border-l border-gray-100 pl-4">
           <div className="bg-paper-dark p-2 rounded-xl border border-gray-100 shadow-inner">
-             <span className="text-accent font-black text-xs">£</span>
+             <span className="text-accent font-black text-xs">M</span>
           </div>
           <div>
             <span className="text-ink-light block text-[9px] font-black uppercase tracking-widest opacity-50">Budget</span>

@@ -84,7 +84,7 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
                </div>
                <div>
                   <div className="text-[10px] text-ink-light uppercase font-bold">Valeur de l'Effectif</div>
-                  <div className="font-bold text-ink">£ {stats.totalValue.toLocaleString()}</div>
+                  <div className="font-bold text-ink">M {stats.totalValue.toLocaleString()}</div>
                </div>
             </div>
             <div className="flex items-center gap-3 text-sm">

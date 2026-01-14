@@ -201,7 +201,7 @@ export default function ClubManagement() {
               {showProjectConfirm === 'UPGRADE' ? 'Lancer les travaux ?' : 'Bâtir une nouvelle enceinte ?'}
             </h3>
             <p className="text-sm text-ink-light mb-6 px-2">
-              Ce projet coûtera <span className="font-black text-accent">£{showProjectConfirm === 'UPGRADE' ? upgradeCost : newStadiumCost}</span> et durera <span className="font-black text-ink">{showProjectConfirm === 'UPGRADE' ? '30' : '60'} jours</span> de saison.
+              Ce projet coûtera <span className="font-black text-accent">M{showProjectConfirm === 'UPGRADE' ? upgradeCost : newStadiumCost}</span> et durera <span className="font-black text-ink">{showProjectConfirm === 'UPGRADE' ? '30' : '60'} jours</span> de saison.
             </p>
             <div className="flex gap-4">
               <button onClick={() => setShowProjectConfirm(null)} className="flex-1 py-4 bg-paper-dark rounded-2xl font-black text-[10px] uppercase tracking-widest text-ink-light">ANNULER</button>

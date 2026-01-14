@@ -46,9 +46,9 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
   const getStatusMessage = () => {
     if (isGracePeriod) {
       return (
-        <div className="px-4 py-2 bg-blue-50/50 border-t border-blue-100 flex items-start gap-2">
-          <CalendarClock size={14} className="text-accent shrink-0 mt-0.5" />
-          <p className="text-[10px] text-blue-800 italic leading-tight">
+        <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 flex items-start gap-3">
+          <CalendarClock size={16} className="text-accent shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-800 italic leading-snug font-medium">
             La saison ne fait que commencer. Les dirigeants attendent de voir les premiers résultats avant de juger.
           </p>
         </div>
@@ -57,9 +57,9 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
     
     if (showWarning) {
       return (
-        <div className="px-4 py-2 bg-red-50/50 border-t border-red-100 flex items-start gap-2">
-          <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-700 italic leading-tight">
+        <div className="px-4 py-3 bg-red-50 border-t border-red-100 flex items-start gap-3">
+          <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-700 italic leading-snug font-medium">
             Les dirigeants ne sont pas satisfaits. Améliorez votre classement pour éviter le licenciement.
           </p>
         </div>
@@ -94,7 +94,7 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
         </div>
         
         <div className="flex-1">
-          <div className="font-serif font-bold text-ink leading-tight">
+          <div className="font-serif font-bold text-lg text-ink leading-tight">
             {getObjectiveLabel(team.seasonGoal)}
           </div>
           <div className="text-xs text-ink-light mt-0.5">
@@ -102,9 +102,9 @@ export function BoardObjectiveCard({ team, position }: BoardObjectiveProps) {
           </div>
         </div>
 
-        <div className="text-right">
-          <div className="text-[10px] text-ink-light uppercase">Confiance</div>
-          <div className={`text-lg font-serif font-bold ${team.confidence < 30 ? 'text-red-600' : 'text-accent'}`}>
+        <div className="text-right border-l border-gray-100 pl-4">
+          <div className="text-[10px] text-ink-light uppercase font-bold">Confiance</div>
+          <div className={`text-xl font-serif font-bold ${team.confidence < 30 ? 'text-red-600' : 'text-accent'}`}>
             {team.confidence}%
           </div>
         </div>

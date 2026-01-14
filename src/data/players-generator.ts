@@ -1,53 +1,16 @@
 import { Player, PlayerStats } from '@/db/db';
 
 const firstNames = [
-  'Arthur',
-  'William',
-  'George',
-  'Thomas',
-  'James',
-  'John',
-  'Charles',
-  'Henry',
-  'Edward',
-  'Frederick',
-  'Walter',
-  'Albert',
-  'Robert',
-  'Joseph',
-  'Samuel',
-  'Alfred',
-  'Harry',
-  'Frank',
-  'Richard',
-  'Ernest',
-  'David',
-  'Peter',
-  'Hugh',
+  'Arthur', 'William', 'George', 'Thomas', 'James', 'John', 'Charles',
+  'Henry', 'Edward', 'Frederick', 'Walter', 'Albert', 'Robert', 'Joseph',
+  'Samuel', 'Alfred', 'Harry', 'Frank', 'Richard', 'Ernest', 'David',
+  'Peter', 'Hugh',
 ];
 
 const lastNames = [
-  'Smith',
-  'Jones',
-  'Williams',
-  'Taylor',
-  'Brown',
-  'Davies',
-  'Evans',
-  'Wilson',
-  'Thomas',
-  'Roberts',
-  'Johnson',
-  'Lewis',
-  'Walker',
-  'Robinson',
-  'Wood',
-  'Thompson',
-  'Wright',
-  'White',
-  'Watson',
-  'Kinnaird',
-  'Alcock',
+  'Smith', 'Jones', 'Williams', 'Taylor', 'Brown', 'Davies', 'Evans',
+  'Wilson', 'Thomas', 'Roberts', 'Johnson', 'Lewis', 'Walker', 'Robinson',
+  'Wood', 'Thompson', 'Wright', 'White', 'Watson', 'Kinnaird', 'Alcock',
   'Crompton',
 ];
 
@@ -66,40 +29,47 @@ function generateStats(position: Position, skill: number): PlayerStats {
     Math.max(1, Math.min(99, base + randomInt(-15, 15)));
 
   const stats: PlayerStats = {
-    speed: getAttr(skill),
-    strength: getAttr(skill),
-    dribbling: getAttr(skill),
-    shooting: getAttr(skill),
-    defense: getAttr(skill),
-    passing: getAttr(skill),
     stamina: getAttr(skill),
+    playmaking: 1, // Placeholder
+    defense: getAttr(skill),
+    speed: getAttr(skill),
+    strength: getAttr(skill), // NOUVEAU
+    dribbling: getAttr(skill), // NOUVEAU
+    passing: getAttr(skill), // NOUVEAU
+    shooting: getAttr(skill), // NOUVEAU
   };
 
+  // Ajustements selon la position pour correspondre aux nouveaux besoins du moteur
   switch (position) {
     case 'GK':
       stats.defense = getAttr(skill + 20);
+      stats.passing = getAttr(skill - 10);
       stats.shooting = getAttr(skill - 30);
-      stats.dribbling = getAttr(skill - 20);
+      stats.playmaking = getAttr(skill - 20); // Legacy check
       break;
     case 'DEF':
       stats.defense = getAttr(skill + 15);
       stats.strength = getAttr(skill + 10);
+      stats.passing = getAttr(skill - 5);
       stats.shooting = getAttr(skill - 20);
       break;
     case 'MID':
       stats.passing = getAttr(skill + 15);
       stats.stamina = getAttr(skill + 10);
+      stats.dribbling = getAttr(skill + 5);
+      stats.defense = getAttr(skill - 5);
       break;
     case 'FWD':
       stats.shooting = getAttr(skill + 20);
-      stats.dribbling = getAttr(skill + 10);
+      stats.speed = getAttr(skill + 10);
+      stats.dribbling = getAttr(skill + 5);
       stats.defense = getAttr(skill - 20);
       break;
   }
   return stats;
 }
 
-// Estimation sommaire de la valeur (très arbitraire pour l'instant)
+// Estimation sommaire de la valeur
 function calculateValue(skill: number, age: number): number {
   let baseValue = skill * skill * 2;
   if (age < 23) baseValue *= 1.5; // Potentiel
@@ -111,7 +81,7 @@ function calculateWage(skill: number): number {
   return Math.floor(skill / 5);
 }
 
-// Fonction générique qui renvoie un objet partiel (sans saveId/teamId qui seront ajoutés par l'appelant)
+// Fonction générique qui renvoie un objet partiel
 export function generatePlayer(
   targetSkill: number = 50,
   forcedPosition?: Position,

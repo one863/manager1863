@@ -81,22 +81,23 @@
   },
   "player_card": {
     "attributes": "Attributs",
-    "physical": "Physique",
-    "technical": "Technique",
-    "mental": "Mental",
-    "speed": "Vitesse",
-    "strength": "Puissance",
+    "phase": "Phase & Structure",
+    "specialty": "Spécialités (SE)",
+    "conversion": "Conversion",
     "stamina": "Endurance",
-    "dribbling": "Dribble",
-    "passing": "Passe",
-    "shooting": "Tir",
+    "playmaking": "Construction",
     "defense": "Défense",
+    "speed": "Vitesse",
+    "head": "Jeu de Tête",
+    "technique": "Technique",
+    "scoring": "Buteur",
+    "setPieces": "CPA",
     "morale": "Moral",
     "energy": "Énergie",
     "condition": "Condition",
     "value": "Valeur",
     "wage": "Salaire",
-    "close": "Fermer le dossier"
+    "close": "Fermer"
   },
   "calendar": {
     "title": "Calendrier",
@@ -228,7 +229,7 @@
         "content": [
           "Une semaine riche en enseignements. Nous pointons à la {{position}}e place. Votre budget s'élève à {{budget}} crédits. Continuez !",
           "Le Conseil a examiné votre travail récent. La confiance est à {{confidence}}%. {{team}} doit poursuivre ses efforts.",
-          "Monsieur, nous observons votre progression. Les finances sont stables ({{budget}} £). L'objectif '{{goal}}' reste notre priorité."
+          "Monsieur, nous observons votre progression. Les finances sont stables ({{budget}} M). L'objectif '{{goal}}' reste notre priorité."
         ]
       }
     },

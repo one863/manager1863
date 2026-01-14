@@ -45,12 +45,12 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
   };
 
   const StatBar = ({ label, value }: { label: string; value: number }) => (
-    <div className="flex items-center text-xs mb-1">
-      <span className="w-20 text-ink-light truncate">{label}</span>
-      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
-        <div className="h-full bg-accent" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="flex items-center text-[10px] mb-1">
+      <span className="w-24 text-ink-light truncate font-bold uppercase tracking-tighter">{label}</span>
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+        <div className={`h-full ${value > 75 ? 'bg-green-500' : value > 50 ? 'bg-accent' : value > 25 ? 'bg-orange-400' : 'bg-red-500'}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
       </div>
-      <span className="w-8 text-right font-mono font-bold text-ink">{value}</span>
+      <span className="w-6 text-right font-mono font-bold text-ink ml-1">{value}</span>
     </div>
   );
 
@@ -72,36 +72,55 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-ink">{player.skill}</div>
-            <div className="text-[10px] text-ink-light uppercase tracking-widest">Skill</div>
+            <div className="text-[10px] text-ink-light uppercase tracking-widest">Niveau</div>
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Main Body */}
         <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-3 text-sm bg-white p-3 rounded border border-gray-200 shadow-sm">
             <div>
-              <span className="block text-[10px] text-ink-light uppercase">{t('player_card.value')}</span>
-              <span className="font-bold">£ {player.marketValue}</span>
+              <span className="block text-[10px] text-ink-light uppercase font-bold">{t('player_card.value')}</span>
+              <span className="font-bold text-ink">M {player.marketValue}</span>
             </div>
-            <div>
-              <span className="block text-[10px] text-ink-light uppercase">{t('player_card.condition')}</span>
+            <div className="text-right">
+              <span className="block text-[10px] text-ink-light uppercase font-bold">{t('player_card.condition')}</span>
               <span className={`font-bold ${player.condition < 80 ? 'text-red-600' : 'text-green-700'}`}>{player.condition}%</span>
             </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wider mb-2 border-b border-gray-300 pb-1">{t('player_card.physical')}</h3>
-            <StatBar label={t('player_card.speed')} value={player.stats.speed} />
-            <StatBar label={t('player_card.strength')} value={player.stats.strength} />
-            <StatBar label={t('player_card.stamina')} value={player.stats.stamina} />
-          </div>
+          {/* New Stats Structure */}
+          <div className="space-y-4">
+            {/* Phase & Structure */}
+            <div>
+              <h3 className="text-[10px] font-bold text-accent uppercase tracking-wider mb-2 border-b border-accent/20 pb-0.5 flex justify-between">
+                <span>{t('player_card.phase')}</span>
+                <TrendingUp size={10} />
+              </h3>
+              <StatBar label={t('player_card.stamina')} value={player.stats.stamina} />
+              <StatBar label={t('player_card.playmaking')} value={player.stats.playmaking} />
+              <StatBar label={t('player_card.defense')} value={player.stats.defense} />
+            </div>
 
-          <div>
-            <h3 className="text-sm font-bold text-ink uppercase tracking-wider mb-2 border-b border-gray-300 pb-1">{t('player_card.technical')}</h3>
-            <StatBar label={t('player_card.shooting')} value={player.stats.shooting} />
-            <StatBar label={t('player_card.passing')} value={player.stats.passing} />
-            <StatBar label={t('player_card.dribbling')} value={player.stats.dribbling} />
-            <StatBar label={t('player_card.defense')} value={player.stats.defense} />
+            {/* Specialties */}
+            <div>
+              <h3 className="text-[10px] font-bold text-accent uppercase tracking-wider mb-2 border-b border-accent/20 pb-0.5">
+                {t('player_card.specialty')}
+              </h3>
+              <StatBar label={t('player_card.speed')} value={player.stats.speed} />
+              <StatBar label={t('player_card.head')} value={player.stats.head} />
+              <StatBar label={t('player_card.technique')} value={player.stats.technique} />
+            </div>
+
+            {/* Conversion */}
+            <div>
+              <h3 className="text-[10px] font-bold text-accent uppercase tracking-wider mb-2 border-b border-accent/20 pb-0.5">
+                {t('player_card.conversion')}
+              </h3>
+              <StatBar label={t('player_card.scoring')} value={player.stats.scoring} />
+              <StatBar label={t('player_card.setPieces')} value={player.stats.setPieces} />
+            </div>
           </div>
         </div>
 
@@ -110,20 +129,22 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
           {isUserPlayer && (
             <button
               onClick={() => setShowConfirmSell(true)}
-              className="w-full py-3 bg-red-50 text-red-600 border border-red-200 rounded font-bold flex items-center justify-center gap-2 hover:bg-red-100"
+              className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
             >
-              <Trash2 size={18} /> VENDRE LE JOUEUR (£ {Math.round(player.marketValue * 0.7)})
+              <Trash2 size={14} /> LIBÉRER (M {Math.round(player.marketValue * 0.7)})
             </button>
           )}
-          <button onClick={onClose} className="w-full py-3 bg-white border border-gray-400 rounded text-ink font-bold shadow-sm hover:bg-gray-50">{t('player_card.close')}</button>
+          <button onClick={onClose} className="w-full py-2.5 bg-white border border-gray-400 rounded text-xs text-ink font-bold shadow-sm hover:bg-gray-50 transition-colors">
+            {t('player_card.close')}
+          </button>
         </div>
 
         {/* Confirmation Vente */}
         {showConfirmSell && (
-          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center animate-fade-in z-10">
              <AlertCircle size={48} className="text-red-500 mb-4" />
              <h4 className="font-serif font-bold text-xl mb-2">Libérer le joueur ?</h4>
-             <p className="text-sm text-ink-light mb-6">En vendant <span className="font-bold">{player.lastName}</span>, vous récupérerez 70% de sa valeur marchande.</p>
+             <p className="text-sm text-ink-light mb-6">En libérant <span className="font-bold">{player.lastName}</span>, vous récupérerez 70% de sa valeur marchande.</p>
              <div className="flex gap-3 w-full">
                <Button onClick={() => setShowConfirmSell(false)} variant="secondary" className="flex-1">Annuler</Button>
                <Button onClick={handleSell} variant="primary" className="flex-1 !bg-red-600 !border-red-800">Confirmer</Button>

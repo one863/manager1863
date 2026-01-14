@@ -1,5 +1,6 @@
 import { Match, Team } from '@/db/db';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 
 interface MatchReportProps {
   match: Match;
@@ -15,9 +16,41 @@ export default function MatchReport({
   onClose,
 }: MatchReportProps) {
   const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
   const details = match.details;
 
   if (!details) return null;
+
+  const handleCopyLogs = () => {
+    const logData = {
+      matchInfo: {
+        id: match.id,
+        date: match.date,
+        home: homeTeam?.name || 'Home',
+        away: awayTeam?.name || 'Away',
+        score: `${match.homeScore}-${match.awayScore}`,
+        possession: `${details.homePossession}% / ${100 - details.homePossession}%`,
+        ratings: {
+            // Placeholder: Les ratings ne sont pas stockés dans l'objet Match final actuellement,
+            // il faudrait les ajouter au MatchResultSchema si on veut les débugger ici.
+            // Pour l'instant on met les stats disponibles
+            homeChances: details.stats.homeChances,
+            awayChances: details.stats.awayChances
+        }
+      },
+      events: details.events.map(e => ({
+        minute: e.minute,
+        type: e.type,
+        team: e.teamId === match.homeTeamId ? 'Home' : 'Away',
+        scorer: e.scorerName,
+        desc: e.description
+      }))
+    };
+
+    navigator.clipboard.writeText(JSON.stringify(logData, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -32,7 +65,15 @@ export default function MatchReport({
         <div className="bg-paper-dark p-4 border-b border-gray-300">
           <div className="flex justify-between items-center mb-2 text-xs font-mono text-ink-light uppercase">
             <span>{t('game.date_format', { date: match.date })}</span>
-            <span>League Match</span>
+            <div className="flex gap-2">
+                <button 
+                    onClick={handleCopyLogs}
+                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded border border-blue-200 hover:bg-blue-200 transition-colors"
+                    title="Copy JSON for debugging"
+                >
+                    {copied ? "Copied!" : "📋 Copy Debug Logs"}
+                </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -82,8 +123,8 @@ export default function MatchReport({
               Chances
             </h3>
             <div className="flex justify-between text-sm px-8">
-              <span className="font-bold">{details.stats.homeChances}</span>
-              <span className="font-bold">{details.stats.awayChances}</span>
+              <span className="font-bold text-accent">{details.stats.homeChances}</span>
+              <span className="font-bold text-gray-600">{details.stats.awayChances}</span>
             </div>
           </div>
 
@@ -108,14 +149,20 @@ export default function MatchReport({
                       {event.minute}'
                     </div>
                     <div className="flex-1">
-                      <div className="font-bold text-ink flex items-center gap-1 justify-start">
+                      <div className={`font-bold text-ink flex items-center gap-1 ${event.teamId === match.homeTeamId ? 'justify-start' : 'justify-end'}`}>
                         {event.type === 'GOAL' && '⚽ GOAL!'}
                         {event.type === 'MISS' && '❌ Miss'}
-                        {/* {event.teamId === match.homeTeamId ? homeTeam?.name : awayTeam?.name} */}
+                        {event.type === 'TRANSITION' && '⚡ Transition'}
+                        {event.type === 'SET_PIECE' && '🎯 Set Piece'}
+                        {event.type === 'SPECIAL' && '🌟 Special Event'}
+                        {event.type === 'CARD' && '🟨 Card'}
                       </div>
                       <div className="text-xs text-ink-light leading-relaxed">
                         {event.description}
                       </div>
+                       <div className="text-[10px] text-gray-400 mt-1 font-mono">
+                           Type: {event.type} {event.scorerName ? `| Player: ${event.scorerName}` : ''}
+                       </div>
                     </div>
                   </div>
                 ))

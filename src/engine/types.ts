@@ -17,7 +17,7 @@ export const TeamRatingsSchema = z.object({
 
 export const MatchEventSchema = z.object({
   minute: z.number().int().min(0).max(120),
-  type: z.enum(['GOAL', 'MISS', 'SE', 'CARD', 'INJURY']),
+  type: z.enum(['GOAL', 'MISS', 'SE', 'CARD', 'INJURY', 'TRANSITION', 'SET_PIECE', 'SPECIAL']),
   teamId: z.number(),
   scorerId: z.number().optional(),
   scorerName: z.string().optional(),

@@ -17,75 +17,193 @@ export async function simulateMatch(
     stats: { homeChances: 0, awayChances: 0 },
   };
 
-  // Sécurité : éviter division par zéro
   const totalMidfield = (home.midfield || 1) + (away.midfield || 1);
   result.homePossession = Math.round((home.midfield / totalMidfield) * 100);
 
-  // MOTEUR PASSÉ À 12 ACTIONS
-  const totalChances = 12;
+  // --- NOUVEAU SYSTÈME DE CYCLES (15 Cycles) ---
+  const CYCLES = 15;
+  const cycleDuration = 90 / CYCLES;
   
-  // Générer les minutes des actions de manière équilibrée sur le match
-  const actionMinutes = Array.from({ length: totalChances }, (_, i) => {
-    const range = 90 / totalChances;
-    return randomInt(Math.floor(i * range) + 1, Math.floor((i + 1) * range));
-  }).sort((a, b) => a - b);
-
-  for (let i = 0; i < totalChances; i++) {
-    const minute = actionMinutes[i];
-    const controllingTeam = Math.random() < result.homePossession / 100 ? 'home' : 'away';
-
+  for (let cycle = 0; cycle < CYCLES; cycle++) {
+    const minute = Math.floor(cycle * cycleDuration) + randomInt(1, 4);
+    
+    // --- Phase 0 : Bataille Territoriale ---
+    const homeControlChance = home.midfield / (home.midfield + away.midfield);
+    const controllingTeam = Math.random() < homeControlChance ? 'home' : 'away';
+    
     const attackingRatings = controllingTeam === 'home' ? home : away;
     const defendingRatings = controllingTeam === 'home' ? away : home;
     const attackingId = controllingTeam === 'home' ? homeTeamId : awayTeamId;
     const attackingPlayers = controllingTeam === 'home' ? homePlayers : awayPlayers;
-
-    if (attackingPlayers.length === 0) continue;
-
+    
     if (controllingTeam === 'home') result.stats.homeChances++;
     else result.stats.awayChances++;
 
-    const sectorRoll = Math.random();
-    let sector: 'Left' | 'Center' | 'Right' = sectorRoll < 0.33 ? 'Left' : sectorRoll < 0.66 ? 'Right' : 'Center';
-
-    const attackPower = (attackingRatings as any)[`attack${sector}`] || 1;
-    const defensePower = (defendingRatings as any)[`defense${sector}`] || 1;
-
-    // Formule de probabilité basée sur les ratings
-    const scoringChance = attackPower / (attackPower + defensePower);
-
-    if (probability(scoringChance)) {
-      if (controllingTeam === 'home') result.homeScore++;
-      else result.awayScore++;
-
-      const scorers = attackingPlayers.filter(p => p.position === 'FWD' || p.position === 'MID');
-      const scorer = getRandomElement(scorers.length > 0 ? scorers : attackingPlayers);
-
-      result.events.push({
-        minute, type: 'GOAL', teamId: attackingId, scorerId: scorer.id, scorerName: scorer.lastName,
-        description: getNarrative('match', 'goal', { player: scorer.lastName }).content
-      });
-    } else {
-      // ACTIONS ÉCHOUÉES (MISSES) - Toujours en générer si ce n'est pas un but
-      const players = attackingPlayers.filter(p => p.position !== 'GK');
-      const player = getRandomElement(players.length > 0 ? players : attackingPlayers);
-      
-      result.events.push({
-        minute, type: 'MISS', teamId: attackingId,
-        description: getNarrative('match', 'miss', { player: player.lastName }).content
-      });
+    // --- Phase 1 : Type d'Action ---
+    const actionRoll = Math.random();
+    
+    // 5% de chance d'un événement CPA (Réduit de 10% pour équilibrer le score)
+    if (actionRoll < 0.05) {
+      handleSetPiece(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingPlayers);
+      continue;
     }
+    
+    // 5% de chance d'un Événement Spécial (SE) (Réduit de 10% pour équilibrer le score)
+    if (actionRoll < 0.10) {
+      handleSpecialEvent(result, minute, controllingTeam, attackingId, attackingPlayers);
+      continue;
+    }
+
+    // 90% Action Normale (Augmenté pour être la norme)
+    handleNormalAttack(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingPlayers);
   }
 
-  // Événements d'ambiance supplémentaires pour remplir les "vides"
-  if (probability(0.7)) {
-    result.events.push({
-      minute: randomInt(5, 85),
-      type: 'SE',
-      teamId: 0,
-      description: getNarrative('match', 'ambient', { team: 'Public' }).content
-    });
+  // --- Mécanique de Contre-Attaque (Plafond Dynamique) ---
+  if (result.homePossession > 60 && away.tacticType === 'CA') {
+    handleCounterAttack(result, 'away', away, home, awayTeamId, awayPlayers);
+  } else if (result.homePossession < 40 && home.tacticType === 'CA') {
+    handleCounterAttack(result, 'home', home, away, homeTeamId, homePlayers);
+  }
+
+  // --- Transitions Offensives (Réduite à 5% au lieu de 15% pour éviter les scores fleuves) ---
+  if (probability(0.05)) {
+    const pressTeam = home.tacticType === 'PRESSING' ? 'home' : (away.tacticType === 'PRESSING' ? 'away' : null);
+    if (pressTeam) {
+        const tId = pressTeam === 'home' ? homeTeamId : awayTeamId;
+        const players = pressTeam === 'home' ? homePlayers : awayPlayers;
+        result.events.push({
+            minute: randomInt(10, 80),
+            type: 'TRANSITION',
+            teamId: tId,
+            description: getNarrative('match', 'transition', { team: pressTeam === 'home' ? 'Home' : 'Away' }).content
+        });
+        handleNormalAttack(result, randomInt(10, 80), pressTeam, 
+            pressTeam === 'home' ? home : away, 
+            pressTeam === 'home' ? away : home, 
+            tId, players);
+    }
   }
 
   result.events.sort((a, b) => a.minute - b.minute);
   return result;
+}
+
+function handleNormalAttack(
+    result: MatchResult, 
+    minute: number, 
+    controllingTeam: 'home' | 'away', 
+    att: TeamRatings, 
+    def: TeamRatings, 
+    teamId: number, 
+    players: Player[]
+) {
+    const sectorRoll = Math.random();
+    let sector: 'Left' | 'Center' | 'Right' = sectorRoll < 0.33 ? 'Left' : sectorRoll < 0.66 ? 'Right' : 'Center';
+
+    const attackPower = (att as any)[`attack${sector}`] || 1;
+    const defensePower = (def as any)[`defense${sector}`] || 1;
+
+    // Formule ajustée : Cubique au lieu de Quadratique pour rendre les buts plus durs si la défense est présente
+    const scoringChance = Math.pow(attackPower, 3) / (Math.pow(attackPower, 3) + Math.pow(defensePower, 3));
+
+    if (probability(scoringChance)) {
+        if (controllingTeam === 'home') result.homeScore++;
+        else result.awayScore++;
+
+        const scorers = players.filter(p => p.position === 'FWD' || p.position === 'MID');
+        const scorer = getRandomElement(scorers.length > 0 ? scorers : players);
+
+        result.events.push({
+            minute, type: 'GOAL', teamId, scorerId: scorer.id, scorerName: scorer.lastName,
+            description: getNarrative('match', 'goal', { player: scorer.lastName }).content
+        });
+    } else {
+        // On réduit le nombre de logs "MISS" inutiles pour ne pas flooder le rapport,
+        // on ne logue un MISS que si c'était une "vraie" occasion (chance > 20%)
+        if (scoringChance > 0.20 || probability(0.3)) {
+            const p = getRandomElement(players);
+            result.events.push({
+                minute, type: 'MISS', teamId,
+                description: getNarrative('match', 'miss', { player: p.lastName }).content
+            });
+        }
+    }
+}
+
+function handleSetPiece(
+    result: MatchResult, 
+    minute: number, 
+    controllingTeam: 'home' | 'away',
+    att: TeamRatings, 
+    def: TeamRatings, 
+    teamId: number, 
+    players: Player[]
+) {
+    // Rend les CPA plus difficiles
+    const chance = Math.pow(att.setPieces, 2) / (Math.pow(att.setPieces, 2) + Math.pow(def.defenseCenter, 2));
+    
+    if (probability(chance)) {
+        if (controllingTeam === 'home') result.homeScore++;
+        else result.awayScore++;
+
+        const taker = players.reduce((prev, curr) => (prev.stats.shooting > curr.stats.shooting) ? prev : curr);
+        result.events.push({
+            minute, type: 'GOAL', teamId, scorerId: taker.id, scorerName: taker.lastName,
+            description: "But sur coup de pied arrêté magnifique !" 
+        });
+    } else {
+        if (probability(0.5)) { // Ne pas tout logger
+            result.events.push({
+                minute, type: 'SET_PIECE', teamId,
+                description: "Coup franc dangereux mais repoussé par la défense."
+            });
+        }
+    }
+}
+
+function handleSpecialEvent(
+    result: MatchResult, 
+    minute: number, 
+    controllingTeam: 'home' | 'away',
+    teamId: number, 
+    players: Player[]
+) {
+    const speedster = players.find(p => p.stats.speed > 80); // Seuil augmenté à 80
+    
+    if (speedster && probability(0.2)) { // Probabilité d'activation réduite
+        result.events.push({
+            minute, type: 'SPECIAL', teamId, scorerId: speedster.id, scorerName: speedster.lastName,
+            description: `${speedster.lastName} prend tout le monde de vitesse ! (Événement Rapide)`
+        });
+        
+        if(probability(0.4)) { // Chance de conversion réduite
+             if (controllingTeam === 'home') result.homeScore++;
+             else result.awayScore++;
+
+             result.events.push({
+                minute, type: 'GOAL', teamId, scorerId: speedster.id, scorerName: speedster.lastName,
+                description: "Et c'est au fond ! Quel raid solitaire !"
+            });
+        }
+    }
+}
+
+function handleCounterAttack(
+    result: MatchResult, 
+    teamName: 'home' | 'away', 
+    att: TeamRatings, 
+    def: TeamRatings, 
+    teamId: number, 
+    players: Player[]
+) {
+    const caChance = Math.pow(att.tacticSkill, 2) / (Math.pow(att.tacticSkill, 2) + Math.pow(def.defenseCenter, 2));
+    
+    if (probability(caChance)) {
+        const minute = randomInt(10, 85);
+        result.events.push({
+            minute, type: 'TRANSITION', teamId,
+            description: "Contre-attaque fulgurante lancée !"
+        });
+        handleNormalAttack(result, minute, teamName, att, def, teamId, players);
+    }
 }

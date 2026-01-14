@@ -182,7 +182,7 @@ export default function TransferMarket() {
               </div>
               <h3 className="font-serif font-bold text-xl text-ink">Confirmer l'achat ?</h3>
               <p className="text-sm text-ink-light leading-relaxed">
-                Voulez-vous vraiment recruter <span className="font-bold text-ink">{playerToBuy.lastName}</span> pour <span className="font-bold text-accent">{playerToBuy.marketValue} £</span> ?
+                Voulez-vous vraiment recruter <span className="font-bold text-ink">{playerToBuy.lastName}</span> pour <span className="font-bold text-accent">{playerToBuy.marketValue} M</span> ?
               </p>
               <div className="flex gap-3 w-full pt-2">
                 <Button onClick={() => setPlayerToBuy(null)} variant="secondary" className="flex-1">Annuler</Button>

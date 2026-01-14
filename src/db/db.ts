@@ -4,8 +4,14 @@ import { MatchResult, TeamRatings } from '@/engine/types';
 // --- Interfaces ---
 
 export interface PlayerStats {
-  speed: number; strength: number; dribbling: number; shooting: number;
-  defense: number; passing: number; stamina: number;
+  stamina: number;      // Endurance (Phase Domination)
+  playmaking: number;   // Construction / Passing (Phase 0)
+  defense: number;      // Défense (Phase Rest-Defense)
+  speed: number;        // Vitesse (Special Event: Ailier Rapide / Contre-attaque)
+  head: number;         // Jeu de Tête (Special Event: CPA / Centres)
+  technique: number;    // Technique / Dribble (Special Event: Transition / Possession)
+  scoring: number;      // Buteur (Conversion)
+  setPieces: number;    // Coups de Pied Arrêtés (Phase Statique)
 }
 
 export interface Player {
@@ -33,7 +39,7 @@ export interface Team {
   stadiumName: string; stadiumCapacity: number; stadiumLevel: number;
   sponsorName?: string; sponsorIncome?: number; sponsorExpiryDate?: Date;
   tacticType: TeamRatings['tacticType']; 
-  formation: '2-3-5' | '4-4-2' | '4-3-3' | '5-3-2' | '3-5-2' | '1-1-8' | '1-2-7' | '2-2-6' | 'WM'; 
+  formation: '4-4-2' | '4-3-3' | '3-5-2' | '3-4-3' | '4-2-4' | '5-4-1'; 
   version: number;
   seasonGoal?: 'CHAMPION' | 'PROMOTION' | 'MID_TABLE' | 'AVOID_RELEGATION';
   seasonGoalStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
@@ -110,12 +116,12 @@ class Manager1863DB extends Dexie {
   constructor() {
     super('Manager1863_Storage');
 
-    // Passage à la version 15 pour optimiser les index du marché des transferts
-    this.version(15).stores({
+    // Passage à la version 18 pour optimiser les index du classement et des recherches
+    this.version(18).stores({
       players: '++id, saveId, teamId, [saveId+teamId], [saveId+position], [saveId+teamId+skill], skill, isStarter',
-      teams: '++id, saveId, leagueId, [saveId+leagueId]',
-      leagues: '++id, saveId',
-      matches: '++id, saveId, leagueId, day, [saveId+day], [saveId+leagueId]',
+      teams: '++id, saveId, leagueId, [saveId+leagueId], [saveId+leagueId+points], [saveId+reputation]',
+      leagues: '++id, saveId, level, [saveId+level]',
+      matches: '++id, saveId, leagueId, day, [saveId+day], [saveId+leagueId], [saveId+leagueId+day]',
       saveSlots: 'id, lastPlayedDate',
       gameState: 'saveId',
       news: '++id, saveId, day, [saveId+day]',
@@ -131,7 +137,7 @@ class Manager1863DB extends Dexie {
 }
 
 export const db = new Manager1863DB();
-export const CURRENT_DATA_VERSION = 15;
+export const CURRENT_DATA_VERSION = 18;
 
 const SALT = 'victoria-era-football-1863';
 export async function computeSaveHash(saveId: number): Promise<string> {

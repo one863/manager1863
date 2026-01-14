@@ -4,19 +4,16 @@ import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
 import PlayerCard from '@/components/PlayerCard';
 import PlayerAvatar from '@/components/PlayerAvatar';
-import { Check, Star, Settings2, Target, Shield, Zap, TrendingUp, Users, HeartPulse, Layout } from 'lucide-preact';
+import { Check, Star, Settings2, Target, Shield, Zap, TrendingUp, Users, Layout } from 'lucide-preact';
 import Button from '@/components/Common/Button';
 
 const FORMATIONS: Record<string, { GK: number, DEF: number, MID: number, FWD: number }> = {
-  '1-1-8': { GK: 1, DEF: 1, MID: 1, FWD: 8 },
-  '1-2-7': { GK: 1, DEF: 1, MID: 2, FWD: 7 },
-  '2-2-6': { GK: 1, DEF: 2, MID: 2, FWD: 6 },
-  '2-3-5': { GK: 1, DEF: 2, MID: 3, FWD: 5 }, // Formation historique de 1863
-  'WM':    { GK: 1, DEF: 3, MID: 4, FWD: 3 },
   '4-4-2': { GK: 1, DEF: 4, MID: 4, FWD: 2 },
   '4-3-3': { GK: 1, DEF: 4, MID: 3, FWD: 3 },
-  '5-3-2': { GK: 1, DEF: 5, MID: 3, FWD: 2 },
   '3-5-2': { GK: 1, DEF: 3, MID: 5, FWD: 2 },
+  '3-4-3': { GK: 1, DEF: 3, MID: 4, FWD: 3 },
+  '4-2-4': { GK: 1, DEF: 4, MID: 2, FWD: 4 },
+  '5-4-1': { GK: 1, DEF: 5, MID: 4, FWD: 1 },
 };
 
 export default function Squad() {
@@ -144,11 +141,10 @@ export default function Squad() {
                   {players.filter(p => p.isStarter).length} / 11 Mobilisés
                 </span>
                 <span className="text-[10px] bg-accent/10 px-2 py-0.5 rounded border border-accent/20 text-accent font-bold uppercase italic">
-                  {team?.formation || '2-3-5'}
+                  {team?.formation || '4-4-2'}
                 </span>
               </div>
             </div>
-            {/* Bouton adjoint supprimé selon demande */}
           </div>
 
           <div className="space-y-5">
@@ -183,7 +179,6 @@ export default function Squad() {
                    </button>
                 ))}
              </div>
-             <p className="text-[10px] text-ink-light italic mt-3 text-center">Note : La formation 2-3-5 est le standard historique de la Football Association.</p>
           </section>
 
           {/* STYLE DE JEU */}
@@ -193,11 +188,11 @@ export default function Squad() {
             </h3>
             <div className="grid grid-cols-1 gap-3">
               <TacticButton 
-                active={team?.tacticType === 'NORMAL'} title="Équilibre" desc="Le football dans sa forme la plus pure."
+                active={team?.tacticType === 'NORMAL'} title="Équilibre" desc="Tactique standard."
                 icon={TrendingUp} onClick={() => updateTactic('NORMAL')}
               />
               <TacticButton 
-                active={team?.tacticType === 'PRESSING'} title="Pressing" desc="Étouffer l'adversaire dès le renvoi."
+                active={team?.tacticType === 'PRESSING'} title="Pressing" desc="Étouffer l'adversaire."
                 icon={Zap} onClick={() => updateTactic('PRESSING')}
               />
               <TacticButton 
@@ -242,7 +237,7 @@ function getPositionClass(pos: string) {
   switch(pos) {
     case 'GK': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
     case 'DEF': return 'bg-blue-100 text-blue-800 border-blue-300';
-    case 'MID': return 'bg-green-100 text-green-800 border-green-300';
+    case 'MID': return 'bg-green-100 text-green-800 border-green-100';
     case 'FWD': return 'bg-red-100 text-red-800 border-red-300';
     default: return '';
   }

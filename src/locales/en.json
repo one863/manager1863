@@ -72,22 +72,23 @@
   },
   "player_card": {
     "attributes": "Attributes",
-    "physical": "Physical",
-    "technical": "Technical",
-    "mental": "Mental",
-    "speed": "Speed",
-    "strength": "Power",
+    "phase": "Phase & Structure",
+    "specialty": "Specialties (SE)",
+    "conversion": "Conversion",
     "stamina": "Stamina",
-    "dribbling": "Dribble",
-    "passing": "Pass",
-    "shooting": "Shoot",
+    "playmaking": "Playmaking",
     "defense": "Defense",
+    "speed": "Speed",
+    "head": "Head",
+    "technique": "Technique",
+    "scoring": "Scoring",
+    "setPieces": "Set Pieces",
     "morale": "Morale",
     "energy": "Energy",
     "condition": "Condition",
     "value": "Value",
     "wage": "Wage",
-    "close": "Close File"
+    "close": "Close"
   },
   "calendar": {
     "title": "Calendar",
@@ -209,7 +210,7 @@
         "content": [
           "A week rich in lessons. We are currently in {{position}}th place. Your budget stands at {{budget}} credits. Keep it up!",
           "The Board has examined your recent work. Confidence is at {{confidence}}%. {{team}} must continue its efforts.",
-          "Sir, we are watching your progress closely. Finances are stable ({{budget}} £). The objective '{{goal}}' remains our priority."
+          "Sir, we are watching your progress closely. Finances are stable ({{budget}} M). The objective '{{goal}}' remains our priority."
         ]
       }
     },

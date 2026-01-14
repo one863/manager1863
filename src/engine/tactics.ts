@@ -34,13 +34,10 @@ export const TACTIC_DEFINITIONS: Record<TeamRatings['tacticType'], TacticEffect>
 };
 
 export const FORMATIONS: Record<string, { GK: number, DEF: number, MID: number, FWD: number }> = {
-  '1-1-8': { GK: 1, DEF: 1, MID: 1, FWD: 8 },
-  '1-2-7': { GK: 1, DEF: 1, MID: 2, FWD: 7 },
-  '2-2-6': { GK: 1, DEF: 2, MID: 2, FWD: 6 },
-  '2-3-5': { GK: 1, DEF: 2, MID: 3, FWD: 5 }, // Formation historique de 1863
-  'WM':    { GK: 1, DEF: 3, MID: 4, FWD: 3 }, // The WM (Chapman)
   '4-4-2': { GK: 1, DEF: 4, MID: 4, FWD: 2 },
   '4-3-3': { GK: 1, DEF: 4, MID: 3, FWD: 3 },
-  '5-3-2': { GK: 1, DEF: 5, MID: 3, FWD: 2 },
   '3-5-2': { GK: 1, DEF: 3, MID: 5, FWD: 2 },
+  '3-4-3': { GK: 1, DEF: 3, MID: 4, FWD: 3 },
+  '4-2-4': { GK: 1, DEF: 4, MID: 2, FWD: 4 },
+  '5-4-1': { GK: 1, DEF: 5, MID: 4, FWD: 1 },
 };
