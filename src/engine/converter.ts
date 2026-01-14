@@ -62,10 +62,13 @@ export function calculateTeamRatings(
     tacticType: tactic,
   };
 
-  const DIVIDER = 5;
+  // AUGMENTÉ DE 5 À 20 POUR ÉVITER LE PLAFONNEMENT À 20 TROP RAPIDE (POSSESSION 50/50)
+  const DIVIDER = 20; 
   const ratings = { ...baseRatings };
   const sectors: (keyof TeamRatings)[] = ['midfield', 'attackLeft', 'attackCenter', 'attackRight', 'defenseLeft', 'defenseCenter', 'defenseRight'];
   for (const sector of sectors) { (ratings as any)[sector] = clamp((baseRatings as any)[sector] / DIVIDER, 1, 20); }
+  
+  // Set pieces conserve son propre diviseur car l'échelle est différente (moyenne directe)
   ratings.setPieces = clamp(ratings.setPieces / 5, 1, 20);
 
   const effect = TACTIC_DEFINITIONS[tactic];

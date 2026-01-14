@@ -1,30 +1,19 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
-import { useGameStore } from '@/store/gameSlice'; // On garde pour les traductions ou autre si besoin, mais surtout pour le liveMatchStore
 import { useLiveMatchStore } from '@/store/liveMatchStore';
 import { useTranslation } from 'react-i18next';
 import Scoreboard from './Match/Scoreboard';
 import EventItem from './Match/EventItem';
-import Button from './Common/Button';
-import { Download, FastForward, Trophy } from 'lucide-preact';
+import { Download, FastForward, Copy, Check } from 'lucide-preact';
 
 interface Scorer {
   name: string;
   minute: number;
 }
 
-interface GoalOverlayData {
-  scorer: string;
-  teamName: string;
-  isHome: boolean;
-  newHomeScore: number;
-  newAwayScore: number;
-}
-
 export default function MatchLive() {
   const { t } = useTranslation();
   
-  // Utilisation du nouveau store
   const liveMatch = useLiveMatchStore((state) => state.liveMatch);
   const finishLiveMatch = useLiveMatchStore((state) => state.finishLiveMatch);
   const updateLiveMatchMinute = useLiveMatchStore((state) => state.updateLiveMatchMinute);
@@ -34,16 +23,15 @@ export default function MatchLive() {
   const awayScore = useSignal(0);
   const displayedEvents = useSignal<any[]>([]);
   const isFinished = useSignal(false);
+  const copyFeedback = useSignal(false);
   
-  // Nouveaux signaux pour stats
   const homeScorers = useSignal<Scorer[]>([]);
   const awayScorers = useSignal<Scorer[]>([]);
   const homeChances = useSignal(0);
   const awayChances = useSignal(0);
 
-  // Overlay But
-  const goalOverlay = useSignal<GoalOverlayData | null>(null);
-
+  // UseRef for pause state to persist across renders/effects
+  const isPausedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Initialisation
@@ -52,7 +40,6 @@ export default function MatchLive() {
     const pastEvents = liveMatch.result.events.filter((e: any) => e.minute <= currentMinute.value);
     displayedEvents.value = pastEvents;
     
-    // Recalculer l'état initial complet
     let h = 0; let a = 0;
     let hChances = 0; let aChances = 0;
     const hScorersList: Scorer[] = [];
@@ -81,17 +68,17 @@ export default function MatchLive() {
     awayScorers.value = aScorersList;
     
     if (currentMinute.value >= 90) isFinished.value = true;
-  }, []);
+  }, []); // Run once on mount
 
   // Timer Loop
   useEffect(() => {
     if (!liveMatch || isFinished.value) return;
     
     let tickRate = 200; 
-    let isPaused = false;
 
     const timer = setInterval(() => {
-      if (isPaused) return;
+      // Check pause ref
+      if (isPausedRef.current) return;
 
       if (currentMinute.value >= 90) {
         clearInterval(timer);
@@ -113,50 +100,31 @@ export default function MatchLive() {
       if (eventsNow.length > 0) {
         displayedEvents.value = [...displayedEvents.value, ...eventsNow];
         
-        // Mise à jour stats
         eventsNow.forEach((e: any) => {
           if (e.teamId === liveMatch.homeTeam.id) homeChances.value++;
           else if (e.teamId === liveMatch.awayTeam.id) awayChances.value++;
         });
 
-        const goalEvent = eventsNow.find((e: any) => e.type === 'GOAL');
+        const goals = eventsNow.filter((e: any) => e.type === 'GOAL');
         
-        if (goalEvent) {
-          isPaused = true;
-          const isHome = goalEvent.teamId === liveMatch.homeTeam.id;
-          const teamName = isHome ? liveMatch.homeTeam.name : liveMatch.awayTeam.name;
-          
-          // Calculer le futur score pour l'affichage immédiat
-          const currentHome = homeScore.value;
-          const currentAway = awayScore.value;
-          const newHome = isHome ? currentHome + 1 : currentHome;
-          const newAway = isHome ? currentAway : currentAway + 1;
-          
-          // Trigger Overlay
-          goalOverlay.value = {
-            scorer: goalEvent.scorerName || 'Inconnu',
-            teamName: teamName,
-            isHome,
-            newHomeScore: newHome,
-            newAwayScore: newAway
-          };
+        if (goals.length > 0) {
+          isPausedRef.current = true;
 
-          // Delay score update in scoreboard
+          // Immediate Score Update (Triggers Scoreboard Flash)
+          goals.forEach((g: any) => {
+              if (g.teamId === liveMatch.homeTeam.id) {
+                  homeScore.value += 1;
+                  homeScorers.value = [...homeScorers.value, { name: g.scorerName, minute: g.minute }];
+              } else {
+                  awayScore.value += 1;
+                  awayScorers.value = [...awayScorers.value, { name: g.scorerName, minute: g.minute }];
+              }
+          });
+
+          // Pause of 3 seconds to let the scoreboard flash
           setTimeout(() => {
-            if (isHome) {
-              homeScore.value += 1;
-              homeScorers.value = [...homeScorers.value, { name: goalEvent.scorerName, minute: goalEvent.minute }];
-            } else {
-              awayScore.value += 1;
-              awayScorers.value = [...awayScorers.value, { name: goalEvent.scorerName, minute: goalEvent.minute }];
-            }
-            
-            // Hide overlay and resume
-            setTimeout(() => {
-              goalOverlay.value = null;
-              isPaused = false;
-            }, 2500); // 2.5s display time
-          }, 800); 
+            isPausedRef.current = false;
+          }, 3000); 
         }
 
         if (scrollRef.current) {
@@ -174,6 +142,7 @@ export default function MatchLive() {
 
   const handleSkip = () => {
     if (!liveMatch) return;
+    isPausedRef.current = false; // Force unpause
     currentMinute.value = 90;
     isFinished.value = true;
     displayedEvents.value = liveMatch.result.events;
@@ -201,9 +170,9 @@ export default function MatchLive() {
     updateLiveMatchMinute(90);
   };
 
-  const exportMatchLogs = () => {
-    if (!liveMatch) return;
-    const logs = {
+  const getLogsObject = () => {
+    if (!liveMatch) return null;
+    return {
       matchInfo: {
         home: liveMatch.homeTeam.name, away: liveMatch.awayTeam.name,
         score: `${homeScore.value}-${awayScore.value}`,
@@ -211,6 +180,11 @@ export default function MatchLive() {
       },
       events: liveMatch.result.events,
     };
+  };
+
+  const downloadMatchLogs = () => {
+    if (!liveMatch) return;
+    const logs = getLogsObject();
     const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -220,42 +194,89 @@ export default function MatchLive() {
     URL.revokeObjectURL(url);
   };
 
+  const copyMatchLogs = async () => {
+      const logs = getLogsObject();
+      if (!logs) return;
+      
+      const text = JSON.stringify(logs, null, 2);
+      let success = false;
+
+      // 1. Try execCommand (Synchronous)
+      try {
+          const textArea = document.createElement("textarea");
+          textArea.value = text;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-9999px";
+          textArea.style.top = "0";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          success = document.execCommand('copy');
+          document.body.removeChild(textArea);
+      } catch (e) {
+          console.warn("execCommand failed", e);
+      }
+
+      // 2. Fallback to Clipboard API
+      if (!success) {
+          try {
+              await navigator.clipboard.writeText(text);
+              success = true;
+          } catch (err) {
+              console.error("Clipboard API failed", err);
+          }
+      }
+
+      if (success) {
+          copyFeedback.value = true;
+          setTimeout(() => copyFeedback.value = false, 2000);
+      } else {
+          alert("Impossible de copier les logs.");
+      }
+  };
+
   if (!liveMatch) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans">
+    <div className="fixed inset-0 z-50 bg-white flex flex-col font-sans">
       
-      {/* GOAL OVERLAY */}
-      {goalOverlay.value && (
-        <div className="absolute inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in p-6 text-center">
-          <div className="animate-bounce-in flex flex-col items-center w-full">
-            
-            {/* BIG SCORE DISPLAY */}
-            <div className="flex items-center justify-center gap-4 md:gap-8 mb-8 text-white w-full">
-                <div className="text-2xl md:text-4xl font-black opacity-60 w-24 text-right truncate">
-                  {liveMatch.homeTeam.name}
-                </div>
-                <div className="text-6xl md:text-8xl font-black tracking-tighter tabular-nums flex items-center gap-4 bg-white/10 px-6 py-2 md:px-8 md:py-4 rounded-3xl backdrop-blur-sm border border-white/10 shadow-2xl">
-                    <span>{goalOverlay.value.newHomeScore}</span>
-                    <span className="opacity-50 text-4xl md:text-6xl">-</span>
-                    <span>{goalOverlay.value.newAwayScore}</span>
-                </div>
-                <div className="text-2xl md:text-4xl font-black opacity-60 w-24 text-left truncate">
-                  {liveMatch.awayTeam.name}
-                </div>
-            </div>
-
-            <Trophy size={48} className="text-yellow-400 mx-auto mb-2 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
-            <h1 className="text-5xl font-black text-white italic tracking-tighter transform -rotate-2 mb-4">
-              BUT !
-            </h1>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-white">{goalOverlay.value.scorer}</p>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">pour {goalOverlay.value.teamName}</p>
-            </div>
+      {/* DISCREET CONTROLS HEADER */}
+      <div className="absolute top-0 left-0 w-full p-3 z-50 flex justify-between pointer-events-none">
+          {/* Left: Utilities */}
+          <div className="pointer-events-auto flex gap-3">
+             {!isFinished.value && (
+                <button 
+                  onClick={handleSkip} 
+                  className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-300 hover:text-gray-900 transition-colors"
+                  title="Passer"
+                >
+                   <FastForward size={14} />
+                </button>
+             )}
+             {isFinished.value && (
+                <>
+                  <button onClick={downloadMatchLogs} className="text-gray-300 hover:text-gray-900 transition-colors" title="Télécharger">
+                      <Download size={14} />
+                  </button>
+                  <button onClick={copyMatchLogs} className="text-gray-300 hover:text-gray-900 transition-colors" title="Copier logs">
+                      {copyFeedback.value ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  </button>
+                </>
+             )}
           </div>
-        </div>
-      )}
+
+          {/* Right: Continue */}
+          <div className="pointer-events-auto">
+             {isFinished.value && (
+                 <button 
+                   onClick={finishLiveMatch} 
+                   className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-colors border border-transparent hover:border-gray-200 rounded px-2 py-1"
+                 >
+                    {t('game.continue')} →
+                 </button>
+             )}
+          </div>
+       </div>
 
       {/* HEADER & SCOREBOARD */}
       <Scoreboard
@@ -272,57 +293,22 @@ export default function MatchLive() {
       />
 
       {/* FEED */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 relative scroll-smooth" ref={scrollRef}>
-        
-        {!isFinished.value && (
-          <button 
-            onClick={handleSkip}
-            className="fixed top-4 right-4 z-40 bg-white shadow-lg border border-gray-100 p-2 rounded-full text-gray-400 hover:text-gray-900 transition-colors"
-            title="Passer à la fin"
-          >
-            <FastForward size={20} />
-          </button>
-        )}
-
-        <div className="space-y-4 max-w-md mx-auto pb-20 mt-4">
+      <div className="flex-1 overflow-y-auto p-4 bg-white relative scroll-smooth" ref={scrollRef}>
+        <div className="space-y-0 max-w-md mx-auto pb-20 mt-4">
           {displayedEvents.value.length === 0 && (
-             <div className="text-center py-12 opacity-40">
-                <div className="animate-spin w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full mx-auto mb-2"></div>
-                <span className="text-xs font-bold uppercase tracking-widest">Coup d'envoi...</span>
+             <div className="text-center py-12 opacity-30">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Coup d'envoi...</span>
              </div>
           )}
 
           {displayedEvents.value.map((event, idx) => (
             <EventItem key={idx} event={event} homeTeamId={liveMatch.homeTeam.id!} />
           ))}
-        </div>
 
-        {isFinished.value && (
-          <div className="text-center py-12 animate-fade-in mb-24">
-            <div className="bg-gray-900 text-white px-8 py-4 rounded-xl shadow-xl inline-flex flex-col items-center border border-gray-700">
-              <span className="text-xl font-black italic tracking-tighter">FIN DU MATCH</span>
-            </div>
-            <div className="mt-4">
-               <button onClick={exportMatchLogs} className="text-xs font-bold text-gray-400 hover:text-gray-900 underline">
-                 Télécharger le rapport
-               </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* FOOTER ACTION */}
-      <div className="bg-white p-4 border-t border-gray-200 sticky bottom-0 z-20 pb-8">
-        <div className="max-w-md mx-auto">
-          {isFinished.value ? (
-            <Button onClick={finishLiveMatch} variant="primary" className="w-full py-3 text-base shadow-lg shadow-blue-900/20">
-              {t('game.continue')}
-            </Button>
-          ) : (
-            <div className="flex items-center justify-center gap-3 opacity-60">
-              <div className="h-1.5 w-1.5 bg-green-500 rounded-full animate-ping"></div>
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Live Feed</span>
-            </div>
+          {isFinished.value && (
+             <div className="text-center py-8 opacity-30 animate-fade-in">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Fin du match</span>
+             </div>
           )}
         </div>
       </div>

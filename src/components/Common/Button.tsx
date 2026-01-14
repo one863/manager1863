@@ -20,11 +20,11 @@ export default function Button({
 
   const variants = {
     primary:
-      'bg-accent text-white shadow-lg border-b-4 border-amber-900 active:border-b-0 active:translate-y-1',
+      'bg-black text-white shadow-sm hover:bg-gray-900 active:scale-95 transition-transform',
     secondary:
-      'bg-paper-dark text-ink border-2 border-gray-300 hover:bg-gray-200',
-    danger: 'bg-red-600 text-white shadow-md active:translate-y-0.5',
-    ghost: 'bg-transparent text-ink-light hover:text-ink',
+      'bg-white text-black border border-gray-300 hover:bg-gray-50 active:scale-95 transition-transform',
+    danger: 'bg-white text-red-600 border border-red-200 hover:bg-red-50 active:scale-95',
+    ghost: 'bg-transparent text-gray-500 hover:text-black',
   };
 
   return (

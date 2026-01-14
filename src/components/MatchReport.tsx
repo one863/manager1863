@@ -21,7 +21,7 @@ export default function MatchReport({
 
   if (!details) return null;
 
-  const handleCopyLogs = () => {
+  const handleCopyLogs = async () => {
     const logData = {
       matchInfo: {
         id: match.id,
@@ -31,9 +31,6 @@ export default function MatchReport({
         score: `${match.homeScore}-${match.awayScore}`,
         possession: `${details.homePossession}% / ${100 - details.homePossession}%`,
         ratings: {
-            // Placeholder: Les ratings ne sont pas stockés dans l'objet Match final actuellement,
-            // il faudrait les ajouter au MatchResultSchema si on veut les débugger ici.
-            // Pour l'instant on met les stats disponibles
             homeChances: details.stats.homeChances,
             awayChances: details.stats.awayChances
         }
@@ -47,9 +44,41 @@ export default function MatchReport({
       }))
     };
 
-    navigator.clipboard.writeText(JSON.stringify(logData, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const text = JSON.stringify(logData, null, 2);
+    let success = false;
+
+    // 1. Try execCommand (Synchronous) - Works in most contexts including restricted ones
+    try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+    } catch (e) {
+        console.warn("execCommand failed", e);
+    }
+
+    // 2. If failed, try Clipboard API (Async)
+    if (!success) {
+        try {
+            await navigator.clipboard.writeText(text);
+            success = true;
+        } catch (err) {
+            console.error("Clipboard API failed", err);
+        }
+    }
+
+    if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    } else {
+        alert("Impossible de copier les logs dans ce navigateur.");
+    }
   };
 
   return (

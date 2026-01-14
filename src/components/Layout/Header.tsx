@@ -44,18 +44,18 @@ export function Header({
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleMenu}
-          className="p-2 hover:bg-white/50 rounded-full transition-colors text-accent"
+          className="p-2 hover:bg-white/50 rounded-full transition-colors text-black"
         >
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
-        <h1 className="text-xl font-serif font-bold text-accent tracking-tight">
+        <h1 className="text-xl font-serif font-bold text-black tracking-tight">
           1863
         </h1>
       </div>
 
       <div className="flex items-center gap-2">
         <div className="text-[10px] font-bold uppercase tracking-widest text-ink-light bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm flex items-center gap-2">
-          <span className="text-accent">Saison {season}</span>
+          <span className="text-black">Saison {season}</span>
           <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
           <span>Jour {day}</span>
         </div>
@@ -66,7 +66,7 @@ export function Header({
           className={`
             text-white font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 
             hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:scale-100
-            ${hasMatchToday ? 'bg-orange-600' : 'bg-accent'}
+            bg-black
           `}
           title={hasMatchToday ? "Match aujourd'hui" : "Jour suivant"}
         >

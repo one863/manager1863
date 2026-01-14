@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { Team } from '@/db/db';
 import { Signal } from '@preact/signals';
-import { Trophy } from 'lucide-preact';
+import { useEffect, useState, useRef } from 'preact/hooks';
 
 interface Scorer {
   name: string;
@@ -33,6 +33,32 @@ export default function Scoreboard({
   awayChances,
   possession
 }: ScoreboardProps) {
+  const [flashHome, setFlashHome] = useState(false);
+  const [flashAway, setFlashAway] = useState(false);
+
+  // Access values to force subscription and usage in logic
+  const hVal = typeof homeScore === 'number' ? homeScore : homeScore.value;
+  const aVal = typeof awayScore === 'number' ? awayScore : awayScore.value;
+
+  const prevHome = useRef(hVal);
+  const prevAway = useRef(aVal);
+
+  useEffect(() => {
+    if (hVal > prevHome.current) {
+        setFlashHome(true);
+        setTimeout(() => setFlashHome(false), 3000);
+    }
+    prevHome.current = hVal;
+  }, [hVal]);
+
+  useEffect(() => {
+    if (aVal > prevAway.current) {
+        setFlashAway(true);
+        setTimeout(() => setFlashAway(false), 3000);
+    }
+    prevAway.current = aVal;
+  }, [aVal]);
+
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-20 pb-4 pt-2 px-4 rounded-b-3xl">
       {/* Header Match */}
@@ -62,16 +88,20 @@ export default function Scoreboard({
 
         {/* SCORE CENTRAL */}
         <div className="mx-2 flex flex-col items-center shrink-0 w-24">
-          <div className="relative">
-            <span className="text-4xl font-black text-gray-800 tracking-tighter tabular-nums">
+          <div className="relative flex items-center justify-center gap-1">
+            <span 
+                className={`text-4xl font-black tracking-tighter tabular-nums px-2 rounded transition-all duration-300 ${flashHome ? 'bg-red-500 text-white scale-110 shadow-lg' : 'text-gray-800'}`}
+            >
               {homeScore}
             </span>
-            <span className="text-4xl font-light text-gray-300 mx-1">:</span>
-            <span className="text-4xl font-black text-gray-800 tracking-tighter tabular-nums">
+            <span className="text-4xl font-light text-gray-300 mx-0.5">:</span>
+            <span 
+                className={`text-4xl font-black tracking-tighter tabular-nums px-2 rounded transition-all duration-300 ${flashAway ? 'bg-red-500 text-white scale-110 shadow-lg' : 'text-gray-800'}`}
+            >
               {awayScore}
             </span>
           </div>
-          <div className="mt-1 bg-red-500 text-white px-3 py-0.5 rounded-full text-xs font-bold tabular-nums shadow-sm animate-pulse">
+          <div className="mt-1 bg-red-500 text-white px-3 py-0.5 rounded-full text-xs font-bold tabular-nums shadow-sm animate-pulse text-center w-fit mx-auto">
             {minute}'
           </div>
         </div>
