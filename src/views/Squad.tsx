@@ -148,7 +148,6 @@ export default function Squad() {
 				player={selectedPlayer}
 				onClose={() => setSelectedPlayer(null)}
 				onPlayerAction={loadData}
-				isEmbedded={true}
 			/>
 		);
 	}

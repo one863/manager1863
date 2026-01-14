@@ -15,16 +15,16 @@ export default function Card({
 }: CardProps) {
 	return (
 		<div
-			className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${className}`}
+			className={`bg-white rounded-[2rem] shadow-sm border-2 border-paper-dark overflow-hidden ${className}`}
 		>
 			{title && (
-				<div className="bg-paper-dark px-4 py-2 border-b border-gray-200">
-					<h3 className="text-xs font-bold text-ink-light uppercase tracking-wider">
+				<div className="bg-paper-dark/30 px-6 py-3 border-b border-gray-100">
+					<h3 className="text-[10px] font-black text-ink-light uppercase tracking-[0.2em]">
 						{title}
 					</h3>
 				</div>
 			)}
-			<div className={noPadding ? "" : "p-4"}>{children}</div>
+			<div className={noPadding ? "" : "p-6"}>{children}</div>
 		</div>
 	);
 }

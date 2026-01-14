@@ -135,13 +135,20 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 		}
 	};
 
-	const renderRichText = (text: string) => {
+	const renderRichText = (text: string, isHeadline = false) => {
 		const parts = text.split(/(\[\[.+?\]\]|\*\*.+?\*\*)/g);
 
 		return parts.map((part, index) => {
 			const linkMatch = part.match(/^\[\[(\w+):(.+?)\|(.+?)\]\]$/);
 			if (linkMatch) {
 				const [, type, id, label] = linkMatch;
+				
+				// Dans les titres, on ne rend pas les liens cliquables pour éviter les clics accidentels
+				// et garder un style de titre cohérent. On affiche juste le label.
+				if (isHeadline) {
+					return <span key={index}>{label}</span>;
+				}
+
 				return (
 					<span
 						key={index}
@@ -159,6 +166,11 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 			const boldMatch = part.match(/^\*\*(.+?)\*\*$/);
 			if (boldMatch) {
 				const content = boldMatch[1];
+				
+				if (isHeadline) {
+					return <span key={index}>{content}</span>;
+				}
+
 				const viewKey = Object.keys(VIEW_MAPPING).find((key) =>
 					content.includes(key),
 				);
@@ -278,7 +290,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 						</div>
 						
 						<h2 className="text-3xl font-serif font-bold text-ink leading-tight border-b-2 border-ink/5 pb-4">
-							{renderRichText(selectedArticle.title)}
+							{renderRichText(selectedArticle.title, true)}
 						</h2>
 					</div>
 
@@ -370,7 +382,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 							<div className="flex-1 min-w-0">
 								<div className="flex justify-between items-baseline mb-0.5">
 									<h4 className={`text-sm truncate pr-2 ${article.isRead ? "text-ink-light font-normal" : "font-bold text-ink"}`}>
-										{renderRichText(article.title)}
+										{renderRichText(article.title, true)}
 									</h4>
 									<span className="text-[9px] font-mono text-ink-light shrink-0 opacity-60">
 										Jour {article.day}

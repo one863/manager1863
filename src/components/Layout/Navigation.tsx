@@ -1,5 +1,6 @@
 import { db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
+import { useLiveMatchStore } from "@/store/liveMatchStore";
 import {
 	Briefcase,
 	Home,
@@ -21,6 +22,7 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 	const unreadCount = useGameStore((state) => state.unreadNewsCount);
 	const userTeamId = useGameStore((state) => state.userTeamId);
 	const day = useGameStore((state) => state.day);
+	const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 
 	const [hasActiveProject, setHasActiveProject] = useState(false);
 
@@ -39,6 +41,9 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 		checkProjects();
 	}, [userTeamId, day, currentView]);
 
+	// Le menu est désactivé seulement si un match est en cours ET n'est pas fini
+	const isMatchInProgress = liveMatch && liveMatch.currentMinute < 90;
+
 	return (
 		<nav className="bg-paper-dark border-t border-gray-300 pb-safe absolute bottom-0 w-full z-30 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
 			<ul className="flex justify-around items-center h-16 px-1">
@@ -46,51 +51,61 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 					icon={Home}
 					label={t("game.office")}
 					active={currentView === "dashboard"}
-					onClick={() => onNavigate("dashboard")}
+					onClick={() => !isMatchInProgress && onNavigate("dashboard")}
+					disabled={isMatchInProgress}
 				/>
 				<NavIcon
 					icon={Wallet}
 					label={t("game.finances", "Budget")}
 					active={currentView === "finances"}
-					onClick={() => onNavigate("finances")}
+					onClick={() => !isMatchInProgress && onNavigate("finances")}
+					disabled={isMatchInProgress}
 				/>
 				<NavIcon
 					icon={Newspaper}
 					label={t("dashboard.news_short", "Actus")}
 					active={currentView === "news"}
-					onClick={() => onNavigate("news")}
+					onClick={() => !isMatchInProgress && onNavigate("news")}
 					badge={unreadCount > 0 ? unreadCount : undefined}
+					disabled={isMatchInProgress}
 				/>
 				<NavIcon
 					icon={Users}
 					label={t("game.squad")}
 					active={currentView === "squad"}
-					onClick={() => onNavigate("squad")}
+					onClick={() => !isMatchInProgress && onNavigate("squad")}
+					disabled={isMatchInProgress}
 				/>
 				<NavIcon
 					icon={Briefcase}
 					label={t("game.staff", "Staff")}
 					active={currentView === "training"}
-					onClick={() => onNavigate("training")}
+					onClick={() => !isMatchInProgress && onNavigate("training")}
 					dot={hasActiveProject}
+					disabled={isMatchInProgress}
 				/>
 				<NavIcon
 					icon={Trophy}
 					label={t("game.league")}
 					active={currentView === "league" || currentView === "match-report"}
-					onClick={() => onNavigate("league")}
+					onClick={() => !isMatchInProgress && onNavigate("league")}
+					disabled={isMatchInProgress}
 				/>
 			</ul>
 		</nav>
 	);
 }
 
-function NavIcon({ icon: Icon, label, active, onClick, dot, badge }: any) {
+function NavIcon({ icon: Icon, label, active, onClick, dot, badge, disabled }: any) {
 	return (
 		<li>
 			<button
 				onClick={onClick}
-				className={`flex flex-col items-center justify-center gap-1 transition-all relative w-[60px] h-full py-1 rounded-xl active:bg-gray-200/50 ${active ? "text-black" : "text-ink-light hover:text-ink"}`}
+				disabled={disabled}
+				className={`flex flex-col items-center justify-center gap-1 transition-all relative w-[60px] h-full py-1 rounded-xl active:bg-gray-200/50 
+					${active ? "text-black" : "text-ink-light hover:text-ink"}
+					${disabled ? "opacity-30 cursor-not-allowed" : ""}
+				`}
 			>
 				<div
 					className={`transition-transform duration-200 ${active ? "-translate-y-1.5" : ""}`}

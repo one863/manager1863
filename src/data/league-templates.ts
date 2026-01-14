@@ -54,6 +54,15 @@ const clubNames = [
 	"No Names",
 ];
 
+function generateColor(): string {
+	const letters = "0123456789ABCDEF";
+	let color = "#";
+	for (let i = 0; i < 6; i++) {
+		color += letters[Math.floor(Math.random() * 16)];
+	}
+	return color;
+}
+
 /**
  * Génère un nom de club aléatoire réaliste.
  */
@@ -153,6 +162,7 @@ export async function generateLeagueStructure(
 		stadiumCapacity: 800,
 		stadiumLevel: 1,
 		budget: 1000,
+		pendingIncome: 0,
 		tacticType: "NORMAL",
 		formation: "4-4-2",
 		seasonGoal: "MID_TABLE",
@@ -179,12 +189,15 @@ export async function generateLeagueStructure(
 			name: aiTeamName,
 			leagueId: leagueId as number,
 			managerName: "CPU Manager",
+			primaryColor: generateColor(),
+			secondaryColor: generateColor(),
 			matchesPlayed: 0,
 			points: 0,
 			goalsFor: 0,
 			goalsAgainst: 0,
 			goalDifference: 0,
 			budget: 500,
+			pendingIncome: 0,
 			reputation: 40 + Math.random() * 20,
 			fanCount: 100 + Math.random() * 100,
 			confidence: 70,

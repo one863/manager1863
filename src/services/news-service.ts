@@ -21,7 +21,12 @@ export const NewsService = {
 
 		const allNews = await db.news.where("saveId").equals(saveId).toArray();
 		const visibleNews = allNews.filter((n) => n.day <= gameState.day);
-		visibleNews.sort((a, b) => b.day - a.day);
+		
+		// Sort by day DESC, then by id DESC to have newest first
+		visibleNews.sort((a, b) => {
+			if (b.day !== a.day) return b.day - a.day;
+			return (b.id || 0) - (a.id || 0);
+		});
 
 		return visibleNews.slice(0, limit);
 	},
@@ -32,7 +37,12 @@ export const NewsService = {
 
 		const allNews = await db.news.where("saveId").equals(saveId).toArray();
 		const visibleNews = allNews.filter((n) => n.day <= gameState.day);
-		visibleNews.sort((a, b) => b.day - a.day);
+		
+		// Sort by day DESC, then by id DESC to have newest first
+		visibleNews.sort((a, b) => {
+			if (b.day !== a.day) return b.day - a.day;
+			return (b.id || 0) - (a.id || 0);
+		});
 
 		return visibleNews;
 	},

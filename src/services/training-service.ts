@@ -21,6 +21,14 @@ export const TrainingService = {
 		return { success: true, endDay: nextStartDay };
 	},
 
+	async cancelTraining(teamId: number) {
+		await db.teams.update(teamId, {
+			trainingEndDay: undefined,
+			trainingFocus: undefined,
+		});
+		return { success: true };
+	},
+
 	async processDailyUpdates(
 		teamId: number,
 		saveId: number,
@@ -28,13 +36,36 @@ export const TrainingService = {
 		currentDate: Date,
 	) {
 		const team = await db.teams.get(teamId);
-		if (!team || !team.trainingEndDay || !team.trainingFocus) return;
+		if (!team) return;
 
-		if (currentDay !== team.trainingEndDay) return;
+		// Reset indicators between J7 and J1
+		if (currentDay % 7 === 1) {
+			const teamPlayers = await db.players
+				.where("[saveId+teamId]")
+				.equals([saveId, teamId])
+				.toArray();
+			for (const p of teamPlayers) {
+				if (p.lastTrainingSkillChange !== undefined) {
+					await db.players.update(p.id!, { lastTrainingSkillChange: undefined });
+				}
+			}
+
+			const teamStaff = await db.staff
+				.where("[saveId+teamId]")
+				.equals([saveId, teamId])
+				.toArray();
+			for (const s of teamStaff) {
+				if (s.lastSkillChange !== undefined) {
+					await db.staff.update(s.id!, { lastSkillChange: undefined });
+				}
+			}
+		}
+
+		if (!team.trainingEndDay || !team.trainingFocus || currentDay !== team.trainingEndDay) return;
 
 		const focus = team.trainingFocus;
 		
-		// RÉCUPÉRATION DU STAFF POUR LES BONUS
+		// RÉCUPÉRATION DU STAFF POUR LES BONUS ET PROGRESSION STAFF
 		const staff = await db.staff
 			.where("[saveId+teamId]")
 			.equals([saveId, teamId])
@@ -49,6 +80,24 @@ export const TrainingService = {
 			staffBonus = (trainer.skill / 100) * 0.3;
 		} else if (focus === "TECHNICAL" && coach) {
 			staffBonus = (coach.skill / 100) * 0.3;
+		}
+
+		// Progression STAFF (très lent, 5% de chance de gagner 1 point dans leur domaine)
+		for (const s of staff) {
+			let evolved = false;
+			if ((focus === "PHYSICAL" && s.role === "PHYSICAL_TRAINER") || 
+				(focus === "TECHNICAL" && s.role === "COACH")) {
+				if (probability(0.05)) {
+					const newSkill = Math.min(100, s.skill + 1);
+					if (newSkill > s.skill) {
+						await db.staff.update(s.id!, { skill: newSkill, lastSkillChange: 1 });
+						evolved = true;
+					}
+				}
+			}
+			if (!evolved && s.lastSkillChange !== undefined) {
+				await db.staff.update(s.id!, { lastSkillChange: undefined });
+			}
 		}
 
 		const players = await db.players
@@ -72,6 +121,7 @@ export const TrainingService = {
 			const chance = 0.2 + youthBonus + staffBonus;
 
 			const stats = { ...player.stats };
+			let skillChanged = 0;
 
 			if (probability(chance)) {
 				let statIncreased = "";
@@ -102,15 +152,23 @@ export const TrainingService = {
 						7,
 				);
 
+				skillChanged = avgSkill - player.skill;
+
 				await db.players.update(player.id!, {
 					stats,
 					skill: avgSkill,
 					energy: newEnergy,
+					lastTrainingSkillChange: skillChanged !== 0 ? skillChanged : undefined
 				});
 				
-				progressions.push(`- [[player:${player.id}|${player.lastName}]] a augmenté d'un point en **${statIncreased}**.`);
+				if (skillChanged !== 0) {
+					progressions.push(`- [[player:${player.id}|${player.lastName}]] a augmenté d'un point en **${statIncreased}**.`);
+				}
 			} else {
-				await db.players.update(player.id!, { energy: newEnergy });
+				await db.players.update(player.id!, { 
+					energy: newEnergy,
+					lastTrainingSkillChange: undefined
+				});
 			}
 		}
 

@@ -1,5 +1,6 @@
 import { type Player, type Team, type StaffMember, db } from "@/db/db";
 import { randomInt, getRandomElement } from "@/utils/math";
+import { generatePlayer } from "@/data/players-generator";
 
 const FIRST_NAMES_M = ["William", "John", "Thomas", "George", "Charles", "Henry", "Joseph", "Robert", "James", "Edward"];
 const FIRST_NAMES_F = ["Elizabeth", "Mary", "Victoria", "Alice", "Florence", "Sarah", "Grace", "Emma", "Catherine", "Martha"];
@@ -18,33 +19,13 @@ export const TransferService = {
 			const newPlayers: Player[] = [];
 
 			for (let i = 0; i < playersToCreate; i++) {
-				const skill = Math.max(10, Math.min(99, reputation + randomInt(-15, 15)));
-				const marketValue = Math.round(skill * skill * 0.1);
+				const targetSkill = Math.max(10, Math.min(99, reputation + randomInt(-15, 15)));
+				const player = generatePlayer(targetSkill);
 				
 				newPlayers.push({
+					...player,
 					saveId,
 					teamId: -1,
-					firstName: getRandomElement(FIRST_NAMES_M),
-					lastName: getRandomElement(LAST_NAMES),
-					age: randomInt(17, 34),
-					position: getRandomElement(["GK", "DEF", "MID", "FWD"]) as any,
-					skill,
-					marketValue,
-					condition: 100,
-					energy: 100,
-					dna: `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-0`,
-					stats: {
-						stamina: randomInt(30, 90),
-						playmaking: randomInt(30, 90),
-						defense: randomInt(30, 90),
-						speed: randomInt(30, 90),
-						head: randomInt(30, 90),
-						technique: randomInt(30, 90),
-						scoring: randomInt(30, 90),
-						setPieces: randomInt(30, 90),
-					},
-					isStarter: false,
-					version: 1,
 				} as Player);
 			}
 			await db.players.bulkAdd(newPlayers);

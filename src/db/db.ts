@@ -33,6 +33,7 @@ export interface StaffMember {
 	age: number;
 	specialty?: string;
 	dna: string;
+	lastSkillChange?: number;
 }
 
 export interface SeasonHistory {
@@ -72,8 +73,8 @@ class Manager1863DB extends Dexie {
 	constructor() {
 		super("Manager1863_Storage");
 
-		// Passage à la version 20 pour ajouter DNA au staff
-		this.version(20).stores({
+		// Passage à la version 21 pour ajouter lastSkillChange au staff
+		this.version(21).stores({
 			players:
 				"++id, saveId, teamId, [saveId+teamId], [saveId+position], [saveId+teamId+skill], skill, isStarter",
 			teams:
@@ -96,7 +97,7 @@ class Manager1863DB extends Dexie {
 }
 
 export const db = new Manager1863DB();
-export const CURRENT_DATA_VERSION = 20;
+export const CURRENT_DATA_VERSION = 21;
 
 const SALT = "victoria-era-football-1863";
 export async function computeSaveHash(saveId: number): Promise<string> {

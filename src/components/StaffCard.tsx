@@ -69,7 +69,7 @@ export default function StaffCard({
 				</button>
 				
 				<div className="mb-3">
-					<PlayerAvatar dna={staff.dna || "0-0-0-0"} isStaff size={80} className="border-4 border-accent shadow-lg" />
+					<PlayerAvatar dna={staff.dna || "0-0-0-0"} isStaff size={120} className="border-4 border-accent shadow-lg" />
 				</div>
 				<h2 className="text-2xl font-serif font-bold text-ink leading-tight">
 					{staff.name}

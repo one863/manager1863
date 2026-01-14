@@ -2,6 +2,7 @@ import { db } from "@/db/db";
 import { clamp, randomInt } from "@/utils/math";
 import i18next from "i18next";
 import { NewsService } from "./news-service";
+import type { Sponsor } from "@/engine/types";
 
 export const ClubService = {
 	async processDailyUpdates(
@@ -78,18 +79,19 @@ export const ClubService = {
 		}
 
 		// --- OPPORTUNITÉS DE SPONSOR (NEWS) ---
-		const hasSponsor = !!(team.sponsorName && team.sponsorExpiryDay && (team.sponsorExpirySeason! > state.season || (team.sponsorExpirySeason! === state.season && team.sponsorExpiryDay! > state.day)));
-		const shouldGetOffer = currentDay === 1 || !hasSponsor || Math.random() < 0.02;
+		// On propose un sponsor si on a moins de 3 sponsors actifs
+		const currentSponsors = team.sponsors || [];
+		const shouldGetOffer = currentSponsors.length < 3 && (currentDay === 1 || Math.random() < 0.05);
 
 		if (shouldGetOffer) {
-			const offers = await this.getSponsorOffers(team.reputation, currentDate, state.day, state.season);
+			const offers = await this.getSponsorOffers(teamId, team.reputation, currentDate, state.day, state.season);
 			if (offers.length > 0) {
 				const offer = offers[0];
 				await NewsService.addNews(saveId, {
 					day: currentDay,
 					date: currentDate,
 					title: "OFFRE DE PARTENARIAT",
-					content: `La société ${offer.name} souhaite devenir notre partenaire principal. Ils proposent un contrat jusqu'à la Saison ${offer.expirySeason}, Jour ${offer.expiryDay}, avec un versement hebdomadaire de M ${offer.income}.`,
+					content: `La société **${offer.name}** souhaite devenir l'un de nos partenaires. Ils proposent un contrat jusqu'à la Saison ${offer.expirySeason}, Jour ${offer.expiryDay}, avec un versement hebdomadaire de **M ${offer.income}**.`,
 					type: "SPONSOR",
 					importance: 2,
 					actionData: {
@@ -125,35 +127,41 @@ export const ClubService = {
 
 		const totalWage = totalStaffWage + totalPlayerWage;
 
-		// 2. REVENUS : SPONSORS
-		let sponsorIncome = 0;
-		if (team.sponsorName && team.sponsorExpiryDay) {
-			const isExpired = state.season > team.sponsorExpirySeason! || (state.season === team.sponsorExpirySeason! && state.day >= team.sponsorExpiryDay!);
-			if (!isExpired) {
-				sponsorIncome = team.sponsorIncome || 0;
+		// 2. REVENUS : SPONSORS (Multiples)
+		const currentSponsors = team.sponsors || [];
+		const activeSponsors: Sponsor[] = [];
+		const expiredSponsors: Sponsor[] = [];
+		let totalSponsorIncome = 0;
+
+		for (const sponsor of currentSponsors) {
+			const isExpired = state.season > sponsor.expirySeason || (state.season === sponsor.expirySeason && state.day >= sponsor.expiryDay);
+			if (isExpired) {
+				expiredSponsors.push(sponsor);
 			} else {
-				// Notification d'expiration
+				activeSponsors.push(sponsor);
+				totalSponsorIncome += sponsor.income;
+			}
+		}
+
+		// Gérer les expirations
+		if (expiredSponsors.length > 0) {
+			for (const exp of expiredSponsors) {
 				await NewsService.addNews(saveId, {
 					day: state.day,
 					date: state.currentDate,
 					title: "CONTRAT DE SPONSOR EXPIRÉ",
-					content: `Le contrat avec ${team.sponsorName} est arrivé à son terme aujourd'hui.`,
+					content: `Le contrat avec **${exp.name}** est arrivé à son terme aujourd'hui.`,
 					type: "SPONSOR",
 					importance: 2,
 				});
-				await db.teams.update(teamId, {
-					sponsorName: undefined,
-					sponsorIncome: 0,
-					sponsorExpiryDay: undefined,
-					sponsorExpirySeason: undefined
-				});
 			}
+			await db.teams.update(teamId, { sponsors: activeSponsors });
 		}
 
-		// 3. REVENUS : BILLETTERIE (En attente)
+		// 3. REVENUS : BILLETTERIE
 		const ticketIncome = team.pendingIncome || 0;
 
-		const weeklyBalance = sponsorIncome + ticketIncome - totalWage;
+		const weeklyBalance = totalSponsorIncome + ticketIncome - totalWage;
 
 		await db.teams.update(teamId, { 
 			budget: team.budget + weeklyBalance,
@@ -168,7 +176,7 @@ export const ClubService = {
 			content: `Monsieur le Manager, voici le bilan de notre activité pour la semaine écoulée.
 
 **RECETTES :**
-- Contrat Sponsor : **M ${sponsorIncome}**
+- Contrats Sponsors (${activeSponsors.length}) : **M ${totalSponsorIncome}**
 - Billetterie cumulée : **M ${ticketIncome}**
 
 **DÉPENSES :**
@@ -342,7 +350,10 @@ Le solde de la semaine s'établit à **M ${weeklyBalance}**. Ces fonds ont été
 		return false;
 	},
 
-	async getSponsorOffers(reputation: number, currentDate: Date, currentDay: number, currentSeason: number) {
+	async getSponsorOffers(teamId: number, reputation: number, currentDate: Date, currentDay: number, currentSeason: number) {
+		const team = await db.teams.get(teamId);
+		const currentSponsorNames = (team?.sponsors || []).map(s => s.name);
+
 		const allSponsors = [
 			{ name: "The Local Bakery", baseIncome: 16, durationDays: 30, minRep: 0 },
 			{
@@ -389,7 +400,8 @@ Le solde de la semaine s'établit à **M ${weeklyBalance}**. Ces fonds ont été
 			},
 		];
 
-		const eligibleSponsors = allSponsors.filter((s) => reputation >= s.minRep);
+		// Filtrer les sponsors éligibles ET ceux que nous n'avons pas encore
+		const eligibleSponsors = allSponsors.filter((s) => reputation >= s.minRep && !currentSponsorNames.includes(s.name));
 
 		let offerCount = 1;
 		if (reputation > 50) offerCount = 3;
@@ -407,23 +419,35 @@ Le solde de la semaine s'établit à **M ${weeklyBalance}**. Ces fonds ont été
 				// Calculate expiry in game time
 				let expiryDay = currentDay + s.durationDays;
 				let expirySeason = currentSeason;
-				// On considère une saison de 50 jours environ pour le calcul de l'expiration simplifiée
-				// Si on veut être précis, il faudrait connaître la longueur de la saison, on va utiliser 60 jours comme base
+				// On considère une saison de 50 jours environ
 				while (expiryDay > 60) {
 					expiryDay -= 60;
 					expirySeason += 1;
 				}
 
-				return { ...s, income: finalIncome, expiryDay, expirySeason };
+				return { name: s.name, income: finalIncome, expiryDay, expirySeason };
 			});
 	},
 
-	async signSponsor(teamId: number, offer: any) {
+	async signSponsor(teamId: number, offer: Sponsor) {
+		const team = await db.teams.get(teamId);
+		if (!team) return;
+
+		const currentSponsors = team.sponsors || [];
+		
+		// Vérification doublon avant signature au cas où l'offre est restée dans les news
+		if (currentSponsors.some(s => s.name === offer.name)) return;
+		
+		// Si on a déjà 3 sponsors, on ne peut pas en signer un nouveau
+		if (currentSponsors.length >= 3) return;
+
 		await db.teams.update(teamId, {
-			sponsorName: offer.name,
-			sponsorIncome: offer.income,
-			sponsorExpiryDay: offer.expiryDay,
-			sponsorExpirySeason: offer.expirySeason
+			sponsors: [...currentSponsors, {
+				name: offer.name,
+				income: offer.income,
+				expiryDay: offer.expiryDay,
+				expirySeason: offer.expirySeason
+			}]
 		});
 	},
 };

@@ -231,7 +231,7 @@ export default function TransferMarket() {
 										<Card noPadding className="hover:border-accent transition-colors h-full">
 											<div className="flex items-center p-3 gap-3 h-full">
 												<PlayerAvatar 
-													dna={`0-0-${staff.skill % 5}-0`} 
+													dna={staff.dna} 
 													isStaff 
 													size={44} 
 													className="shrink-0 cursor-pointer" 

@@ -80,6 +80,14 @@ export const PlayerSchema = z.object({
 	marketValue: z.number().nonnegative(),
 	wage: z.number().nonnegative(),
 	isStarter: z.boolean().optional(),
+	lastTrainingSkillChange: z.number().optional(),
+});
+
+export const SponsorSchema = z.object({
+	name: z.string(),
+	income: z.number().nonnegative(),
+	expiryDay: z.number(),
+	expirySeason: z.number(),
 });
 
 export const TeamSchema = z.object({
@@ -104,11 +112,15 @@ export const TeamSchema = z.object({
 	stadiumName: z.string(),
 	stadiumCapacity: z.number().int().nonnegative(),
 	stadiumLevel: z.number().int().min(1),
+	// Nouveaux champs pour sponsors multiples
+	sponsors: z.array(SponsorSchema).default([]),
+	// Legacy fields (kept for migration/compatibility)
 	sponsorName: z.string().optional(),
 	sponsorIncome: z.number().nonnegative().optional(),
 	sponsorExpiryDate: z.coerce.date().optional(),
 	sponsorExpiryDay: z.number().optional(),
 	sponsorExpirySeason: z.number().optional(),
+	
 	stadiumUpgradeEndDay: z.number().optional(),
 	stadiumProject: z.any().optional(),
 	trainingEndDay: z.number().optional(),
@@ -186,6 +198,7 @@ export const ExportDataSchema = z.object({
 
 // --- Types dérivés (TypeScript) ---
 
+export type Sponsor = z.infer<typeof SponsorSchema>;
 export type TeamRatings = z.infer<typeof TeamRatingsSchema>;
 export type MatchEvent = z.infer<typeof MatchEventSchema>;
 export type MatchResult = z.infer<typeof MatchResultSchema>;

@@ -3,10 +3,10 @@ import { useGameStore } from "@/store/gameSlice";
 import { useLiveMatchStore } from "@/store/liveMatchStore";
 import {
 	ChevronRight,
-	CircleDot,
 	Loader2,
 	Menu,
 	X,
+	Castle,
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -100,14 +100,14 @@ export function Header({
 					className={`
             font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 
             hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:scale-100
-            ${showBall ? "bg-white text-black border-2 border-black" : "bg-black text-white border-2 border-transparent"}
+            ${showBall ? "bg-red-600 text-white" : "bg-black text-white border-2 border-transparent"}
           `}
 					title={showBall ? "Match aujourd'hui" : "Jour suivant"}
 				>
 					{isProcessing || showOverlay ? (
 						<Loader2 size={16} className="animate-spin" />
 					) : showBall ? (
-						<CircleDot size={18} strokeWidth={3} />
+						<Castle size={18} strokeWidth={3} />
 					) : (
 						<ChevronRight size={18} strokeWidth={3} />
 					)}

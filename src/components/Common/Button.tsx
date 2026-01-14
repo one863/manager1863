@@ -16,16 +16,16 @@ export default function Button({
 	title,
 }: ButtonProps) {
 	const baseStyles =
-		"w-full py-3 px-4 rounded font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed";
+		"w-full py-3.5 px-6 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm";
 
 	const variants = {
 		primary:
-			"bg-black text-white shadow-sm hover:bg-gray-900 active:scale-95 transition-transform",
+			"bg-white text-ink border-2 border-paper-dark hover:bg-paper-dark active:scale-95 transition-transform",
 		secondary:
-			"bg-white text-black border border-gray-300 hover:bg-gray-50 active:scale-95 transition-transform",
+			"bg-paper-dark text-ink-light border border-gray-100 hover:text-ink active:scale-95 transition-transform",
 		danger:
-			"bg-white text-red-600 border border-red-200 hover:bg-red-50 active:scale-95",
-		ghost: "bg-transparent text-gray-500 hover:text-black",
+			"bg-white text-red-600 border-2 border-red-50 hover:bg-red-50 active:scale-95",
+		ghost: "bg-transparent text-ink-light hover:text-ink shadow-none",
 	};
 
 	return (

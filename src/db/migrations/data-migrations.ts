@@ -1,4 +1,5 @@
 import { CURRENT_DATA_VERSION, db } from "@/db/db";
+import { randomInt } from "@/utils/math";
 
 /**
  * Gère les migrations de données entre les différentes versions du jeu.
@@ -17,6 +18,7 @@ export async function repairSaveData(saveId: number) {
 		if (oldVersion < 1) await migrateToV1(saveId);
 		if (oldVersion < 2) await migrateToV2(saveId);
 		if (oldVersion < 3) await migrateToV3(saveId);
+		if (oldVersion < 20) await migrateToV20(saveId);
 
 		await db.gameState.update(saveId, { version: CURRENT_DATA_VERSION });
 	}
@@ -68,5 +70,17 @@ async function migrateToV3(saveId: number) {
 			sponsorIncome: team.sponsorIncome ?? 10,
 		};
 		await db.teams.update(team.id!, updates);
+	}
+}
+
+async function migrateToV20(saveId: number) {
+	// Migration pour ajouter du DNA aux membres du staff qui n'en ont pas (Version 20)
+	const staffMembers = await db.staff.where("saveId").equals(saveId).toArray();
+	for (const staff of staffMembers) {
+		if (!staff.dna) {
+			const isFemale = Math.random() < 0.2; // Ratio par défaut pour la migration
+			const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`;
+			await db.staff.update(staff.id!, { dna });
+		}
 	}
 }

@@ -12,7 +12,10 @@ import {
 	Clock,
 	Home,
 	ArrowUpCircle,
-	Users
+	Users,
+	Plus,
+	ShieldCheck,
+	ArrowRight
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -43,7 +46,7 @@ export default function SponsorsFinances() {
 				.where("[saveId+teamId]")
 				.equals([teamData.saveId, userTeamId])
 				.toArray();
-			const totalPlayerWage = players.reduce((acc, p) => acc + p.wage, 0);
+			const totalPlayerWage = players.reduce((acc, p) => acc + Math.round(p.skill * 0.2), 0);
 
 			setWeeklyExpenses({
 				players: totalPlayerWage,
@@ -65,6 +68,12 @@ export default function SponsorsFinances() {
 			<div className="p-8 text-center animate-pulse">{t("game.loading")}</div>
 		);
 
+	const activeSponsors = team.sponsors || [];
+	const totalSponsorIncome = activeSponsors.reduce((acc, s) => acc + s.income, 0);
+	const remainingSlots = Math.max(0, 3 - activeSponsors.length);
+	const totalIncome = totalSponsorIncome + (team.pendingIncome || 0);
+	const netWeekly = totalIncome - weeklyExpenses.total;
+
 	return (
 		<div className="animate-fade-in pb-24">
 			{/* ONGLETS FINANCE / STADE */}
@@ -85,119 +94,138 @@ export default function SponsorsFinances() {
 
 			{activeTab === "finance" ? (
 				<div className="space-y-6">
-					<div className="flex items-center justify-between px-2">
-						<div className="flex items-center gap-2">
-							<Coins className="text-accent" />
-							<h2 className="text-xl font-serif font-bold text-ink">
-								Trésorerie
-							</h2>
+					{/* Header Solde & Prochain Bilan */}
+					<div className="bg-white border-2 border-paper-dark rounded-3xl p-6 text-ink shadow-sm space-y-6 relative overflow-hidden">
+						{/* Background decorations */}
+						<div className="absolute -right-4 -top-4 opacity-[0.03]">
+							<Coins size={120} />
 						</div>
-						<div className="flex items-center gap-2 bg-ink/5 px-3 py-1 rounded-full">
-							<Clock size={14} className="text-ink-light" />
-							<span className="text-xs font-bold text-ink-light">
-								Bilan dans {daysUntilPayout === 0 ? "aujourd'hui" : `${daysUntilPayout} j`}
-							</span>
+
+						<div className="flex justify-between items-start relative z-10">
+							<div>
+								<p className="text-[10px] uppercase tracking-widest text-ink-light font-bold mb-1">Trésorerie Actuelle</p>
+								<CreditAmount amount={team.budget} size="xl" color="text-ink" />
+							</div>
+							<div className="bg-paper-dark px-3 py-1.5 rounded-full border border-gray-100 flex items-center gap-2">
+								<Clock size={14} className="text-accent" />
+								<span className="text-[10px] font-bold uppercase tracking-wider text-ink-light">
+									Bilan dans {daysUntilPayout === 0 ? "aujourd'hui" : `${daysUntilPayout} j`}
+								</span>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-2 gap-4 pt-4 border-t border-paper-dark relative z-10">
+							<div>
+								<p className="text-[9px] uppercase tracking-widest text-ink-light font-bold mb-1">Recettes Hebdo (Est.)</p>
+								<div className="flex items-center gap-1">
+									<ArrowRight size={10} className="text-green-600 rotate-[-45deg]" />
+									<CreditAmount amount={totalIncome} size="md" />
+								</div>
+							</div>
+							<div>
+								<p className="text-[9px] uppercase tracking-widest text-ink-light font-bold mb-1">Dépenses Hebdo</p>
+								<div className="flex items-center gap-1">
+									<ArrowRight size={10} className="text-red-600 rotate-[45deg]" />
+									<CreditAmount amount={weeklyExpenses.total} size="md" />
+								</div>
+							</div>
+						</div>
+
+						<div className={`mt-4 p-3 rounded-2xl flex items-center justify-between relative z-10 ${netWeekly >= 0 ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}>
+							<span className="text-[10px] font-bold uppercase tracking-wider text-ink-light">Prévision Solde Semaine</span>
+							<CreditAmount 
+								amount={netWeekly} 
+								size="md" 
+								color={netWeekly >= 0 ? "text-green-700" : "text-red-700"} 
+								prefix={netWeekly > 0 ? "+" : ""}
+							/>
 						</div>
 					</div>
 
-					{/* Solde Actuel */}
-					<Card className="bg-ink text-paper border-none shadow-xl">
-						<div className="flex justify-between items-center">
-							<div>
-								<p className="text-[10px] uppercase tracking-widest opacity-70">Budget Actuel</p>
-								<CreditAmount amount={team.budget} size="xl" color="text-paper" />
-							</div>
-							<div className="text-right">
-								<Clock className="text-accent opacity-50 ml-auto" size={24} />
-							</div>
-						</div>
-					</Card>
-
-					{/* Prévisions de la semaine */}
+					{/* Détails Recettes & Dépenses */}
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<Card title="Recettes Hebdo (Est.)">
+						<Card className="bg-white/50 border-gray-100">
+							<h3 className="text-[10px] font-black uppercase tracking-widest text-ink-light mb-4 flex items-center gap-2">
+								<TrendingUp size={14} className="text-green-600" /> Détail Recettes
+							</h3>
 							<div className="space-y-3">
-								<div className="flex justify-between items-center">
-									<div className="flex items-center gap-2 text-sm text-ink-light">
-										<Handshake size={14} />
-										Sponsor (fixe)
-									</div>
-									<CreditAmount amount={team.sponsorIncome || 0} size="sm" />
+								<div className="flex justify-between items-center text-xs">
+									<span className="text-ink-light italic">Contrats Sponsors ({activeSponsors.length})</span>
+									<CreditAmount amount={totalSponsorIncome} size="sm" />
 								</div>
-								<div className="flex justify-between items-center">
-									<div className="flex items-center gap-2 text-sm text-ink-light">
-										<Receipt size={14} />
-										Billetterie (en attente)
-									</div>
+								<div className="flex justify-between items-center text-xs">
+									<span className="text-ink-light italic">Billetterie cumulée</span>
 									<CreditAmount amount={team.pendingIncome || 0} size="sm" />
 								</div>
-								<div className="pt-2 border-t border-ink/5 flex justify-between items-center font-bold">
-									<span>Total Recettes</span>
-									<CreditAmount amount={(team.sponsorIncome || 0) + (team.pendingIncome || 0)} size="md" color="text-green-700" />
-								</div>
 							</div>
 						</Card>
 
-						<Card title="Dépenses Hebdo">
+						<Card className="bg-white/50 border-gray-100">
+							<h3 className="text-[10px] font-black uppercase tracking-widest text-ink-light mb-4 flex items-center gap-2">
+								<TrendingUp size={14} className="text-red-600 rotate-180" /> Détail Dépenses
+							</h3>
 							<div className="space-y-3">
-								<div className="flex justify-between items-center">
-									<div className="flex items-center gap-2 text-sm text-ink-light">
-										<TrendingUp size={14} />
-										Salaires Joueurs
-									</div>
+								<div className="flex justify-between items-center text-xs">
+									<span className="text-ink-light italic">Masse salariale Joueurs</span>
 									<CreditAmount amount={weeklyExpenses.players} size="sm" />
 								</div>
-								<div className="flex justify-between items-center">
-									<div className="flex items-center gap-2 text-sm text-ink-light">
-										<Wallet size={14} />
-										Salaires Staff
-									</div>
+								<div className="flex justify-between items-center text-xs">
+									<span className="text-ink-light italic">Honoraires Staff</span>
 									<CreditAmount amount={weeklyExpenses.staff} size="sm" />
-								</div>
-								<div className="pt-2 border-t border-ink/5 flex justify-between items-center font-bold">
-									<span>Total Dépenses</span>
-									<CreditAmount amount={weeklyExpenses.total} size="md" color="text-red-700" />
 								</div>
 							</div>
 						</Card>
 					</div>
 
-					{/* État du Sponsor */}
-					<Card title="Partenariat Principal">
-						{team.sponsorName ? (
-							<div className="flex justify-between items-center">
-								<div>
-									<h4 className="font-bold text-lg text-accent">
-										{team.sponsorName}
-									</h4>
-									<div className="flex items-center gap-1 text-xs text-ink-light italic">
-										<Calendar size={12} />
-										{team.sponsorExpirySeason && team.sponsorExpiryDay ? (
-											<span>Expire : Saison {team.sponsorExpirySeason}, Jour {team.sponsorExpiryDay}</span>
-										) : (
-											<span>Contrat Indéterminé</span>
-										)}
+					{/* État des Sponsors */}
+					<div className="space-y-3">
+						<h3 className="text-sm font-black uppercase tracking-widest text-ink-light px-2 flex items-center gap-2">
+							<ShieldCheck size={16} className="text-accent" /> Partenaires ({activeSponsors.length}/3)
+						</h3>
+
+						<div className="grid grid-cols-1 gap-3">
+							{activeSponsors.map((s, idx) => (
+								<Card key={idx} className="border-l-4 border-l-accent bg-white">
+									<div className="flex justify-between items-center">
+										<div>
+											<h4 className="font-bold text-base text-ink">
+												{s.name}
+											</h4>
+											<div className="flex items-center gap-1 text-[10px] text-ink-light italic">
+												<Calendar size={10} />
+												Expire : Saison {s.expirySeason}, Jour {s.expiryDay}
+											</div>
+										</div>
+										<div className="text-right">
+											<div className="flex items-center gap-1 justify-end">
+												<CreditAmount amount={s.income} size="md" />
+											</div>
+											<span className="text-[8px] block uppercase text-ink-light italic">
+												par semaine
+											</span>
+										</div>
 									</div>
-								</div>
-								<div className="text-right">
-									<div className="flex items-center gap-1 justify-end">
-										<CreditAmount amount={team.sponsorIncome || 0} size="lg" />
+								</Card>
+							))}
+
+							{Array.from({ length: remainingSlots }).map((_, idx) => (
+								<div key={`empty-${idx}`} className="border-2 border-dashed border-ink/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 bg-ink/[0.02]">
+									<div className="w-10 h-10 rounded-full bg-paper flex items-center justify-center text-ink/20 border border-ink/5">
+										<Plus size={20} />
 									</div>
-									<span className="text-[10px] block uppercase text-ink-light italic">
-										Versé chaque semaine
-									</span>
+									<p className="text-[10px] font-bold uppercase tracking-widest text-ink/20 text-center">
+										Emplacement Disponible
+									</p>
 								</div>
-							</div>
-						) : (
-							<div className="text-center py-8 italic text-ink-light flex flex-col items-center gap-4">
-								<Handshake size={48} className="opacity-10" />
-								<div className="space-y-1">
-									<p className="font-bold text-ink">Aucun contrat actif</p>
-									<p className="text-xs">Surveillez vos dépêches (News) pour des offres de partenariat.</p>
-								</div>
-							</div>
+							))}
+						</div>
+						
+						{remainingSlots > 0 && (
+							<p className="text-[10px] text-ink-light italic px-2 text-center mt-4">
+								"Surveillez votre messagerie (Actus), nos agents prospectent activement pour remplir ces emplacements."
+							</p>
 						)}
-					</Card>
+					</div>
 				</div>
 			) : (
 				<div className="space-y-6">
