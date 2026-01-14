@@ -1,86 +1,139 @@
-import { db, Player, Team } from '@/db/db';
-import { generatePlayer } from '@/data/players-generator';
-import { randomInt } from '@/utils/math';
+import { type Player, type Team, type StaffMember, db } from "@/db/db";
+import { randomInt, getRandomElement } from "@/utils/math";
 
-const MAX_SQUAD_SIZE = 25; // Limite d'effectif
+const FIRST_NAMES_M = ["William", "John", "Thomas", "George", "Charles", "Henry", "Joseph", "Robert", "James", "Edward"];
+const FIRST_NAMES_F = ["Elizabeth", "Mary", "Victoria", "Alice", "Florence", "Sarah", "Grace", "Emma", "Catherine", "Martha"];
+const LAST_NAMES = ["Smith", "Jones", "Brown", "Taylor", "Williams", "Wilson", "Johnson", "Davies", "Robinson", "Wright"];
+const SPECIALTIES = ["Formation Jeunes", "Tactique Moderne", "Motivation", "Discipline", "Analyse Vidéo", "Préparation Physique"];
 
 export const TransferService = {
-  async generateMarket(saveId: number, count: number = 10, averageSkill: number = 50) {
-    const players = [];
-    for (let i = 0; i < count; i++) {
-      const p = generatePlayer(averageSkill);
-      players.push({ ...p, saveId, teamId: -1 });
-    }
-    return await db.players.bulkAdd(players);
-  },
+	async refreshMarketForReputation(saveId: number, reputation: number) {
+		const playerCount = await db.players
+			.where("[saveId+teamId]")
+			.equals([saveId, -1])
+			.count();
 
-  /**
-   * Met à jour le marché des transferts en fonction de la réputation de l'équipe.
-   * Supprime les joueurs trop faibles (hors scope) et génère de nouveaux joueurs adaptés.
-   */
-  async refreshMarketForReputation(saveId: number, reputation: number) {
-    // Calibrage : Niveau cible = Réputation + 15 (Pour proposer des améliorations)
-    // Avec un plancher à 35 (niveau min Div 6)
-    const targetSkill = Math.max(reputation + 15, 35);
-    const minSkill = targetSkill - 10;
-    const maxSkill = targetSkill + 15;
+		if (playerCount < 20) {
+			const playersToCreate = 30;
+			const newPlayers: Player[] = [];
 
-    // 1. Nettoyage : Supprimer les joueurs du marché (teamId = -1) qui sont hors de la fourchette pertinente
-    // Cela simule le fait que les joueurs trop nuls ne intéressent plus le club, 
-    // et les joueurs trop forts ne veulent pas venir.
-    const outdatedPlayers = await db.players
-      .where('[saveId+teamId+skill]')
-      .between([saveId, -1, 0], [saveId, -1, 100]) // Tous les joueurs du marché
-      .filter(p => p.skill < minSkill || p.skill > maxSkill) // Filtrage manuel car between est sur l'index composé
-      .primaryKeys();
+			for (let i = 0; i < playersToCreate; i++) {
+				const skill = Math.max(10, Math.min(99, reputation + randomInt(-15, 15)));
+				const marketValue = Math.round(skill * skill * 0.1);
+				
+				newPlayers.push({
+					saveId,
+					teamId: -1,
+					firstName: getRandomElement(FIRST_NAMES_M),
+					lastName: getRandomElement(LAST_NAMES),
+					age: randomInt(17, 34),
+					position: getRandomElement(["GK", "DEF", "MID", "FWD"]) as any,
+					skill,
+					marketValue,
+					condition: 100,
+					energy: 100,
+					dna: `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-0`,
+					stats: {
+						stamina: randomInt(30, 90),
+						playmaking: randomInt(30, 90),
+						defense: randomInt(30, 90),
+						speed: randomInt(30, 90),
+						head: randomInt(30, 90),
+						technique: randomInt(30, 90),
+						scoring: randomInt(30, 90),
+						setPieces: randomInt(30, 90),
+					},
+					isStarter: false,
+					version: 1,
+				} as Player);
+			}
+			await db.players.bulkAdd(newPlayers);
+		}
 
-    if (outdatedPlayers.length > 0) {
-      await db.players.bulkDelete(outdatedPlayers);
-    }
+		// Refresh Staff Market
+		const staffCount = await db.staff
+			.where("[saveId+teamId]")
+			.equals([saveId, -1])
+			.count();
 
-    // 2. Vérifier combien de joueurs restent
-    const currentMarketCount = await db.players
-      .where('[saveId+teamId]')
-      .equals([saveId, -1])
-      .count();
+		if (staffCount < 10) {
+			const staffToCreate = 15;
+			const newStaff: StaffMember[] = [];
+			const roles: StaffMember["role"][] = ["COACH", "SCOUT", "PHYSICAL_TRAINER"];
 
-    // 3. Compléter si nécessaire (maintenir environ 15-20 joueurs)
-    const TARGET_MARKET_SIZE = 15;
-    if (currentMarketCount < TARGET_MARKET_SIZE) {
-      const needed = TARGET_MARKET_SIZE - currentMarketCount;
-      await this.generateMarket(saveId, needed, targetSkill);
-    }
-  },
+			for (let i = 0; i < staffToCreate; i++) {
+				const role = getRandomElement(roles);
+				const skill = Math.max(10, Math.min(99, reputation + randomInt(-10, 10)));
+				const wage = Math.round(skill * 0.5);
+				const isFemale = Math.random() < 0.5; // 50% de femmes dans le staff
 
-  async buyPlayer(playerId: number, buyerTeamId: number) {
-    const player = await db.players.get(playerId);
-    const buyer = await db.teams.get(buyerTeamId);
+				newStaff.push({
+					saveId,
+					teamId: -1,
+					name: `${getRandomElement(isFemale ? FIRST_NAMES_F : FIRST_NAMES_M)} ${getRandomElement(LAST_NAMES)}`,
+					role,
+					skill,
+					wage,
+					age: randomInt(35, 65),
+					specialty: getRandomElement(SPECIALTIES),
+					dna: `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`,
+				} as StaffMember);
+			}
+			await db.staff.bulkAdd(newStaff);
+		}
+	},
 
-    if (!player || !buyer) throw new Error('Joueur ou Équipe introuvable');
-    if (buyer.budget < player.marketValue) throw new Error('Budget insuffisant');
+	async buyPlayer(playerId: number, teamId: number) {
+		const player = await db.players.get(playerId);
+		const team = await db.teams.get(teamId);
 
-    // Vérification de la taille de l'effectif
-    const squadCount = await db.players.where('[saveId+teamId]').equals([player.saveId, buyerTeamId]).count();
-    if (squadCount >= MAX_SQUAD_SIZE) throw new Error(`Effectif complet (${MAX_SQUAD_SIZE} joueurs max)`);
+		if (!player || !team) throw new Error("Joueur ou équipe introuvable");
+		if (team.budget < player.marketValue) throw new Error("Budget insuffisant");
 
-    await db.transaction('rw', db.players, db.teams, async () => {
-      await db.teams.update(buyerTeamId, { budget: buyer.budget - player.marketValue });
-      await db.players.update(playerId, { teamId: buyerTeamId, isStarter: false });
-    });
-    return true;
-  },
+		await db.transaction("rw", [db.players, db.teams], async () => {
+			await db.players.update(playerId, { teamId: teamId });
+			await db.teams.update(teamId, { budget: team.budget - player.marketValue });
+		});
+	},
 
-  async sellPlayer(playerId: number, teamId: number) {
-    const player = await db.players.get(playerId);
-    const team = await db.teams.get(teamId);
-    if (!player || !team) throw new Error('Données introuvables');
+	async hireStaff(staffId: number, teamId: number) {
+		const staff = await db.staff.get(staffId);
+		const team = await db.teams.get(teamId);
 
-    const sellValue = Math.round(player.marketValue * 0.7);
+		if (!staff || !team) throw new Error("Staff ou équipe introuvable");
+		
+		const hireCost = staff.skill * 2; // Coût de signature proportionnel au skill
+		if (team.budget < hireCost) throw new Error("Budget insuffisant pour la signature");
 
-    await db.transaction('rw', db.players, db.teams, async () => {
-      await db.players.delete(playerId);
-      await db.teams.update(teamId, { budget: team.budget + sellValue });
-    });
-    return sellValue;
-  }
+		// Vérifier si un membre du même rôle existe déjà
+		const existing = await db.staff.where("[saveId+teamId]").equals([staff.saveId, teamId]).and(s => s.role === staff.role).first();
+
+		await db.transaction("rw", [db.staff, db.teams], async () => {
+			if (existing) {
+				await db.staff.delete(existing.id!);
+			}
+			await db.staff.update(staffId, { teamId: teamId });
+			await db.teams.update(teamId, { budget: team.budget - hireCost });
+		});
+	},
+
+	async sellPlayer(playerId: number, teamId: number) {
+		const player = await db.players.get(playerId);
+		const team = await db.teams.get(teamId);
+
+		if (!player || !team) return;
+
+		const sellValue = Math.round(player.marketValue * this.getSellingPercentage(player.skill));
+
+		await db.transaction("rw", [db.players, db.teams], async () => {
+			await db.players.update(playerId, { teamId: -1 });
+			await db.teams.update(teamId, { budget: team.budget + sellValue });
+		});
+	},
+
+	getSellingPercentage(skill: number) {
+		if (skill > 80) return 0.9;
+		if (skill > 60) return 0.75;
+		return 0.6;
+	}
 };

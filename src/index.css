@@ -3,38 +3,38 @@
 @tailwind utilities;
 
 :root {
-  /* Thème Minimalist Monochrome */
-  --color-paper: 255 255 255; /* #ffffff */
-  --color-paper-dark: 247 247 247; /* #f7f7f7 (Gray-50/100) */
-  --color-ink: 17 17 17; /* #111111 (Almost Black) */
-  --color-ink-light: 115 115 115; /* #737373 (Neutral Gray) */
-  --color-accent: 0 0 0; /* #000000 (Black) */
-  --color-grass: 64 64 64; /* #404040 (Dark Gray) */
+	/* Thème Minimalist Monochrome */
+	--color-paper: 255 255 255; /* #ffffff */
+	--color-paper-dark: 247 247 247; /* #f7f7f7 (Gray-50/100) */
+	--color-ink: 17 17 17; /* #111111 (Almost Black) */
+	--color-ink-light: 115 115 115; /* #737373 (Neutral Gray) */
+	--color-accent: 0 0 0; /* #000000 (Black) */
+	--color-grass: 64 64 64; /* #404040 (Dark Gray) */
 }
 
 body {
-  @apply bg-paper text-ink font-sans transition-colors duration-300;
-  overscroll-behavior-y: none;
-  -webkit-tap-highlight-color: transparent;
+	@apply bg-paper text-ink font-sans transition-colors duration-300;
+	overscroll-behavior-y: none;
+	-webkit-tap-highlight-color: transparent;
 }
 
 input,
 button,
 select {
-  touch-action: manipulation;
+	touch-action: manipulation;
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
+	padding-bottom: env(safe-area-inset-bottom);
 }
 .pt-safe {
-  padding-top: env(safe-area-inset-top);
+	padding-top: env(safe-area-inset-top);
 }
 
 .no-scrollbar::-webkit-scrollbar {
-  display: none;
+	display: none;
 }
 .no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
 }

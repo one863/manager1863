@@ -1,71 +1,94 @@
-import { simulateMatch } from './simulator';
-import i18next from 'i18next';
-import en from '../locales/en.json';
-import fr from '../locales/fr.json';
+import i18next from "i18next";
+import en from "../locales/en.json";
+import fr from "../locales/fr.json";
+import { simulateMatch } from "./simulator";
 
 // Initialisation i18next pour le worker (Narratives)
 i18next.init({
-  lng: 'fr', // Sera écrasé par le payload
-  fallbackLng: 'en',
-  resources: {
-    en: { translation: en },
-    fr: { translation: fr }
-  },
-  returnObjects: true,
-  interpolation: {
-    escapeValue: false
-  }
+	lng: "fr", // Sera écrasé par le payload
+	fallbackLng: "en",
+	resources: {
+		en: { translation: en },
+		fr: { translation: fr },
+	},
+	returnObjects: true,
+	interpolation: {
+		escapeValue: false,
+	},
 });
 
 self.onmessage = async (e: MessageEvent) => {
-  const { type, payload } = e.data;
+	const { type, payload } = e.data;
 
-  // Mise à jour de la langue si nécessaire
-  if (payload?.language && i18next.language !== payload.language) {
-    await i18next.changeLanguage(payload.language);
-  }
+	// Mise à jour de la langue si nécessaire
+	if (payload?.language && i18next.language !== payload.language) {
+		await i18next.changeLanguage(payload.language);
+	}
 
-  if (type === 'SIMULATE_BATCH') {
-    const { matches, saveId } = payload;
-    const results = [];
+	if (type === "SIMULATE_BATCH") {
+		const { matches, saveId } = payload;
+		const results = [];
 
-    for (const matchData of matches) {
-      const { homeRatings, awayRatings, homeTeamId, awayTeamId, homePlayers, awayPlayers, matchId, homeName, awayName } = matchData;
-      
-      const result = await simulateMatch(
-        homeRatings,
-        awayRatings,
-        homeTeamId,
-        awayTeamId,
-        homePlayers,
-        awayPlayers,
-        homeName || 'Home',
-        awayName || 'Away'
-      );
+		for (const matchData of matches) {
+			const {
+				homeRatings,
+				awayRatings,
+				homeTeamId,
+				awayTeamId,
+				homePlayers,
+				awayPlayers,
+				matchId,
+				homeName,
+				awayName,
+			} = matchData;
 
-      results.push({
-        matchId,
-        result
-      });
-    }
+			const result = await simulateMatch(
+				homeRatings,
+				awayRatings,
+				homeTeamId,
+				awayTeamId,
+				homePlayers,
+				awayPlayers,
+				homeName || "Home",
+				awayName || "Away",
+			);
 
-    self.postMessage({ type: 'BATCH_COMPLETE', payload: { results, saveId } });
-  }
+			results.push({
+				matchId,
+				result,
+			});
+		}
 
-  if (type === 'SIMULATE_MATCH') {
-    const { homeRatings, awayRatings, homeTeamId, awayTeamId, homePlayers, awayPlayers, requestId, homeName, awayName } = payload;
+		self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId } });
+	}
 
-    const result = await simulateMatch(
-      homeRatings,
-      awayRatings,
-      homeTeamId,
-      awayTeamId,
-      homePlayers,
-      awayPlayers,
-      homeName || 'Home',
-      awayName || 'Away'
-    );
+	if (type === "SIMULATE_MATCH") {
+		const {
+			homeRatings,
+			awayRatings,
+			homeTeamId,
+			awayTeamId,
+			homePlayers,
+			awayPlayers,
+			requestId,
+			homeName,
+			awayName,
+		} = payload;
 
-    self.postMessage({ type: 'MATCH_COMPLETE', payload: { result, requestId } });
-  }
+		const result = await simulateMatch(
+			homeRatings,
+			awayRatings,
+			homeTeamId,
+			awayTeamId,
+			homePlayers,
+			awayPlayers,
+			homeName || "Home",
+			awayName || "Away",
+		);
+
+		self.postMessage({
+			type: "MATCH_COMPLETE",
+			payload: { result, requestId },
+		});
+	}
 };

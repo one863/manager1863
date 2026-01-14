@@ -1,263 +1,287 @@
 {
-  "menu": {
-    "title": "Manager 2026",
-    "subtitle": "Le Football de Demain",
-    "new_game": "Fonder un Club",
-    "load_game": "Charger une partie",
-    "version": "v0.1.0 - Alpha"
-  },
-  "create": {
-    "title": "Fondation du Club",
-    "subtitle": "Devenez une légende",
-    "choose_slot": "Emplacement de sauvegarde",
-    "slot_desc": "Où souhaitez-vous enregistrer cette partie ?",
-    "slot_free": "Nouvelle Partie",
-    "slot_occupied": "Partie Occupée",
-    "slot_new": "Nouvelle Partie",
-    "manager_label": "Identité du Manager",
-    "manager_placeholder": "Ex: Pep Guardiola",
-    "club_label": "Nom du Club",
-    "club_placeholder": "Ex: Manchester City",
-    "charter_text": "En signant ce contrat, vous acceptez de respecter les règles de la FIFA et de l'UEFA. Vous prenez la tête de ce club pour tenter de le mener vers les sommets de l'Europe.",
-    "sign_button": "Signer le Contrat",
-    "creating": "Création du club...",
-    "cancel": "Annuler",
-    "change_slot": "Changer d'emplacement"
-  },
-  "load": {
-    "title": "Charger une partie",
-    "searching": "Recherche des sauvegardes...",
-    "empty_slot": "Emplacement vide",
-    "played_on": "Dernier accès",
-    "game_date": "Progression",
-    "delete_confirm": "Voulez-vous vraiment supprimer cette partie ?",
-    "back": "Retour"
-  },
-  "game": {
-    "date_format": "{{date, datetime}}",
-    "continue": "Continuer",
-    "loading": "Chargement...",
-    "office": "Bureau",
-    "squad": "Effectif",
-    "training": "Entraînement",
-    "calendar": "Calendrier",
-    "league": "League",
-    "quit": "Quitter"
-  },
-  "dashboard": {
-    "division": "Ligue",
-    "finances": "Budget",
-    "next_match": "Prochain match",
-    "home": "Domicile",
-    "away": "Extérieur",
-    "prepare_team": "Préparer l'équipe",
-    "news": "Actualités & Réseaux",
-    "welcome_title": "Bienvenue au club !",
-    "welcome_msg": "La saison 2026 va bientôt commencer.",
-    "ago": "Il y a 2h",
-    "season": "Saison {{season}}",
-    "progress": "Progression : {{progress}}%",
-    "day": "JOUR {{day}}",
-    "end_day": "FIN : JOUR {{day}}",
-    "match_day": "Jour de Match !",
-    "prepare_lineup": "Préparez votre 11 de départ.",
-    "tactics_btn": "TACTIQUE",
-    "press_btn": "Presse",
-    "market_btn": "Mercato"
-  },
-  "squad": {
-    "title": "Effectif Pro",
-    "no_players": "Aucun joueur sous contrat.",
-    "name": "Nom",
-    "age": "Age",
-    "pos": "Poste",
-    "skill": "Gen",
-    "cond": "Forme",
-    "details": "Détails",
-    "gk": "Gardiens",
-    "def": "Défenseurs",
-    "mid": "Milieux",
-    "fwd": "Attaquants"
-  },
-  "player_card": {
-    "attributes": "Attributs",
-    "phase": "Profil",
-    "specialty": "Spécialités",
-    "conversion": "Finition",
-    "stamina": "Endurance",
-    "playmaking": "Vision",
-    "defense": "Défense",
-    "speed": "Vitesse",
-    "head": "Jeu de Tête",
-    "technique": "Technique",
-    "scoring": "Finition",
-    "setPieces": "CPA",
-    "morale": "Moral",
-    "energy": "Énergie",
-    "condition": "Condition",
-    "value": "Valeur",
-    "wage": "Salaire",
-    "close": "Fermer"
-  },
-  "calendar": {
-    "title": "Calendrier",
-    "no_matches": "Aucun match prévu.",
-    "upcoming": "À venir",
-    "results": "Résultats",
-    "vs": "vs"
-  },
-  "league_table": {
-    "title": "Classement",
-    "pos": "Pos",
-    "club": "Club",
-    "p": "J",
-    "w": "G",
-    "d": "N",
-    "l": "P",
-    "gf": "BP",
-    "ga": "BC",
-    "gd": "Diff",
-    "pts": "Pts"
-  },
-  "season_goals": {
-    "CHAMPION": "Être Sacré Champion",
-    "PROMOTION": "Obtenir la Montée",
-    "MID_TABLE": "Finir en Milieu de Tableau",
-    "AVOID_RELEGATION": "Éviter la Relégation"
-  },
-  "narratives": {
-    "match": {
-      "goal": [
-        "But pour {{team}} ! {{player}} propulse le ballon au fond des filets d'une frappe limpide !",
-        "But pour {{team}} ! Le stade exulte alors que {{player}} trompe le gardien.",
-        "But pour {{team}} ! {{player}} profite d'une erreur défensive pour marquer.",
-        "But pour {{team}} ! Quelle action conclue par {{player}} !"
-      ],
-      "miss": [
-        "{{player}} tente sa chance mais ça passe largement au-dessus.",
-        "Grosse occasion manquée pour {{player}} ! Le cadre se dérobe.",
-        "{{player}} bute sur le gardien qui réalise une parade décisive.",
-        "La défense intervient in-extremis devant {{player}} !"
-      ],
-      "ambient": [
-        "La pluie rend le terrain glissant, le jeu devient plus rapide.",
-        "Les Ultras chantent à tue-tête dans le virage Nord.",
-        "Le capitaine de {{team}} recadre ses coéquipiers.",
-        "Le VAR vérifie l'action précédente... Le jeu reprend.",
-        "Les remplaçants partent s'échauffer le long de la touche."
-      ]
-    },
-    "news": {
-      "matchDay": {
-        "title": [
-          "JOUR DE MATCH : {{team}} vs {{opponent}}",
-          "Choc attendu à {{stadium}}",
-          "Le coup d'envoi approche !",
-          "Grosse ambiance pour la réception de {{opponent}}"
-        ],
-        "content": [
-          "Aujourd'hui, {{team}} affronte {{opponent}}. Les réseaux sociaux s'enflamment avant le match.",
-          "La pelouse de {{stadium}} est un billard. La tension est palpable entre {{team}} et {{opponent}}.",
-          "L'Équipe : Tous les regards se tournent vers {{team}} qui reçoit {{opponent}} ce soir."
-        ]
-      },
-      "victory": {
-        "title": [
-          "Triomphe pour {{team}} !",
-          "La victoire éclatante de {{team}}",
-          "Masterclass de {{team}}",
-          "{{team}} domine son sujet"
-        ],
-        "content": [
-          "Le public de {{stadium}} a assisté à un grand match. {{team}} a dominé {{opponent}} sur le score de {{score}}.",
-          "Site Officiel : {{team}} l'emporte avec la manière face à {{opponent}} ({{score}}).",
-          "Quelle ferveur ! {{team}} gagne face à {{opponent}}. Le score de {{score}} reflète la domination."
-        ]
-      },
-      "draw": {
-        "title": [
-          "Match nul à {{stadium}}",
-          "Pas de vainqueur entre {{team}} et {{opponent}}",
-          "Partage des points : {{score}}",
-          "Un point mérité pour {{team}}"
-        ],
-        "content": [
-          "Les deux équipes se sont neutralisées. Score final : {{score}}.",
-          "La rencontre entre {{team}} et {{opponent}} se solde par un nul. Les défenses ont pris le pas sur les attaques.",
-          "Un point précieux pour {{team}} qui a tenu bon face à {{opponent}}."
-        ]
-      },
-      "loss": {
-        "title": [
-          "Défaite amère pour {{team}}",
-          "Coup d'arrêt pour {{team}}",
-          "Désillusion à {{stadium}}",
-          "{{team}} chute face à {{opponent}}"
-        ],
-        "content": [
-          "Malgré leurs efforts, les joueurs de {{team}} n'ont pas su contenir {{opponent}}. Score final : {{score}}.",
-          "La presse est critique : {{team}} a manqué d'intensité face à {{opponent}} ({{score}}).",
-          "Soirée difficile pour les fans de {{team}}. {{opponent}} était plus fort."
-        ]
-      },
-      "club": {
-        "stadium_new_title": "NOUVEAU STADE",
-        "stadium_new_content": "Inauguration du {{name}}, notre nouvelle enceinte ultra-moderne de {{capacity}} places.",
-        "stadium_upgrade_title": "TRAVAUX TERMINÉS",
-        "stadium_upgrade_content": "L'extension de {{name}} est finie. Capacité portée à {{capacity}} places.",
-        "sponsor_left_title": "FIN DE SPONSORING",
-        "sponsor_left_content": "Le contrat avec {{name}} est arrivé à terme.",
-        "sacked_title": "CONTRAT ROMPU",
-        "sacked_content": "La direction a décidé de vous limoger."
-      }
-    },
-    "board": {
-      "warning": [
-        "Le Conseil d'Administration s'impatiente. Les résultats de {{team}} sont insuffisants.",
-        "Message du Président : Vos performances récentes inquiètent les investisseurs. Réagissez vite."
-      ],
-      "praise": [
-        "La direction salue votre gestion. Continuez ainsi et vous marquerez l'histoire de {{stadium}}.",
-        "Félicitations pour ces résultats. Le merchandising explose grâce à vous !"
-      ],
-      "sundayReport": {
-        "title": [
-          "Bilan Hebdomadaire",
-          "Rapport de la Direction",
-          "Note du Président"
-        ],
-        "content": [
-          "Une semaine intéressante. Nous sommes {{position}}e. Votre budget est de {{budget}}M€. Continuez !",
-          "Le Conseil a analysé les datas. La confiance est à {{confidence}}%. {{team}} est sur la bonne voie.",
-          "Nous suivons votre progression. Finances stables ({{budget}} M€). L'objectif '{{goal}}' reste la priorité."
-        ]
-      }
-    },
-    "training": {
-      "wednesdayReport": {
-        "title": [
-          "Rapport du Staff Technique",
-          "Note d'Entraînement",
-          "Point Forme"
-        ],
-        "content": [
-          "Grosse intensité à l'entraînement. {{player}} a impressionné le staff par son volume de jeu.",
-          "Data Performance : L'énergie globale est bonne. Progression technique notable chez certains jeunes.",
-          "Séance tactique productive. {{player}} semble prêt pour le prochain match."
-        ]
-      }
-    },
-    "weekly": {
-      "positive": [
-        { "title": "Investisseur Mystère", "content": "Un fonds d'investissement a injecté 100k€ dans le club." },
-        { "title": "Nouveau Centre d'Entraînement", "content": "Les nouvelles installations sont prêtes. Le moral des joueurs grimpe !" },
-        { "title": "Viral sur TikTok", "content": "Une vidéo de {{team}} a fait le buzz. La popularité du club augmente." }
-      ],
-      "negative": [
-        { "title": "Virus au Club", "content": "Plusieurs joueurs sont malades. L'énergie de l'équipe a chuté." },
-        { "title": "Matériel Endommagé", "content": "Des équipements ont été cassés en salle de muscu. Coût : 20k€." },
-        { "title": "Bad Buzz", "content": "Un article polémique sur votre gestion fait parler sur Twitter. La confiance du board baisse." }
-      ]
-    }
-  }
+	"menu": {
+		"title": "Manager 2026",
+		"subtitle": "Le Football de Demain",
+		"new_game": "Fonder un Club",
+		"load_game": "Charger une partie",
+		"version": "v0.1.0 - Alpha"
+	},
+	"create": {
+		"title": "Fondation du Club",
+		"subtitle": "Devenez une légende",
+		"choose_slot": "Emplacement de sauvegarde",
+		"slot_desc": "Où souhaitez-vous enregistrer cette partie ?",
+		"slot_free": "Nouvelle Partie",
+		"slot_occupied": "Partie Occupée",
+		"slot_new": "Nouvelle Partie",
+		"manager_label": "Identité du Manager",
+		"manager_placeholder": "Ex: Pep Guardiola",
+		"club_label": "Nom du Club",
+		"club_placeholder": "Ex: Manchester City",
+		"charter_text": "En signant ce contrat, vous acceptez de respecter les règles de la FIFA et de l'UEFA. Vous prenez la tête de ce club pour tenter de le mener vers les sommets de l'Europe.",
+		"sign_button": "Signer le Contrat",
+		"creating": "Création du club...",
+		"cancel": "Annuler",
+		"change_slot": "Changer d'emplacement"
+	},
+	"load": {
+		"title": "Charger une partie",
+		"searching": "Recherche des sauvegardes...",
+		"empty_slot": "Emplacement vide",
+		"played_on": "Dernier accès",
+		"game_date": "Progression",
+		"delete_confirm": "Voulez-vous vraiment supprimer cette partie ?",
+		"back": "Retour"
+	},
+	"game": {
+		"date_format": "{{date, datetime}}",
+		"continue": "Continuer",
+		"loading": "Chargement...",
+		"office": "Bureau",
+		"squad": "Effectif",
+		"training": "Entraînement",
+		"staff": "Staff",
+		"finances": "Budget",
+		"calendar": "Calendrier",
+		"league": "Ligue",
+		"quit": "Quitter"
+	},
+	"dashboard": {
+		"division": "Ligue",
+		"finances": "Budget",
+		"next_match": "Prochain match",
+		"home": "Domicile",
+		"away": "Extérieur",
+		"prepare_team": "Préparer l'équipe",
+		"news": "Actualités & Réseaux",
+		"news_short": "Actus",
+		"welcome_title": "Bienvenue au club !",
+		"welcome_msg": "La saison 2026 va bientôt commencer.",
+		"ago": "Il y a 2h",
+		"season": "Saison {{season}}",
+		"progress": "Progression : {{progress}}%",
+		"day": "JOUR {{day}}",
+		"end_day": "FIN : JOUR {{day}}",
+		"match_day": "Jour de Match !",
+		"prepare_lineup": "Préparez votre 11 de départ.",
+		"tactics_btn": "TACTIQUE",
+		"press_btn": "Presse",
+		"market_btn": "Mercato"
+	},
+	"squad": {
+		"title": "Effectif Pro",
+		"no_players": "Aucun joueur sous contrat.",
+		"name": "Nom",
+		"age": "Age",
+		"pos": "Poste",
+		"skill": "Gen",
+		"cond": "Forme",
+		"details": "Détails",
+		"gk": "Gardiens",
+		"def": "Défenseurs",
+		"mid": "Milieux",
+		"fwd": "Attaquants"
+	},
+	"player_card": {
+		"attributes": "Attributs",
+		"phase": "Profil",
+		"specialty": "Spécialités",
+		"conversion": "Finition",
+		"stamina": "Endurance",
+		"playmaking": "Vision",
+		"defense": "Défense",
+		"speed": "Vitesse",
+		"head": "Jeu de Tête",
+		"technique": "Technique",
+		"scoring": "Finition",
+		"setPieces": "CPA",
+		"morale": "Moral",
+		"energy": "Énergie",
+		"condition": "Condition",
+		"value": "Valeur",
+		"wage": "Salaire",
+		"close": "Fermer"
+	},
+	"training": {
+		"title": "Staff & Entraînement"
+	},
+	"calendar": {
+		"title": "Calendrier",
+		"no_matches": "Aucun match prévu.",
+		"upcoming": "À venir",
+		"results": "Résultats",
+		"vs": "vs"
+	},
+	"league_table": {
+		"title": "Classement",
+		"pos": "Pos",
+		"club": "Club",
+		"p": "J",
+		"w": "G",
+		"d": "N",
+		"l": "P",
+		"gf": "BP",
+		"ga": "BC",
+		"gd": "Diff",
+		"pts": "Pts"
+	},
+	"season_goals": {
+		"CHAMPION": "Être Sacré Champion",
+		"PROMOTION": "Obtenir la Montée",
+		"MID_TABLE": "Finir en Milieu de Tableau",
+		"AVOID_RELEGATION": "Éviter la Relégation"
+	},
+	"narratives": {
+		"match": {
+			"goal": [
+				"But pour {{team}} ! {{player}} propulse le ballon au fond des filets d'une frappe limpide !",
+				"But pour {{team}} ! Le stade exulte alors que {{player}} trompe le gardien.",
+				"But pour {{team}} ! {{player}} profite d'une erreur défensive pour marquer.",
+				"But pour {{team}} ! Quelle action conclue par {{player}} !"
+			],
+			"miss": [
+				"{{player}} tente sa chance mais ça passe largement au-dessus.",
+				"Grosse occasion manquée pour {{player}} ! Le cadre se dérobe.",
+				"{{player}} bute sur le gardien qui réalise une parade décisive.",
+				"La défense intervient in-extremis devant {{player}} !"
+			],
+			"ambient": [
+				"La pluie rend le terrain glissant, le jeu devient plus rapide.",
+				"Les Ultras chantent à tue-tête dans le virage Nord.",
+				"Le capitaine de {{team}} recadre ses coéquipiers.",
+				"Le VAR vérifie l'action précédente... Le jeu reprend.",
+				"Les remplaçants partent s'échauffer le long de la touche."
+			]
+		},
+		"news": {
+			"matchDay": {
+				"title": [
+					"JOUR DE MATCH : {{team}} vs {{opponent}}",
+					"Choc attendu à {{stadium}}",
+					"Le coup d'envoi approche !",
+					"Grosse ambiance pour la réception de {{opponent}}"
+				],
+				"content": [
+					"Aujourd'hui, {{team}} affronte {{opponent}}. Les réseaux sociaux s'enflamment avant le match.",
+					"La pelouse de {{stadium}} est un billard. La tension est palpable entre {{team}} et {{opponent}}.",
+					"L'Équipe : Tous les regards se tournent vers {{team}} qui reçoit {{opponent}} ce soir."
+				]
+			},
+			"victory": {
+				"title": [
+					"Triomphe pour {{team}} !",
+					"La victoire éclatante de {{team}}",
+					"Masterclass de {{team}}",
+					"{{team}} domine son sujet"
+				],
+				"content": [
+					"Le public de {{stadium}} a assisté à un grand match. {{team}} a dominé {{opponent}} sur le score de {{score}}.",
+					"Site Officiel : {{team}} l'emporte avec la manière face à {{opponent}} ({{score}}).",
+					"Quelle ferveur ! {{team}} gagne face à {{opponent}}. Le score de {{score}} reflète la domination."
+				]
+			},
+			"draw": {
+				"title": [
+					"Match nul à {{stadium}}",
+					"Pas de vainqueur entre {{team}} et {{opponent}}",
+					"Partage des points : {{score}}",
+					"Un point mérité pour {{team}}"
+				],
+				"content": [
+					"Les deux équipes se sont neutralisées. Score final : {{score}}.",
+					"La rencontre entre {{team}} et {{opponent}} se solde par un nul. Les défenses ont pris le pas sur les attaques.",
+					"Un point précieux pour {{team}} qui a tenu bon face à {{opponent}}."
+				]
+			},
+			"loss": {
+				"title": [
+					"Défaite amère pour {{team}}",
+					"Coup d'arrêt pour {{team}}",
+					"Désillusion à {{stadium}}",
+					"{{team}} chute face à {{opponent}}"
+				],
+				"content": [
+					"Malgré leurs efforts, les joueurs de {{team}} n'ont pas su contenir {{opponent}}. Score final : {{score}}.",
+					"La presse est critique : {{team}} a manqué d'intensité face à {{opponent}} ({{score}}).",
+					"Soirée difficile pour les fans de {{team}}. {{opponent}} était plus fort."
+				]
+			},
+			"club": {
+				"stadium_new_title": "NOUVEAU STADE",
+				"stadium_new_content": "Inauguration du {{name}}, notre nouvelle enceinte ultra-moderne de {{capacity}} places.",
+				"stadium_upgrade_title": "TRAVAUX TERMINÉS",
+				"stadium_upgrade_content": "L'extension de {{name}} est finie. Capacité portée à {{capacity}} places.",
+				"sponsor_left_title": "FIN DE SPONSORING",
+				"sponsor_left_content": "Le contrat avec {{name}} est arrivé à terme.",
+				"sacked_title": "CONTRAT ROMPU",
+				"sacked_content": "La direction a décidé de vous limoger."
+			}
+		},
+		"board": {
+			"warning": [
+				"Le Conseil d'Administration s'impatiente. Les résultats de {{team}} sont insuffisants.",
+				"Message du Président : Vos performances récentes inquiètent les investisseurs. Réagissez vite."
+			],
+			"praise": [
+				"La direction salue votre gestion. Continuez ainsi et vous marquerez l'histoire de {{stadium}}.",
+				"Félicitations pour ces résultats. Le merchandising explose grâce à vous !"
+			],
+			"sundayReport": {
+				"title": [
+					"Bilan Hebdomadaire",
+					"Rapport de la Direction",
+					"Note du Président"
+				],
+				"content": [
+					"Une semaine intéressante. Nous sommes {{position}}e. Votre budget est de {{budget}}M€. Continuez !",
+					"Le Conseil a analysé les datas. La confiance est à {{confidence}}%. {{team}} est sur la bonne voie.",
+					"Nous suivons votre progression. Finances stables ({{budget}} M€). L'objectif '{{goal}}' reste la priorité."
+				]
+			}
+		},
+		"training": {
+			"wednesdayReport": {
+				"title": [
+					"Rapport du Staff Technique",
+					"Note d'Entraînement",
+					"Point Forme"
+				],
+				"content": [
+					"Grosse intensité à l'entraînement. {{player}} a impressionné le staff par son volume de jeu.",
+					"Data Performance : L'énergie globale est bonne. Progression technique notable chez certains jeunes.",
+					"Séance tactique productive. {{player}} semble prêt pour le prochain match."
+				]
+			}
+		},
+		"weekly": {
+			"positive": [
+				{
+					"title": "Investisseur Mystère",
+					"content": "Un fonds d'investissement a injecté 100k€ dans le club."
+				},
+				{
+					"title": "Nouveau Centre d'Entraînement",
+					"content": "Les nouvelles installations sont prêtes. Le moral des joueurs grimpe !"
+				},
+				{
+					"title": "Viral sur TikTok",
+					"content": "Une vidéo de {{team}} a fait le buzz. La popularité du club augmente."
+				}
+			],
+			"negative": [
+				{
+					"title": "Virus au Club",
+					"content": "Plusieurs joueurs sont malades. L'énergie de l'équipe a chuté."
+				},
+				{
+					"title": "Matériel Endommagé",
+					"content": "Des équipements ont été cassés en salle de muscu. Coût : 20k€."
+				},
+				{
+					"title": "Bad Buzz",
+					"content": "Un article polémique sur votre gestion fait parler sur Twitter. La confiance du board baisse."
+				}
+			]
+		}
+	}
 }
