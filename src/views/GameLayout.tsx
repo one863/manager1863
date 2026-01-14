@@ -13,7 +13,6 @@ import { GameOverOverlay } from '@/components/Layout/GameOverOverlay';
 import { MatchReadyOverlay } from '@/components/Layout/MatchReadyOverlay';
 import { ErrorBoundary } from '@/components/Common/ErrorBoundary';
 
-// Importations dynamiques
 const Dashboard = lazy(() => import('@/views/Dashboard'));
 const Squad = lazy(() => import('@/views/Squad'));
 const LeagueTable = lazy(() => import('@/views/LeagueTable'));
@@ -40,11 +39,10 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   const isGameOver = useGameStore((state) => state.isGameOver);
   const advanceDate = useGameStore((state) => state.advanceDate);
   const deleteSaveAndQuit = useGameStore((state) => state.deleteSaveAndQuit);
+  const finalizeLiveMatch = useGameStore((state) => state.finalizeLiveMatch);
   
-  // Utilisation du nouveau store pour le match en direct
   const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 
-  // Fermer l'overlay si un match commence
   useEffect(() => {
     if (liveMatch) {
       setShowMatchConfirm(false);
@@ -52,6 +50,15 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   }, [liveMatch]);
 
   const handleContinueClick = async () => {
+    // Gestion Match Live : Le bouton du Header sert à terminer le match
+    const liveState = useLiveMatchStore.getState();
+    if (liveState.liveMatch) {
+        if (liveState.liveMatch.currentMinute >= 90) {
+            await finalizeLiveMatch();
+        }
+        return;
+    }
+
     if (isGameOver || isProcessing) return;
     
     if (currentSaveId && userTeamId) {
@@ -66,10 +73,9 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
   };
 
   const executeContinue = async () => {
-    setShowMatchConfirm(false); // S'assurer que l'overlay est fermé avant de lancer la simulation
+    setShowMatchConfirm(false); 
     try {
       setSaveStatus('saving');
-      // Petit délai pour laisser l'UI respirer
       await new Promise((resolve) => setTimeout(resolve, 300));
       await advanceDate();
 
@@ -79,7 +85,6 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
         if (isValid) await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      // Si le store dit qu'on est en match, on ne change pas la vue ici
       if (useLiveMatchStore.getState().liveMatch) {
         setSaveStatus('idle');
         return;
@@ -103,20 +108,10 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
     setCurrentView('squad');
   };
 
-  // Si on est en plein match live, on affiche uniquement le MatchLive
-  if (liveMatch) {
-    return (
-      <Suspense fallback={<ViewLoader />}>
-        <MatchLive />
-      </Suspense>
-    );
-  }
-
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-paper border-x border-paper-dark shadow-2xl overflow-hidden relative">
       {isGameOver && <GameOverOverlay onRestart={handleRestart} />}
       
-      {/* OVERLAY DE VALIDATION DE MATCH */}
       {showMatchConfirm && (
         <MatchReadyOverlay 
           onConfirm={executeContinue}
@@ -144,10 +139,10 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
         />
       )}
 
-      <main className="flex-1 overflow-y-auto p-4 mb-16 scroll-smooth">
+      <main className={`flex-1 flex flex-col ${liveMatch ? 'overflow-hidden p-0' : 'overflow-y-auto p-4'} mb-16 scroll-smooth relative`}>
         <ErrorBoundary>
           <Suspense fallback={<ViewLoader />}>
-            {renderView(currentView, setCurrentView)}
+            {liveMatch ? <MatchLive /> : renderView(currentView, setCurrentView)}
           </Suspense>
         </ErrorBoundary>
       </main>

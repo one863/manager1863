@@ -1,25 +1,25 @@
 {
   "menu": {
-    "title": "Manager 1863",
-    "subtitle": "Origins of Football",
+    "title": "Manager 2026",
+    "subtitle": "The Future of Football",
     "new_game": "New Career",
     "load_game": "Load Game",
     "version": "v0.1.0 - Alpha"
   },
   "create": {
     "title": "Club Foundation",
-    "subtitle": "Write history starting",
+    "subtitle": "Become a legend",
     "choose_slot": "Choose a Slot",
     "slot_desc": "Where would you like to archive this career?",
     "slot_free": "Free",
     "slot_occupied": "Occupied",
     "slot_new": "New Save",
     "manager_label": "Manager Name",
-    "manager_placeholder": "E.g.: Arthur Kinnaird",
+    "manager_placeholder": "E.g.: Pep Guardiola",
     "club_label": "Club Name",
-    "club_placeholder": "E.g.: Sheffield FC",
-    "charter_text": "By signing this charter, you agree to abide by the rules of the Football Association established in 1863. You will take charge of this amateur club and attempt to lead it to eternal glory.",
-    "sign_button": "Sign the Charter",
+    "club_placeholder": "E.g.: Manchester City",
+    "charter_text": "By signing this contract, you agree to abide by the rules of FIFA and UEFA. You take charge of this club to lead it to the European summits.",
+    "sign_button": "Sign Contract",
     "creating": "Founding club...",
     "cancel": "Cancel",
     "change_slot": "Change Slot"
@@ -51,19 +51,28 @@
     "home": "Home",
     "away": "Away",
     "prepare_team": "Prepare Team",
-    "news": "Press Dispatches",
+    "news": "News & Socials",
     "welcome_title": "Welcome to the club!",
-    "welcome_msg": "The 1863 season is starting soon.",
-    "ago": "2 hours ago"
+    "welcome_msg": "The 2026 season is starting soon.",
+    "ago": "2 hours ago",
+    "season": "Season {{season}}",
+    "progress": "Progress: {{progress}}%",
+    "day": "DAY {{day}}",
+    "end_day": "END: DAY {{day}}",
+    "match_day": "Match Day!",
+    "prepare_lineup": "Set your starting 11.",
+    "tactics_btn": "TACTICS",
+    "press_btn": "Press",
+    "market_btn": "Market"
   },
   "squad": {
-    "title": "Club Squad",
+    "title": "Pro Squad",
     "no_players": "No players under contract.",
     "name": "Name",
     "age": "Age",
     "pos": "Pos",
-    "skill": "Lvl",
-    "cond": "Fitness",
+    "skill": "Ovr",
+    "cond": "Form",
     "details": "Details",
     "gk": "Goalkeepers",
     "def": "Defenders",
@@ -72,14 +81,14 @@
   },
   "player_card": {
     "attributes": "Attributes",
-    "phase": "Phase & Structure",
-    "specialty": "Specialties (SE)",
-    "conversion": "Conversion",
+    "phase": "Profile",
+    "specialty": "Specialties",
+    "conversion": "Finishing",
     "stamina": "Stamina",
-    "playmaking": "Playmaking",
+    "playmaking": "Vision",
     "defense": "Defense",
     "speed": "Speed",
-    "head": "Head",
+    "head": "Heading",
     "technique": "Technique",
     "scoring": "Scoring",
     "setPieces": "Set Pieces",
@@ -111,133 +120,143 @@
     "pts": "Pts"
   },
   "season_goals": {
-    "CHAMPION": "Être Sacré Champion",
-    "PROMOTION": "Obtenir la Promotion",
-    "MID_TABLE": "Finir en Milieu de Tableau",
-    "AVOID_RELEGATION": "Éviter la Relégation"
+    "CHAMPION": "Win the League",
+    "PROMOTION": "Gain Promotion",
+    "MID_TABLE": "Mid-table Finish",
+    "AVOID_RELEGATION": "Avoid Relegation"
   },
   "narratives": {
     "match": {
       "goal": [
-        "{{player}} sends the leather into the back of the net with a monumental strike!",
+        "{{player}} smashes the ball into the net with a clinical finish!",
         "The stadium erupts! {{player}} beats the keeper after a beautiful team move.",
-        "Goal! {{player}} takes advantage of a defensive error to put his name on the scoreboard.",
-        "What an action! {{player}} finishes the job and makes the wooden stands vibrate!"
+        "Goal! {{player}} takes advantage of a defensive error to score.",
+        "What a strike! {{player}} curls it into the top corner!"
       ],
       "miss": [
-        "{{player}} tries his luck but the ball flies towards the clouds.",
-        "Big missed opportunity for {{player}}! The target is missed at the last moment.",
-        "{{player}} is denied by the goalkeeper who makes a historic save.",
+        "{{player}} tries his luck but the ball flies over the bar.",
+        "Big missed opportunity for {{player}}! He misses the target.",
+        "{{player}} is denied by the goalkeeper who makes a superb save.",
         "The defense intervenes at the last second in front of {{player}}!"
       ],
       "ambient": [
-        "London rain makes the pitch muddy, the game becomes physical.",
-        "Fans wave their top hats in an electric atmosphere.",
-        "The captain of {{team}} rallies his troops under cheers.",
-        "A spectator in the grandstand shouts tactical advice to {{player}}.",
-        "The ball is out of the field, someone has to fetch it from the Thames."
+        "Rain makes the pitch slick, the game speeds up.",
+        "Ultras are singing loudly in the North Stand.",
+        "The captain of {{team}} rallies his troops.",
+        "VAR checks the previous play... Game on.",
+        "Substitutes start warming up on the sideline."
       ]
     },
     "news": {
       "matchDay": {
         "title": [
           "MATCH DAY: {{team}} vs {{opponent}}",
-          "Awaited clash at {{stadium}}",
+          "Big clash at {{stadium}}",
           "Kick-off is approaching!",
-          "Local fervor for the reception of {{opponent}}"
+          "Great atmosphere for {{opponent}}'s visit"
         ],
         "content": [
-          "Today, {{team}} faces {{opponent}}. The taverns are full and the gamblers are busy.",
-          "The {{stadium}} ground is ready to vibrate. Tension is palpable between {{team}} and {{opponent}}.",
-          "Morning Gazette: All eyes are on {{team}} hosting {{opponent}} today."
+          "Today, {{team}} faces {{opponent}}. Social media is buzzing before the match.",
+          "The pitch at {{stadium}} is perfect. Tension is palpable between {{team}} and {{opponent}}.",
+          "Daily News: All eyes are on {{team}} hosting {{opponent}} today."
         ]
       },
       "victory": {
         "title": [
           "Triumph for {{team}}!",
-          "The brilliant victory of {{team}}",
-          "A football demonstration by {{team}}",
-          "The genius of {{team}} crushes the opponent"
+          "Brilliant win for {{team}}",
+          "Masterclass by {{team}}",
+          "{{team}} dominates the game"
         ],
         "content": [
-          "The public at {{stadium}} witnessed a lesson in courage. {{team}} dominated {{opponent}} with a score of {{score}}.",
-          "Daily Gazette: {{team}} wins against all odds facing {{opponent}} ({{score}}).",
-          "What fervor! {{team}} wins with panache against {{opponent}}. The score of {{score}} reflects territorial dominance."
+          "The fans at {{stadium}} saw a great match. {{team}} dominated {{opponent}} ({{score}}).",
+          "Official Site: {{team}} wins in style against {{opponent}} ({{score}}).",
+          "What a game! {{team}} beats {{opponent}}. The score of {{score}} reflects the dominance."
         ]
       },
       "draw": {
         "title": [
-          "Hard-fought draw at {{stadium}}",
+          "Draw at {{stadium}}",
           "No winner between {{team}} and {{opponent}}",
-          "Parity score: {{score}}",
-          "A point of courage for {{team}}"
+          "Points shared: {{score}}",
+          "A deserved point for {{team}}"
         ],
         "content": [
-          "Both teams neutralized each other after a fierce duel. Final score: {{score}}.",
-          "The match between {{team}} and {{opponent}} ends in a draw. No one could make the difference.",
-          "A precious point for {{team}} who held their own against {{opponent}} in a heated atmosphere."
+          "Both teams neutralized each other. Final score: {{score}}.",
+          "The match between {{team}} and {{opponent}} ends in a draw. Defenses prevailed.",
+          "A precious point for {{team}} who held firm against {{opponent}}."
         ]
       },
       "loss": {
         "title": [
           "Bitter defeat for {{team}}",
-          "A setback for {{team}}",
-          "Disillusion at {{stadium}}",
-          "{{team}} falls to {{opponent}}"
+          "Setback for {{team}}",
+          "Disappointment at {{stadium}}",
+          "{{team}} loses to {{opponent}}"
         ],
         "content": [
-          "Despite their efforts, {{team}} players could not contain the assaults of {{opponent}}. Final score: {{score}}.",
-          "The press is unanimous: {{team}} lacked vigor against {{opponent}} ({{score}}).",
-          "A day to forget for {{team}} fans. {{opponent}} dictated the law on the pitch."
+          "Despite their efforts, {{team}} could not hold off {{opponent}}. Final score: {{score}}.",
+          "The press is critical: {{team}} lacked intensity against {{opponent}} ({{score}}).",
+          "Tough night for {{team}} fans. {{opponent}} was stronger."
         ]
+      },
+      "club": {
+        "stadium_new_title": "NEW STADIUM",
+        "stadium_new_content": "Opening of {{name}}, our new ultra-modern {{capacity}}-seat arena.",
+        "stadium_upgrade_title": "WORKS COMPLETE",
+        "stadium_upgrade_content": "Expansion of {{name}} is finished. Capacity increased to {{capacity}}.",
+        "sponsor_left_title": "SPONSORSHIP ENDED",
+        "sponsor_left_content": "The contract with {{name}} has expired.",
+        "sacked_title": "CONTRACT TERMINATED",
+        "sacked_content": "The board has decided to fire you."
       }
     },
     "board": {
       "warning": [
-        "Sir, the Board of Directors is growing impatient. The results of {{team}} are unworthy of our rank.",
-        "Letter from the President: Your recent failures are tarnish the reputation of our institution. Correct the course without delay."
+        "The Board is getting impatient. Results are below expectations.",
+        "President's Message: Your recent performances are worrying investors. React quickly."
       ],
       "praise": [
-        "The management salutes your exemplary leadership. Keep it up and you will become a legend at {{stadium}}.",
-        "Congratulations on these results. The club is buzzing thanks to you!"
+        "The management praises your leadership. Keep it up!",
+        "Congratulations on these results. Merchandising sales are booming."
       ],
       "sundayReport": {
         "title": [
-          "Weekly Board Review",
-          "Sunday Management Report",
-          "President's Service Note"
+          "Weekly Review",
+          "Management Report",
+          "President's Note"
         ],
         "content": [
-          "A week rich in lessons. We are currently in {{position}}th place. Your budget stands at {{budget}} credits. Keep it up!",
-          "The Board has examined your recent work. Confidence is at {{confidence}}%. {{team}} must continue its efforts.",
-          "Sir, we are watching your progress closely. Finances are stable ({{budget}} M). The objective '{{goal}}' remains our priority."
+          "Interesting week. We are {{position}}th. Budget: {{budget}}M. Keep pushing!",
+          "The Board analyzed the data. Confidence is at {{confidence}}%. {{team}} is on the right track.",
+          "We are tracking your progress. Finances stable ({{budget}} M). Goal '{{goal}}' remains priority."
         ]
       }
     },
     "training": {
       "wednesdayReport": {
         "title": [
-          "Physical Instructor's Report",
-          "Wednesday Training Note",
-          "Squad Fitness Status"
+          "Staff Report",
+          "Training Update",
+          "Fitness Check"
         ],
         "content": [
-          "The players sweated on the pitch this week. {{player}} particularly stood out with his vigor.",
-          "Medical Report: Global energy is satisfactory. We note a fine technical progression among some of our men.",
-          "Successful goal-scoring session. {{player}} seems sharp for the next duel."
+          "High intensity in training. {{player}} impressed the staff.",
+          "Performance Data: Overall energy is good. Technical progress seen in some youngsters.",
+          "Productive tactical session. {{player}} looks ready."
         ]
       }
     },
     "weekly": {
       "positive": [
-        { "title": "Unexpected Patronage", "content": "A wealthy anonymous industrialist donated 100 credits to the club to support the development of football." },
-        { "title": "New Training Ground", "content": "Players found a drier field to train on. Morale is at an all-time high!" },
-        { "title": "Club Anthem", "content": "Fans composed a song in honor of {{team}}. The club's reputation is rising in the neighborhood." }
+        { "title": "Mystery Investor", "content": "An investment fund injected 100k into the club." },
+        { "title": "New Training Center", "content": "New facilities are ready. Player morale is up!" },
+        { "title": "Viral on TikTok", "content": "A video of {{team}} went viral. Club popularity is rising." }
       ],
       "negative": [
-        { "title": "Flu Outbreak", "content": "Several players feel weak this week. The squad's overall energy has slightly dropped." },
-        { "title": "Burst Balls", "content": "A rascal burst three of our precious leather balls. An unforeseen expense of 20 credits." },
-        { "title": "Harsh Criticism", "content": "The local newspaper 'The London Times' published a bloody critique of your management. Board confidence suffers." }
+        { "title": "Virus at Club", "content": "Several players are sick. Squad energy dropped." },
+        { "title": "Broken Equipment", "content": "Gym equipment damaged. Cost: 20k." },
+        { "title": "Bad Buzz", "content": "Controversial article on Twitter about your management. Board confidence drops." }
       ]
     }
   }

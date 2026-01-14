@@ -16,14 +16,13 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   
-  // Cloud State
   const [user, setUser] = useState(CloudService.getCurrentUser());
   const [viewMode, setViewMode] = useState<'local' | 'cloud'>('local');
   const [cloudSaves, setCloudSaves] = useState<CloudSaveMetadata[]>([]);
-  const [selectedCloudSave, setSelectedCloudSave] = useState<CloudSaveMetadata | null>(null); // Save à importer
+  const [selectedCloudSave, setSelectedCloudSave] = useState<CloudSaveMetadata | null>(null); 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [targetImportSlot, setTargetImportSlot] = useState<number | null>(null); // Slot cible pour import fichier
+  const [targetImportSlot, setTargetImportSlot] = useState<number | null>(null); 
 
   const refreshSlots = async () => {
     try {
@@ -48,9 +47,12 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
     if (user && viewMode === 'cloud') {
         setIsLoading(true);
         CloudService.getCloudSaves().then(saves => {
-            setCloudSaves(saves);
+            setCloudSaves(saves || []); // Ensure array
             setIsLoading(false);
-        }).catch(() => setIsLoading(false));
+        }).catch(() => {
+            setCloudSaves([]);
+            setIsLoading(false);
+        });
     }
   }, [user, viewMode]);
 
@@ -132,7 +134,6 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
         await refreshSlots();
         setSelectedCloudSave(null);
         setViewMode('local');
-        // alert("Import réussi !"); // Feedback visuel suffisant par le changement de vue
     } catch (e) {
         console.error("Cloud import failed", e);
         alert("Erreur lors de l'importation Cloud");
@@ -181,7 +182,7 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
         <div className="flex-1 overflow-y-auto space-y-4 pb-20">
           
           {/* VUE LOCAL */}
-          {viewMode === 'local' && slots.map((slot, index) => {
+          {viewMode === 'local' && slots && slots.map((slot, index) => {
             const slotId = index + 1;
             
             if (!slot) {
@@ -242,7 +243,7 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
           })}
 
           {/* VUE CLOUD */}
-          {viewMode === 'cloud' && (
+          {viewMode === 'cloud' && cloudSaves && (
              <div className="space-y-4">
                  {cloudSaves.length === 0 ? (
                      <div className="text-center py-12 opacity-50">
@@ -331,7 +332,7 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
                         className="w-full py-3 bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-ink rounded-xl font-bold transition-all flex justify-between px-4 items-center"
                       >
                         <span>Emplacement {id}</span>
-                        {slots[id-1] ? <span className="text-[10px] text-red-400 uppercase">Occupé</span> : <span className="text-[10px] text-green-500 uppercase">Libre</span>}
+                        {slots && slots[id-1] ? <span className="text-[10px] text-red-400 uppercase">Occupé</span> : <span className="text-[10px] text-green-500 uppercase">Libre</span>}
                       </button>
                   ))}
                   

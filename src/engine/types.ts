@@ -55,6 +55,7 @@ export const PlayerSchema = z.object({
   lastName: z.string(),
   age: z.number().int().min(14).max(50),
   position: z.enum(['GK', 'DEF', 'MID', 'FWD']),
+  side: z.enum(['L', 'C', 'R']).default('C'),
   dna: z.string(),
   skill: z.number().min(0).max(100),
   stats: PlayerStatsSchema,
@@ -63,6 +64,7 @@ export const PlayerSchema = z.object({
   morale: z.number().min(0).max(100),
   marketValue: z.number().nonnegative(),
   wage: z.number().nonnegative(),
+  isStarter: z.boolean().optional(),
 });
 
 export const TeamSchema = z.object({
@@ -83,6 +85,11 @@ export const TeamSchema = z.object({
   sponsorName: z.string().optional(),
   sponsorIncome: z.number().nonnegative().optional(),
   sponsorExpiryDate: z.coerce.date().optional(),
+  stadiumUpgradeEndDay: z.number().optional(),
+  stadiumProject: z.any().optional(),
+  seasonGoal: z.enum(['CHAMPION', 'PROMOTION', 'MID_TABLE', 'AVOID_RELEGATION']).optional(),
+  tacticType: z.enum(['NORMAL', 'CA', 'PRESSING', 'AIM', 'AOW']).default('NORMAL'),
+  formation: z.string().default('4-4-2'),
   version: z.number(),
 });
 
@@ -103,8 +110,12 @@ export const GameStateSchema = z.object({
   saveId: z.number(),
   currentDate: z.coerce.date(),
   userTeamId: z.number().nullable(),
+  day: z.number().int().default(1),
+  season: z.number().int().default(1),
   version: z.number(),
   hash: z.string().optional(),
+  isGameOver: z.boolean().default(false),
+  liveMatch: z.any().optional(),
 });
 
 export const ExportDataSchema = z.object({

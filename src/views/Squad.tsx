@@ -84,7 +84,7 @@ export default function Squad() {
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`px-1 rounded-[2px] text-[9px] font-bold border ${getPositionClass(player.position)}`}>
-              {player.position}
+              {player.position}{player.position !== 'GK' && ` (${player.side || 'C'})`}
             </span>
             <div className="flex items-center gap-1">
                <div className={`w-1.5 h-1.5 rounded-full ${player.energy > 70 ? 'bg-green-500' : player.energy > 40 ? 'bg-amber-500' : 'bg-red-500'}`}></div>

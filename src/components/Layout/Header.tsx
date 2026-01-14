@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Menu, X, ChevronRight, Loader2, Trophy, Tent } from 'lucide-preact';
+import { Menu, X, ChevronRight, Loader2, Trophy, CircleDot } from 'lucide-preact';
 import { useGameStore } from '@/store/gameSlice';
 import { useEffect, useState } from 'preact/hooks';
 import { MatchService } from '@/services/match-service';
@@ -32,12 +32,13 @@ export function Header({
   useEffect(() => {
     const checkMatch = async () => {
         if (currentSaveId && userTeamId) {
-            const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, currentDate, userTeamId);
+            // FIX: Pass 'day' (number) instead of 'currentDate'
+            const hasMatch = await MatchService.hasUserMatchToday(currentSaveId, day, userTeamId);
             setHasMatchToday(hasMatch);
         }
     };
     checkMatch();
-  }, [currentDate, currentSaveId, userTeamId]);
+  }, [day, currentSaveId, userTeamId]); // FIX: Depend on 'day'
 
   return (
     <header className="bg-paper-dark p-4 border-b border-gray-300 flex justify-between items-center sticky top-0 z-30">
@@ -64,16 +65,16 @@ export function Header({
           onClick={onContinue}
           disabled={isProcessing || showOverlay}
           className={`
-            text-white font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 
+            font-bold py-1.5 px-3 rounded-full shadow-sm flex items-center gap-1 
             hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:scale-100
-            bg-black
+            ${hasMatchToday ? 'bg-white text-black border-2 border-black' : 'bg-black text-white border-2 border-transparent'}
           `}
           title={hasMatchToday ? "Match aujourd'hui" : "Jour suivant"}
         >
           {isProcessing || showOverlay ? (
             <Loader2 size={16} className="animate-spin" />
           ) : hasMatchToday ? (
-             <Tent size={18} strokeWidth={2} />
+             <CircleDot size={18} strokeWidth={3} />
           ) : (
             <ChevronRight size={18} strokeWidth={3} />
           )}

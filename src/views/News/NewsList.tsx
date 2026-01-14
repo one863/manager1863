@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useGameStore } from '@/store/gameSlice';
 import { NewsService } from '@/services/news-service';
-import { NewsArticle, Player } from '@/db/db'; // Import Player
-import { db } from '@/db/db'; // Import db
+import { NewsArticle, Player } from '@/db/db'; 
+import { db } from '@/db/db'; 
 import Card from '@/components/Common/Card';
-import { Newspaper, Bell, Info, ArrowLeft, CheckCircle, Target, Building2, ChevronLeft, ChevronRight, Shield } from 'lucide-preact';
+import { Newspaper, Bell, Info, ArrowLeft, CheckCircle, Target, Building2, ChevronLeft, ChevronRight, Shield, CheckCheck } from 'lucide-preact';
 import { useTranslation } from 'react-i18next';
 
-// Import des composants pour les modales
 import ClubDetails from '@/components/ClubDetails';
 import PlayerCard from '@/components/PlayerCard';
 
@@ -33,7 +32,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // États pour les modales
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
@@ -61,6 +59,16 @@ export default function NewsView({ onNavigate }: NewsListProps) {
     }
   };
 
+  const handleMarkAllRead = async () => {
+      const unreadIds = articles.filter(a => !a.isRead).map(a => a.id!);
+      if (unreadIds.length === 0) return;
+      
+      await db.news.where('id').anyOf(unreadIds).modify({ isRead: true });
+      
+      setArticles(prev => prev.map(a => ({ ...a, isRead: true })));
+      await refreshUnreadNewsCount();
+  };
+
   const navigateNews = (direction: 'newer' | 'older') => {
     if (selectedIndex === -1) return;
     const newIndex = direction === 'older' ? selectedIndex + 1 : selectedIndex - 1;
@@ -81,13 +89,9 @@ export default function NewsView({ onNavigate }: NewsListProps) {
   };
 
   const renderRichText = (text: string) => {
-    // 1. Gérer les liens explicites [[type:id|Label]]
-    // 2. Gérer le gras Markdown **Texte** -> Si "Texte" est une vue, on en fait un lien
-
     const parts = text.split(/(\[\[.+?\]\]|\*\*.+?\*\*)/g);
 
     return parts.map((part, index) => {
-      // Lien interne [[type:id|Label]]
       const linkMatch = part.match(/^\[\[(\w+):(.+?)\|(.+?)\]\]$/);
       if (linkMatch) {
         const [, type, id, label] = linkMatch;
@@ -102,11 +106,9 @@ export default function NewsView({ onNavigate }: NewsListProps) {
         );
       }
 
-      // Gras Markdown **Texte**
       const boldMatch = part.match(/^\*\*(.+?)\*\*$/);
       if (boldMatch) {
         const content = boldMatch[1];
-        // Vérifier si c'est un lien de navigation connu
         const viewKey = Object.keys(VIEW_MAPPING).find(key => content.includes(key));
         
         if (viewKey && onNavigate) {
@@ -146,7 +148,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 
     return (
       <div className="space-y-4 animate-fade-in pb-24">
-        {/* Modales */}
         {selectedTeamId && <ClubDetails teamId={selectedTeamId} onClose={() => setSelectedTeamId(null)} />}
         {selectedPlayer && <PlayerCard player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />}
 
@@ -215,7 +216,18 @@ export default function NewsView({ onNavigate }: NewsListProps) {
         <h2 className="text-xl font-serif font-bold text-ink flex items-center gap-2">
           <Newspaper className="text-accent" /> {t('dashboard.news')}
         </h2>
-        <span className="text-xs text-ink-light italic">Archives du club</span>
+        <div className="flex items-center gap-4">
+            <span className="text-xs text-ink-light italic">Archives du club</span>
+            {articles.some(a => !a.isRead) && (
+                <button 
+                    onClick={handleMarkAllRead} 
+                    className="flex items-center gap-1 text-xs text-ink-light hover:text-accent transition-colors bg-gray-50 px-2 py-1 rounded-full border border-gray-200" 
+                    title="Tout marquer comme lu"
+                >
+                    <CheckCheck size={14} /> Tout lire
+                </button>
+            )}
+        </div>
       </div>
 
       {articles.length === 0 ? (

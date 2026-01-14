@@ -140,7 +140,7 @@ export const NewsService = {
     await this.addNews(saveId, { 
       day: forcedDay || state?.day || 0,
       date, 
-      title: narrative.title || "Bilan de la Direction", 
+      title: narrative.title || "Bilan du Conseil d'Administration", 
       content: narrative.content, 
       type: 'BOARD', 
       importance: 2 

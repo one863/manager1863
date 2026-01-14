@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { useLiveMatchStore } from '@/store/liveMatchStore';
+import { useGameStore } from '@/store/gameSlice';
 import { useTranslation } from 'react-i18next';
 import Scoreboard from './Match/Scoreboard';
 import EventItem from './Match/EventItem';
@@ -13,9 +14,9 @@ interface Scorer {
 
 export default function MatchLive() {
   const { t } = useTranslation();
+  const currentSaveId = useGameStore((state) => state.currentSaveId);
   
   const liveMatch = useLiveMatchStore((state) => state.liveMatch);
-  const finishLiveMatch = useLiveMatchStore((state) => state.finishLiveMatch);
   const updateLiveMatchMinute = useLiveMatchStore((state) => state.updateLiveMatchMinute);
 
   const currentMinute = useSignal(liveMatch?.currentMinute || 0);
@@ -83,14 +84,14 @@ export default function MatchLive() {
       if (currentMinute.value >= 90) {
         clearInterval(timer);
         isFinished.value = true;
-        updateLiveMatchMinute(90);
+        if (currentSaveId) updateLiveMatchMinute(90, currentSaveId);
         return;
       }
       
       currentMinute.value += 1;
       
-      if (currentMinute.value % 5 === 0) {
-        updateLiveMatchMinute(currentMinute.value);
+      if (currentMinute.value % 5 === 0 && currentSaveId) {
+        updateLiveMatchMinute(currentMinute.value, currentSaveId);
       }
 
       const eventsNow = liveMatch.result.events.filter(
@@ -141,7 +142,7 @@ export default function MatchLive() {
   }, [liveMatch, isFinished.value]);
 
   const handleSkip = () => {
-    if (!liveMatch) return;
+    if (!liveMatch || !currentSaveId) return;
     isPausedRef.current = false; // Force unpause
     currentMinute.value = 90;
     isFinished.value = true;
@@ -167,7 +168,7 @@ export default function MatchLive() {
     homeScorers.value = hScorers;
     awayScorers.value = aScorers;
     
-    updateLiveMatchMinute(90);
+    updateLiveMatchMinute(90, currentSaveId);
   };
 
   const getLogsObject = () => {
@@ -238,7 +239,7 @@ export default function MatchLive() {
   if (!liveMatch) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col font-sans">
+    <div className="flex flex-col h-full bg-white font-sans relative">
       
       {/* DISCREET CONTROLS HEADER */}
       <div className="absolute top-0 left-0 w-full p-3 z-50 flex justify-between pointer-events-none">
@@ -264,18 +265,7 @@ export default function MatchLive() {
                 </>
              )}
           </div>
-
-          {/* Right: Continue */}
-          <div className="pointer-events-auto">
-             {isFinished.value && (
-                 <button 
-                   onClick={finishLiveMatch} 
-                   className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-colors border border-transparent hover:border-gray-200 rounded px-2 py-1"
-                 >
-                    {t('game.continue')} →
-                 </button>
-             )}
-          </div>
+          {/* Right Side: Handled by Main Header */}
        </div>
 
       {/* HEADER & SCOREBOARD */}
@@ -290,6 +280,7 @@ export default function MatchLive() {
         homeChances={homeChances}
         awayChances={awayChances}
         possession={liveMatch.result.homePossession}
+        isFinished={isFinished.value}
       />
 
       {/* FEED */}
@@ -306,9 +297,17 @@ export default function MatchLive() {
           ))}
 
           {isFinished.value && (
-             <div className="text-center py-8 opacity-30 animate-fade-in">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Fin du match</span>
-             </div>
+            <div className="pt-4 pb-12 animate-fade-in">
+                <EventItem 
+                    event={{
+                        minute: 90, 
+                        type: 'SE', 
+                        teamId: 0, 
+                        description: "L'arbitre siffle la fin du match."
+                    }} 
+                    homeTeamId={liveMatch.homeTeam.id!} 
+                />
+            </div>
           )}
         </div>
       </div>

@@ -19,6 +19,7 @@ interface ScoreboardProps {
   homeChances: Signal<number>;
   awayChances: Signal<number>;
   possession: number;
+  isFinished?: boolean;
 }
 
 export default function Scoreboard({
@@ -31,7 +32,8 @@ export default function Scoreboard({
   awayScorers,
   homeChances,
   awayChances,
-  possession
+  possession,
+  isFinished = false
 }: ScoreboardProps) {
   const [flashHome, setFlashHome] = useState(false);
   const [flashAway, setFlashAway] = useState(false);
@@ -39,6 +41,7 @@ export default function Scoreboard({
   // Access values to force subscription and usage in logic
   const hVal = typeof homeScore === 'number' ? homeScore : homeScore.value;
   const aVal = typeof awayScore === 'number' ? awayScore : awayScore.value;
+  const minVal = typeof minute === 'number' ? minute : minute.value;
 
   const prevHome = useRef(hVal);
   const prevAway = useRef(aVal);
@@ -64,7 +67,7 @@ export default function Scoreboard({
       {/* Header Match */}
       <div className="flex justify-center items-center mb-4 opacity-50">
         <span className="text-[10px] font-bold tracking-widest uppercase bg-gray-100 px-2 py-0.5 rounded text-gray-500">
-          Direct
+          {isFinished ? 'Terminé' : 'Direct'}
         </span>
       </div>
 
@@ -101,8 +104,10 @@ export default function Scoreboard({
               {awayScore}
             </span>
           </div>
-          <div className="mt-1 bg-red-500 text-white px-3 py-0.5 rounded-full text-xs font-bold tabular-nums shadow-sm animate-pulse text-center w-fit mx-auto">
-            {minute}'
+          
+          {/* MINUTE / STATUS INDICATOR */}
+          <div className={`mt-1 px-3 py-0.5 rounded-full text-xs font-bold tabular-nums shadow-sm text-center w-fit mx-auto transition-colors duration-500 ${isFinished ? 'bg-black text-white' : 'bg-red-500 text-white animate-pulse'}`}>
+            {isFinished ? "FT" : `${minVal}'`}
           </div>
         </div>
 

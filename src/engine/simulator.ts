@@ -1,5 +1,5 @@
 import { Player } from '@/db/db';
-import { TeamRatings, MatchResult } from '../types';
+import { TeamRatings, MatchResult, MatchEvent } from '../types';
 import { randomInt, probability, getRandomElement, clamp } from '@/utils/math';
 import { getNarrative } from '@/data/narratives';
 
@@ -10,6 +10,8 @@ export async function simulateMatch(
   awayTeamId: number,
   homePlayers: Player[],
   awayPlayers: Player[],
+  homeName: string,
+  awayName: string,
 ): Promise<MatchResult> {
   const result: MatchResult = {
     homeScore: 0, awayScore: 0, homePossession: 0,
@@ -17,11 +19,10 @@ export async function simulateMatch(
     stats: { homeChances: 0, awayChances: 0 },
   };
 
-  // --- HOME ADVANTAGE (BONUS 5%) ---
   const HOME_BONUS = 1.05;
   const adjustedHomeMidfield = (home.midfield || 1) * HOME_BONUS;
+  const awayMidfield = away.midfield || 1;
 
-  // --- FATIGUE CALCULATION (INITIAL AVG STAMINA) ---
   const getAvgStamina = (players: Player[]) => {
       const starters = players.filter(p => p.isStarter);
       if (starters.length === 0) return 80;
@@ -30,109 +31,126 @@ export async function simulateMatch(
   const homeAvgStamina = getAvgStamina(homePlayers);
   const awayAvgStamina = getAvgStamina(awayPlayers);
 
-  const totalMidfield = adjustedHomeMidfield + (away.midfield || 1);
-  result.homePossession = Math.round((adjustedHomeMidfield / totalMidfield) * 100);
+  const homeMid3 = Math.pow(adjustedHomeMidfield, 3);
+  const awayMid3 = Math.pow(awayMidfield, 3);
+  result.homePossession = Math.round((homeMid3 / (homeMid3 + awayMid3)) * 100);
 
-  // --- NOUVEAU SYSTÈME DE CYCLES (15 Cycles) ---
   const CYCLES = 15;
   const cycleDuration = 90 / CYCLES;
   
   for (let cycle = 0; cycle < CYCLES; cycle++) {
     const minute = Math.floor(cycle * cycleDuration) + randomInt(1, 4);
     
-    // --- FATIGUE DYNAMIC FACTOR ---
-    // Stamina 100 -> No penalty. Stamina 50 -> -25% rating at min 90.
-    // Factor = 1 - ( (100 - stamina) / 200 ) * (minute / 90)
+    // FATIGUE
     const getFatigueFactor = (avgStamina: number) => {
-        const decayRate = (100 - avgStamina) / 200; // ex: (100-50)/200 = 0.25
+        const decayRate = (100 - avgStamina) / 200; 
         return 1 - (decayRate * (minute / 90));
     };
 
     const homeFatigue = getFatigueFactor(homeAvgStamina);
     const awayFatigue = getFatigueFactor(awayAvgStamina);
     
-    // Dynamic Midfield Rating
-    const currentHomeMid = adjustedHomeMidfield * homeFatigue;
-    const currentAwayMid = (away.midfield || 1) * awayFatigue;
+    // COMPLACENCY (Relâchement si écart >= 4 buts)
+    // Affecte l'intensité du milieu (possession) et l'attaque
+    let homeComplacency = 1.0;
+    let awayComplacency = 1.0;
+    
+    if (result.homeScore - result.awayScore >= 4) homeComplacency = 0.8;
+    else if (result.awayScore - result.homeScore >= 4) awayComplacency = 0.8;
 
-    // --- Phase 0 : Bataille Territoriale ---
-    const homeControlChance = currentHomeMid / (currentHomeMid + currentAwayMid);
+    const currentHomeMid = adjustedHomeMidfield * homeFatigue * homeComplacency;
+    const currentAwayMid = awayMidfield * awayFatigue * awayComplacency;
+
+    const h3 = Math.pow(currentHomeMid, 3);
+    const a3 = Math.pow(currentAwayMid, 3);
+    const homeControlChance = h3 / (h3 + a3);
+    
     const controllingTeam = Math.random() < homeControlChance ? 'home' : 'away';
     
-    // Select ratings for this cycle with fatigue applied
-    const getFatiguedRatings = (base: TeamRatings, factor: number) => {
-        // We only modify sector ratings, not tactical skill/type for now
+    // Ratings calculation with Fatigue AND Complacency (Attack only)
+    const getEffectiveRatings = (base: TeamRatings, fatigue: number, complacency: number) => {
         const r = { ...base };
-        (r as any).attackLeft *= factor;
-        (r as any).attackCenter *= factor;
-        (r as any).attackRight *= factor;
-        (r as any).defenseLeft *= factor;
-        (r as any).defenseCenter *= factor;
-        (r as any).defenseRight *= factor;
+        const attackFactor = fatigue * complacency;
+        const defFactor = fatigue; // Defense maintains discipline ideally, or drops too? Let's say Defense keeps focus.
+
+        (r as any).attackLeft *= attackFactor;
+        (r as any).attackCenter *= attackFactor;
+        (r as any).attackRight *= attackFactor;
+        
+        (r as any).defenseLeft *= defFactor;
+        (r as any).defenseCenter *= defFactor;
+        (r as any).defenseRight *= defFactor;
         return r;
     };
 
-    const homeCycleRatings = getFatiguedRatings(home, homeFatigue);
-    const awayCycleRatings = getFatiguedRatings(away, awayFatigue);
+    const homeCycleRatings = getEffectiveRatings(home, homeFatigue, homeComplacency);
+    const awayCycleRatings = getEffectiveRatings(away, awayFatigue, awayComplacency);
 
     const attackingRatings = controllingTeam === 'home' ? homeCycleRatings : awayCycleRatings;
     const defendingRatings = controllingTeam === 'home' ? awayCycleRatings : homeCycleRatings;
     const attackingId = controllingTeam === 'home' ? homeTeamId : awayTeamId;
     const attackingPlayers = controllingTeam === 'home' ? homePlayers : awayPlayers;
     const defendingPlayers = controllingTeam === 'home' ? awayPlayers : homePlayers;
+    const attackingName = controllingTeam === 'home' ? homeName : awayName;
 
     if (controllingTeam === 'home') result.stats.homeChances++;
     else result.stats.awayChances++;
 
-    // --- Phase 1 : Type d'Action ---
     const actionRoll = Math.random();
     
-    // 5% de chance d'un événement CPA
     if (actionRoll < 0.05) {
-      handleSetPiece(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingPlayers);
+      handleSetPiece(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingPlayers, attackingName);
       continue;
     }
     
-    // 5% de chance d'un Événement Spécial (SE) - Réduit à 2-3% pour éviter la répétition
     if (actionRoll < 0.08) {
-      handleSpecialEvent(result, minute, controllingTeam, attackingId, attackingPlayers);
+      handleSpecialEvent(result, minute, controllingTeam, attackingId, attackingPlayers, attackingName);
       continue;
     }
 
-    // Action Normale
-    handleNormalAttack(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingPlayers, defendingPlayers);
+    handleNormalAttack(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingPlayers, defendingPlayers, attackingName);
   }
 
-  // --- Mécanique de Contre-Attaque (Plafond Dynamique) ---
   if (result.homePossession > 60 && away.tacticType === 'CA') {
-    handleCounterAttack(result, 'away', away, home, awayTeamId, awayPlayers, homePlayers);
+    handleCounterAttack(result, 'away', away, home, awayTeamId, awayPlayers, homePlayers, awayName);
   } else if (result.homePossession < 40 && home.tacticType === 'CA') {
-    handleCounterAttack(result, 'home', home, away, homeTeamId, homePlayers, awayPlayers);
+    handleCounterAttack(result, 'home', home, away, homeTeamId, homePlayers, awayPlayers, homeName);
   }
 
-  // --- Transitions Offensives ---
   if (probability(0.05)) {
     const pressTeam = home.tacticType === 'PRESSING' ? 'home' : (away.tacticType === 'PRESSING' ? 'away' : null);
     if (pressTeam) {
         const tId = pressTeam === 'home' ? homeTeamId : awayTeamId;
         const attPlayers = pressTeam === 'home' ? homePlayers : awayPlayers;
         const defPlayers = pressTeam === 'home' ? awayPlayers : homePlayers;
+        const tName = pressTeam === 'home' ? homeName : awayName;
         result.events.push({
             minute: randomInt(10, 80),
             type: 'TRANSITION',
             teamId: tId,
-            description: getNarrative('match', 'transition', { team: pressTeam === 'home' ? 'Home' : 'Away' }).content
+            description: getUniqueNarrativeString('match', 'transition', { team: pressTeam === 'home' ? 'Home' : 'Away' }, result.events)
         });
         handleNormalAttack(result, randomInt(10, 80), pressTeam, 
             pressTeam === 'home' ? home : away, 
             pressTeam === 'home' ? away : home, 
-            tId, attPlayers, defPlayers);
+            tId, attPlayers, defPlayers, tName);
     }
   }
 
   result.events.sort((a, b) => a.minute - b.minute);
   return result;
 }
+
+function getUniqueNarrativeString(category: string, subCategory: string, params: any, existingEvents: MatchEvent[]): string {
+    let text = getNarrative(category, subCategory, params).content;
+    let attempts = 0;
+    while (existingEvents.some(e => e.description === text) && attempts < 5) {
+        text = getNarrative(category, subCategory, params).content;
+        attempts++;
+    }
+    return text;
+}
+
 
 function handleNormalAttack(
     result: MatchResult, 
@@ -142,7 +160,8 @@ function handleNormalAttack(
     def: TeamRatings, 
     teamId: number, 
     players: Player[],
-    defenders: Player[]
+    defenders: Player[],
+    teamName: string
 ) {
     const sectorRoll = Math.random();
     let sector: 'Left' | 'Center' | 'Right' = sectorRoll < 0.33 ? 'Left' : sectorRoll < 0.66 ? 'Right' : 'Center';
@@ -150,14 +169,11 @@ function handleNormalAttack(
     let attackPower = (att as any)[`attack${sector}`] || 1;
     const defensePower = (def as any)[`defense${sector}`] || 1;
 
-    // --- INDIVIDUAL INFLUENCE ---
-    // Select potential scorer weighted by position
     const starters = players.filter(p => p.isStarter);
     const fwds = starters.filter(p => p.position === 'FWD');
     const mids = starters.filter(p => p.position === 'MID');
     const defs = starters.filter(p => p.position === 'DEF');
     
-    // Weights: FWD 50%, MID 40%, DEF 10%
     const roll = Math.random();
     let shooter: Player;
     if (roll < 0.5 && fwds.length > 0) shooter = getRandomElement(fwds);
@@ -165,25 +181,12 @@ function handleNormalAttack(
     else if (defs.length > 0) shooter = getRandomElement(defs);
     else shooter = getRandomElement(starters.length > 0 ? starters : players);
 
-    // Shooter Bonus/Penalty based on Shooting stat (Avg 50)
-    // 50 -> 1.0. 90 -> 1.4. 10 -> 0.6.
     const shootingBonus = 0.5 + (shooter.stats.shooting / 100);
     attackPower *= shootingBonus;
 
-    // GK Influence (if possible)
-    const oppGK = defenders.find(p => p.position === 'GK' && p.isStarter);
-    if (oppGK) {
-        // Reflexes/Defense stats check
-        // If GK is good, increase effective defense power
-        const gkBonus = 0.8 + (oppGK.stats.defense / 250); // Defense stat is general. 
-        // Example: Defense 50 -> 0.8 + 0.2 = 1.0 (Neutral)
-        // Defense 90 -> 0.8 + 0.36 = 1.16 (Buff)
-        // defensePower *= gkBonus; // Let's apply to denominator logic indirectly
-        // Actually, let's keep it simple for now and rely on team defense rating which includes GK
-    }
-
-    // Formule ajustée : Cubique
-    const scoringChance = Math.pow(attackPower, 3) / (Math.pow(attackPower, 3) + Math.pow(defensePower, 3));
+    const attack3 = Math.pow(attackPower, 3);
+    const defense3 = Math.pow(defensePower, 3);
+    const scoringChance = attack3 / (attack3 + defense3);
 
     if (probability(scoringChance)) {
         if (controllingTeam === 'home') result.homeScore++;
@@ -191,13 +194,13 @@ function handleNormalAttack(
 
         result.events.push({
             minute, type: 'GOAL', teamId, scorerId: shooter.id, scorerName: shooter.lastName,
-            description: getNarrative('match', 'goal', { player: shooter.lastName }).content
+            description: getUniqueNarrativeString('match', 'goal', { player: shooter.lastName, team: teamName }, result.events)
         });
     } else {
         if (scoringChance > 0.20 || probability(0.3)) {
             result.events.push({
                 minute, type: 'MISS', teamId,
-                description: getNarrative('match', 'miss', { player: shooter.lastName }).content
+                description: getUniqueNarrativeString('match', 'miss', { player: shooter.lastName }, result.events)
             });
         }
     }
@@ -206,14 +209,16 @@ function handleNormalAttack(
 function handleSetPiece(
     result: MatchResult, 
     minute: number, 
-    controllingTeam: 'home' | 'away',
+    controllingTeam: 'home' | 'away', 
     att: TeamRatings, 
     def: TeamRatings, 
     teamId: number, 
-    players: Player[]
+    players: Player[],
+    teamName: string
 ) {
-    // Rend les CPA plus difficiles
-    const chance = Math.pow(att.setPieces, 2) / (Math.pow(att.setPieces, 2) + Math.pow(def.defenseCenter, 2));
+    const att3 = Math.pow(att.setPieces, 3);
+    const def3 = Math.pow(def.defenseCenter, 3);
+    const chance = att3 / (att3 + def3);
     
     if (probability(chance)) {
         if (controllingTeam === 'home') result.homeScore++;
@@ -222,7 +227,7 @@ function handleSetPiece(
         const taker = players.reduce((prev, curr) => (prev.stats.shooting > curr.stats.shooting) ? prev : curr);
         result.events.push({
             minute, type: 'GOAL', teamId, scorerId: taker.id, scorerName: taker.lastName,
-            description: "But sur coup de pied arrêté magnifique !" 
+            description: `But sur coup de pied arrêté magnifique pour ${teamName} !` 
         });
     } else {
         if (probability(0.5)) { 
@@ -237,26 +242,26 @@ function handleSetPiece(
 function handleSpecialEvent(
     result: MatchResult, 
     minute: number, 
-    controllingTeam: 'home' | 'away',
+    controllingTeam: 'home' | 'away', 
     teamId: number, 
-    players: Player[]
+    players: Player[],
+    teamName: string
 ) {
-    // Seuil augmenté et check condition pour la fatigue
     const speedster = players.find(p => p.stats.speed > 80 && p.condition > 50); 
     
-    if (speedster && probability(0.15)) { // 15% (au lieu de 20%)
+    if (speedster && probability(0.15)) { 
         result.events.push({
             minute, type: 'SPECIAL', teamId, scorerId: speedster.id, scorerName: speedster.lastName,
-            description: `${speedster.lastName} prend tout le monde de vitesse ! (Événement Rapide)`
+            description: `${speedster.lastName} prend tout le monde de vitesse !`
         });
         
-        if(probability(0.35)) { // 35% de conversion
+        if(probability(0.35)) { 
              if (controllingTeam === 'home') result.homeScore++;
              else result.awayScore++;
 
              result.events.push({
                 minute, type: 'GOAL', teamId, scorerId: speedster.id, scorerName: speedster.lastName,
-                description: "Et c'est au fond ! Quel raid solitaire !"
+                description: `Et c'est au fond ! Quel raid solitaire pour ${teamName} !`
             });
         }
     }
@@ -269,9 +274,12 @@ function handleCounterAttack(
     def: TeamRatings, 
     teamId: number, 
     players: Player[],
-    defenders: Player[]
+    defenders: Player[],
+    realTeamName: string
 ) {
-    const caChance = Math.pow(att.tacticSkill, 2) / (Math.pow(att.tacticSkill, 2) + Math.pow(def.defenseCenter, 2));
+    const skill3 = Math.pow(att.tacticSkill, 3);
+    const def3 = Math.pow(def.defenseCenter, 3);
+    const caChance = skill3 / (skill3 + def3);
     
     if (probability(caChance)) {
         const minute = randomInt(10, 85);
@@ -279,6 +287,6 @@ function handleCounterAttack(
             minute, type: 'TRANSITION', teamId,
             description: "Contre-attaque fulgurante lancée !"
         });
-        handleNormalAttack(result, minute, teamName, att, def, teamId, players, defenders);
+        handleNormalAttack(result, minute, teamName, att, def, teamId, players, defenders, realTeamName);
     }
 }

@@ -30,22 +30,21 @@ function generateStats(position: Position, skill: number): PlayerStats {
 
   const stats: PlayerStats = {
     stamina: getAttr(skill),
-    playmaking: 1, // Placeholder
+    playmaking: 1, 
     defense: getAttr(skill),
     speed: getAttr(skill),
-    strength: getAttr(skill), // NOUVEAU
-    dribbling: getAttr(skill), // NOUVEAU
-    passing: getAttr(skill), // NOUVEAU
-    shooting: getAttr(skill), // NOUVEAU
+    strength: getAttr(skill),
+    dribbling: getAttr(skill),
+    passing: getAttr(skill),
+    shooting: getAttr(skill),
   };
 
-  // Ajustements selon la position pour correspondre aux nouveaux besoins du moteur
   switch (position) {
     case 'GK':
       stats.defense = getAttr(skill + 20);
       stats.passing = getAttr(skill - 10);
       stats.shooting = getAttr(skill - 30);
-      stats.playmaking = getAttr(skill - 20); // Legacy check
+      stats.playmaking = getAttr(skill - 20);
       break;
     case 'DEF':
       stats.defense = getAttr(skill + 15);
@@ -69,11 +68,10 @@ function generateStats(position: Position, skill: number): PlayerStats {
   return stats;
 }
 
-// Estimation sommaire de la valeur
 function calculateValue(skill: number, age: number): number {
   let baseValue = skill * skill * 2;
-  if (age < 23) baseValue *= 1.5; // Potentiel
-  if (age > 32) baseValue *= 0.6; // Déclin
+  if (age < 23) baseValue *= 1.5; 
+  if (age > 32) baseValue *= 0.6; 
   return Math.floor(baseValue / 10);
 }
 
@@ -81,7 +79,6 @@ function calculateWage(skill: number): number {
   return Math.floor(skill / 5);
 }
 
-// Fonction générique qui renvoie un objet partiel
 export function generatePlayer(
   targetSkill: number = 50,
   forcedPosition?: Position,
@@ -99,10 +96,31 @@ export function generatePlayer(
     else position = 'FWD';
   }
 
+  // --- GÉNÉRATION DU COTÉ PRÉFÉRENTIEL ---
+  let side: 'L' | 'C' | 'R' = 'C';
+  if (position === 'GK') {
+      side = 'C';
+  } else {
+      const sideRoll = Math.random();
+      // DEF : 25% L, 25% R, 50% C
+      // MID : 30% L, 30% R, 40% C
+      // FWD : 25% L, 25% R, 50% C
+      let leftProb = 0.25;
+      let rightProb = 0.25;
+      
+      if (position === 'MID') {
+          leftProb = 0.3;
+          rightProb = 0.3;
+      }
+
+      if (sideRoll < leftProb) side = 'L';
+      else if (sideRoll > 1 - rightProb) side = 'R';
+      else side = 'C';
+  }
+
   const skill = Math.max(1, Math.min(99, targetSkill + randomInt(-10, 10)));
   const stats = generateStats(position, skill);
 
-  // Génération du DNA (Avatar)
   const skin = randomInt(0, 3);
   const hair = randomInt(0, 5);
   const facial = randomInt(0, 4);
@@ -114,6 +132,7 @@ export function generatePlayer(
     lastName,
     age,
     position,
+    side, // Ajout du côté
     dna,
     skill,
     stats,

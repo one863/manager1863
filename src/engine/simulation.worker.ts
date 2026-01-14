@@ -30,7 +30,7 @@ self.onmessage = async (e: MessageEvent) => {
     const results = [];
 
     for (const matchData of matches) {
-      const { homeRatings, awayRatings, homeTeamId, awayTeamId, homePlayers, awayPlayers, matchId } = matchData;
+      const { homeRatings, awayRatings, homeTeamId, awayTeamId, homePlayers, awayPlayers, matchId, homeName, awayName } = matchData;
       
       const result = await simulateMatch(
         homeRatings,
@@ -38,7 +38,9 @@ self.onmessage = async (e: MessageEvent) => {
         homeTeamId,
         awayTeamId,
         homePlayers,
-        awayPlayers
+        awayPlayers,
+        homeName || 'Home',
+        awayName || 'Away'
       );
 
       results.push({
@@ -51,7 +53,7 @@ self.onmessage = async (e: MessageEvent) => {
   }
 
   if (type === 'SIMULATE_MATCH') {
-    const { homeRatings, awayRatings, homeTeamId, awayTeamId, homePlayers, awayPlayers, requestId } = payload;
+    const { homeRatings, awayRatings, homeTeamId, awayTeamId, homePlayers, awayPlayers, requestId, homeName, awayName } = payload;
 
     const result = await simulateMatch(
       homeRatings,
@@ -59,7 +61,9 @@ self.onmessage = async (e: MessageEvent) => {
       homeTeamId,
       awayTeamId,
       homePlayers,
-      awayPlayers
+      awayPlayers,
+      homeName || 'Home',
+      awayName || 'Away'
     );
 
     self.postMessage({ type: 'MATCH_COMPLETE', payload: { result, requestId } });

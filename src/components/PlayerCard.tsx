@@ -65,7 +65,9 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
             <div>
               <h2 className="text-xl font-serif font-bold text-accent leading-tight">{player.firstName} {player.lastName}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getPositionColor(player.position)}`}>{player.position}</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getPositionColor(player.position)}`}>
+                  {player.position} {player.position !== 'GK' && `(${player.side || 'C'})`}
+                </span>
                 <span className="text-sm text-ink-light">{player.age} ans</span>
               </div>
             </div>
@@ -99,7 +101,7 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
                 <TrendingUp size={10} />
               </h3>
               <StatBar label={t('player_card.stamina')} value={player.stats.stamina} />
-              <StatBar label={t('player_card.playmaking')} value={player.stats.playmaking} />
+              <StatBar label={t('player_card.playmaking')} value={player.stats.passing} />
               <StatBar label={t('player_card.defense')} value={player.stats.defense} />
             </div>
 
@@ -109,8 +111,8 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
                 {t('player_card.specialty')}
               </h3>
               <StatBar label={t('player_card.speed')} value={player.stats.speed} />
-              <StatBar label={t('player_card.head')} value={player.stats.head} />
-              <StatBar label={t('player_card.technique')} value={player.stats.technique} />
+              <StatBar label={t('player_card.head')} value={player.stats.strength} />
+              <StatBar label={t('player_card.technique')} value={player.stats.dribbling} />
             </div>
 
             {/* Conversion */}
@@ -118,8 +120,8 @@ export default function PlayerCard({ player, onClose, onPlayerAction }: PlayerCa
               <h3 className="text-[10px] font-bold text-accent uppercase tracking-wider mb-2 border-b border-accent/20 pb-0.5">
                 {t('player_card.conversion')}
               </h3>
-              <StatBar label={t('player_card.scoring')} value={player.stats.scoring} />
-              <StatBar label={t('player_card.setPieces')} value={player.stats.setPieces} />
+              <StatBar label={t('player_card.scoring')} value={player.stats.shooting} />
+              <StatBar label={t('player_card.setPieces')} value={player.stats.shooting} />
             </div>
           </div>
         </div>

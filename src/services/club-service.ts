@@ -71,39 +71,67 @@ export const ClubService = {
 
     // Dynamique de réputation
     let repChange = isWin ? 1 + clamp(goalDiff, 0, 3) : isDraw ? 0 : -1;
-    // Bonus de réputation si on bat une équipe plus forte (à implémenter si on avait accès à l'adversaire ici, mais on simplifie)
     const newReputation = clamp(team.reputation + repChange, 1, 100);
 
     // Dynamique de Fans
     let fanChange = isWin ? randomInt(10, 25) + (isHome ? 10 : 0) : isDraw ? randomInt(-2, 5) : randomInt(-10, -2);
-    // Les fans viennent plus si la réputation monte
     fanChange = Math.round(fanChange * (1 + newReputation / 100));
     const newFanCount = Math.max(10, team.fanCount + fanChange);
 
-    // Dynamique de Confiance
+    // --- LOGIQUE CONFIANCE AVANCÉE ---
     let confChange = isWin ? 5 : isDraw ? -1 : -8;
+
+    // Si le résultat est négatif, on applique des modificateurs de clémence
+    if (confChange < 0) {
+        let penaltyMultiplier = 1.0;
+
+        // 1. Tolérance de début de saison (6 premiers matchs)
+        if ((team.matchesPlayed || 0) <= 6) {
+            penaltyMultiplier = 0.5; // "Il ne faut pas qu'ils s'affolent"
+        }
+
+        // 2. Tolérance basée sur le classement et les points
+        const teamsInLeague = await db.teams.where('leagueId').equals(team.leagueId).toArray();
+        // Tri simple pour déterminer les positions approximatives
+        teamsInLeague.sort((a, b) => (b.points || 0) - (a.points || 0)); 
+        
+        let targetPos = 10; // Default MID_TABLE
+        if (team.seasonGoal === 'CHAMPION') targetPos = 1;
+        else if (team.seasonGoal === 'PROMOTION') targetPos = 3;
+        else if (team.seasonGoal === 'AVOID_RELEGATION') targetPos = teamsInLeague.length - 2;
+
+        const targetTeam = teamsInLeague[Math.min(targetPos - 1, teamsInLeague.length - 1)];
+        
+        if (targetTeam) {
+            const targetPoints = targetTeam.points || 0;
+            const myPoints = team.points || 0; // Note: team.points contient déjà les points du match actuel car updateTeamStats est appelé avant
+
+            // Si on est à égalité de points ou devant l'objectif, on ne panique pas
+            if (myPoints >= targetPoints) {
+                penaltyMultiplier = 0.2; 
+            } else if (targetPoints - myPoints <= 3) {
+                // Si on est à une victoire de l'objectif
+                penaltyMultiplier = 0.7;
+            }
+        }
+        
+        confChange = Math.round(confChange * penaltyMultiplier);
+        // On s'assure qu'une défaite fait au moins -1 si pas nul
+        if (!isDraw && confChange === 0) confChange = -1;
+    }
+
     const newConfidence = clamp(team.confidence + confChange, 0, 100);
 
     // --- BILLETTERIE ---
     let ticketIncome = 0;
     if (isHome) {
-      // Affluence de base : Fans limités par le stade
       let baseAttendance = Math.min(team.fanCount, team.stadiumCapacity);
-      
-      // Facteur aléatoire (Météo, Jour de semaine...) : +/- 10%
       const variation = 1 + (randomInt(-10, 10) / 100);
-      
-      // Facteur de forme : si on gagne (confiance haute), plus de monde
-      const formFactor = 1 + ((team.confidence - 50) / 200); // +/- 25% max
-
+      const formFactor = 1 + ((team.confidence - 50) / 200); 
       const attendance = Math.floor(clamp(baseAttendance * variation * formFactor, 0, team.stadiumCapacity));
-      
-      // Prix du billet : 0.15M par défaut + prime de réputation
       const ticketPrice = 0.15 + (team.reputation / 1000); 
-      
       ticketIncome = Math.round(attendance * ticketPrice); 
     }
-    // -------------------
 
     let sponsorIncome = 0;
     if (team.sponsorName && team.sponsorExpiryDate && new Date(team.sponsorExpiryDate) > date) {
@@ -166,7 +194,7 @@ export const ClubService = {
         day: 0, 
         date, 
         title: i18next.t('narratives.news.club.sacked_title', { defaultValue: 'CONTRAT ROMPU' }), 
-        content: i18next.t('narratives.news.club.sacked_content', { defaultValue: 'Le board a décidé de vous licencier.' }), 
+        content: i18next.t('narratives.news.club.sacked_content', { defaultValue: "Le Conseil d'Administration a décidé de vous licencier." }), 
         type: 'CLUB', 
         importance: 3 
       });
@@ -187,29 +215,20 @@ export const ClubService = {
       { name: 'East India Company', baseIncome: 100, durationMonths: 48, minRep: 80 },
     ];
 
-    // Filtrer les sponsors éligibles selon la réputation
     const eligibleSponsors = allSponsors.filter(s => reputation >= s.minRep);
 
-    // Déterminer combien d'offres montrer (1 à 3) selon la réputation
-    // Rep 0-20: 1 offre
-    // Rep 21-50: 2 offres
-    // Rep 51+: 3 offres
     let offerCount = 1;
     if (reputation > 50) offerCount = 3;
     else if (reputation > 20) offerCount = 2;
 
-    // Mélanger et prendre le nombre défini
     return eligibleSponsors
       .sort(() => 0.5 - Math.random())
       .slice(0, offerCount)
       .map((s) => {
         const expiryDate = new Date(currentDate);
         expiryDate.setMonth(expiryDate.getMonth() + s.durationMonths);
-        
-        // Petite variation aléatoire sur l'offre (+/- 10%)
         const variance = 0.9 + (Math.random() * 0.2);
         const finalIncome = Math.round(s.baseIncome * (1 + reputation / 100) * variance);
-        
         return { ...s, income: finalIncome, expiryDate };
       });
   },
