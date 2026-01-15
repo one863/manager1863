@@ -1,21 +1,23 @@
-import ClubDetails from "@/components/ClubDetails";
-import { BoardObjectiveCard } from "@/components/Dashboard/BoardObjectiveCard";
-import ClubIdentityCard from "@/components/Dashboard/ClubIdentityCard";
-import NextMatchCard from "@/components/Dashboard/NextMatchCard";
 import { type League, type Match, type Team, db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
-import { Layout, Users } from "lucide-preact";
+import NewsList from "@/views/News/NewsList";
+import { SubTabs } from "@/components/Common/SubTabs";
+import ClubIdentityCard from "@/components/Dashboard/ClubIdentityCard";
+import NextMatchCard from "@/components/Dashboard/NextMatchCard";
+import BoardView from "@/views/Club/BoardView";
 
 export default function Dashboard({
 	onNavigate,
-}: { onNavigate?: (view: any) => void }) {
+	onShowClub,
+}: { onNavigate?: (view: any) => void; onShowClub?: (id: number) => void }) {
 	const { t } = useTranslation();
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const userTeamId = useGameStore((state) => state.userTeamId);
 	const day = useGameStore((state) => state.day);
 	const currentDate = useGameStore((state) => state.currentDate);
+	const unreadNewsCount = useGameStore((state) => state.unreadNewsCount);
 
 	const [team, setTeam] = useState<Team | null>(null);
 	const [league, setLeague] = useState<League | null>(null);
@@ -25,8 +27,13 @@ export default function Dashboard({
 	} | null>(null);
 	const [position, setPosition] = useState<number>(0);
 	const [isLoading, setIsLoading] = useState(true);
-	const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-	const [activeTab, setActiveTab] = useState<"club" | "board">("club");
+	const [activeTab, setActiveTab] = useState<"club" | "board" | "news">("club");
+
+	const tabs = [
+		{ id: "club", label: t("dashboard.club_tab", "Overview") },
+		{ id: "board", label: t("club.board_tab", "Board") },
+		{ id: "news", label: t("dashboard.news_tab", "Actus"), badge: unreadNewsCount },
+	];
 
 	useEffect(() => {
 		const loadDashboardData = async () => {
@@ -77,76 +84,39 @@ export default function Dashboard({
 			<div className="p-8 text-center animate-pulse">{t("game.loading")}</div>
 		);
 
-	if (selectedTeamId) {
-		return (
-			<ClubDetails
-				teamId={selectedTeamId}
-				onClose={() => setSelectedTeamId(null)}
-			/>
-		);
-	}
-
 	return (
-		<div className="pb-24 animate-fade-in">
-			{/* ONGLETS DASHBOARD */}
-			<div className="flex bg-paper-dark rounded-xl p-1 mb-6 border border-gray-200 shadow-inner">
-				<button
-					onClick={() => setActiveTab("club")}
-					className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "club" ? "bg-white text-accent shadow-sm" : "text-ink-light"}`}
-				>
-					<Users size={18} /> Club
-				</button>
-				<button
-					onClick={() => setActiveTab("board")}
-					className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "board" ? "bg-white text-accent shadow-sm" : "text-ink-light"}`}
-				>
-					<Layout size={18} /> Bureau
-				</button>
-			</div>
+		<div className="animate-fade-in">
+			<SubTabs
+				tabs={tabs}
+				activeTab={activeTab}
+				onChange={(id) => setActiveTab(id as any)}
+			/>
 
-			{activeTab === "club" ? (
-				<div className="space-y-4 animate-fade-in">
-					<ClubIdentityCard
-						team={team}
-						league={league}
-						position={position}
-						onClick={() => onNavigate?.("club")}
-					/>
+			<div className="mt-2 pb-24 px-4">
+				{activeTab === "club" ? (
+					<div className="space-y-4 animate-fade-in">
+						<ClubIdentityCard
+							team={team}
+							league={league}
+							position={position}
+						/>
 
-					<NextMatchCard
-						nextMatch={nextMatch}
-						userTeamId={userTeamId}
-						userTeamName={team?.name || ""}
-						currentDate={currentDate}
-						onShowOpponent={setSelectedTeamId}
-					/>
-				</div>
-			) : (
-				<div className="space-y-4 animate-fade-in">
-					<BoardObjectiveCard team={team} position={position} />
-					
-					{/* On pourrait rajouter ici d'autres infos de bureau comme la confiance du board etc */}
-					<div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-						<h3 className="text-xs font-black uppercase tracking-widest text-ink-light mb-4">État du Management</h3>
-						<div className="space-y-4">
-							<div>
-								<div className="flex justify-between text-xs font-bold mb-1">
-									<span>Confiance du Président</span>
-									<span className={team?.confidence && team.confidence > 70 ? "text-green-600" : "text-accent"}>
-										{team?.confidence}%
-									</span>
-								</div>
-								<div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-									<div 
-										className={`h-full transition-all duration-500 ${team?.confidence && team.confidence > 70 ? "bg-green-500" : "bg-accent"}`}
-										style={{ width: `${team?.confidence || 0}%` }}
-									/>
-								</div>
-							</div>
-						</div>
+						<NextMatchCard
+							nextMatch={nextMatch}
+							userTeamId={userTeamId}
+							userTeamName={team?.name || ""}
+							currentDate={currentDate}
+							onShowOpponent={onShowClub}
+						/>
 					</div>
-				</div>
-			)}
+				) : activeTab === "board" ? (
+					<BoardView />
+				) : (
+					<div className="animate-fade-in">
+						<NewsList onNavigate={onNavigate} />
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

@@ -1,46 +1,48 @@
-import { verifySaveIntegrity } from "@/db/db";
+import { verifySaveIntegrity, type Player, type StaffMember } from "@/db/db";
 import { MatchService } from "@/services/match-service";
 import { useGameStore } from "@/store/gameSlice";
 import { useLiveMatchStore } from "@/store/liveMatchStore";
 import { Loader2 } from "lucide-preact";
-import { Suspense, lazy, useEffect, useRef, useState } from "preact/compat";
+import { Suspense, useEffect, useRef, useState } from "preact/compat";
 
 import { ErrorBoundary } from "@/components/Common/ErrorBoundary";
 import { GameOverOverlay } from "@/components/Layout/GameOverOverlay";
 import { Header } from "@/components/Layout/Header";
 import { Navigation } from "@/components/Layout/Navigation";
 import { SaveOverlay } from "@/components/Layout/SaveOverlay";
-import { SidebarMenu } from "@/components/Layout/SidebarMenu";
 
-const Dashboard = lazy(() => import("@/views/Dashboard"));
-const Squad = lazy(() => import("@/views/Squad"));
-const LeagueView = lazy(() => import("@/views/LeagueView"));
-const MatchLive = lazy(() => import("@/components/MatchLive"));
-const Training = lazy(() => import("@/views/Training"));
-const NewsList = lazy(() => import("@/views/News/NewsList"));
-const TransferMarket = lazy(() => import("@/views/Transfers/TransferMarket"));
-const ClubManagement = lazy(() => import("@/views/Club/ClubManagement"));
-const SponsorsFinances = lazy(() => import("@/views/Club/SponsorsFinances"));
-const MatchReportView = lazy(() => import("@/views/MatchReportView"));
+import PlayerCard from "@/components/PlayerCard";
+import StaffCard from "@/components/StaffCard";
+import ClubDetails from "@/components/ClubDetails";
+import SettingsOverlay from "@/components/Layout/SettingsOverlay";
+import MatchLive from "@/components/MatchLive";
+
+import Dashboard from "@/views/Dashboard";
+import TeamView from "@/views/Team/TeamView";
+import LeagueView from "@/views/LeagueView";
+import ClubView from "@/views/Club/ClubView";
+import TransferMarket from "@/views/Transfers/TransferMarket";
+import MatchReportView from "@/views/MatchReportView";
 
 type View =
 	| "dashboard"
 	| "squad"
 	| "league"
-	| "training"
-	| "news"
 	| "transfers"
 	| "club"
-	| "finances"
 	| "match-report";
 
 export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const [currentView, setCurrentView] = useState<View>("dashboard");
-	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [saveStatus, setSaveStatus] = useState<
 		"idle" | "saving" | "verified" | "error"
 	>("idle");
 	const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
+	
+	const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+	const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+	const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
 	const currentDate = useGameStore((state) => state.currentDate);
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
@@ -110,39 +112,25 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 				currentDate={currentDate}
 				isProcessing={isProcessing}
 				showOverlay={saveStatus !== "idle"}
-				isMenuOpen={isMenuOpen}
-				onToggleMenu={() => setIsMenuOpen(!isMenuOpen)}
+				onToggleMenu={() => setIsSettingsOpen(true)}
 				onContinue={handleContinueClick}
 			/>
 
 			{saveStatus !== "idle" && <SaveOverlay status={saveStatus} />}
 
-			{isMenuOpen && (
-				<SidebarMenu
-					currentView={currentView}
-					onNavigate={(view) => {
-						setCurrentView(view);
-						setIsMenuOpen(false);
-					}}
-					onQuit={onQuit}
-					onClose={() => setIsMenuOpen(false)}
-				/>
-			)}
-
 			<main
-				className={`flex-1 flex flex-col ${liveMatch ? "overflow-hidden p-0" : currentView === "match-report" || currentView === "league" ? "overflow-hidden p-0" : "overflow-y-auto p-4"} mb-16 scroll-smooth relative`}
+				className={`flex-1 flex flex-col ${currentView === "match-report" || currentView === "league" ? "overflow-hidden" : "overflow-y-auto"} mb-16 scroll-smooth relative`}
 			>
 				<ErrorBoundary>
 					<Suspense fallback={<ViewLoader />}>
-						{liveMatch ? (
-							<MatchLive />
-						) : (
-							renderView(
-								currentView,
-								setCurrentView,
-								handleSelectMatchForReport,
-								selectedMatchId,
-							)
+						{renderView(
+							currentView,
+							setCurrentView,
+							handleSelectMatchForReport,
+							selectedMatchId,
+							setSelectedPlayer,
+							setSelectedStaff,
+							setSelectedTeamId
 						)}
 					</Suspense>
 				</ErrorBoundary>
@@ -152,6 +140,34 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 				currentView={currentView}
 				onNavigate={(view) => setCurrentView(view)}
 			/>
+
+			{/* Global Overlays */}
+			{liveMatch && <MatchLive />}
+			
+			{isSettingsOpen && (
+				<SettingsOverlay 
+					onClose={() => setIsSettingsOpen(false)} 
+					onQuit={onQuit} 
+				/>
+			)}
+			{selectedPlayer && (
+				<PlayerCard 
+					player={selectedPlayer} 
+					onClose={() => setSelectedPlayer(null)} 
+				/>
+			)}
+			{selectedStaff && (
+				<StaffCard 
+					staff={selectedStaff} 
+					onClose={() => setSelectedStaff(null)} 
+				/>
+			)}
+			{selectedTeamId && (
+				<ClubDetails 
+					teamId={selectedTeamId} 
+					onClose={() => setSelectedTeamId(null)} 
+				/>
+			)}
 		</div>
 	);
 }
@@ -172,24 +188,21 @@ function renderView(
 	setView: (v: View) => void,
 	onSelectMatch: (id: number) => void,
 	selectedMatchId: number | null,
+	onSelectPlayer: (p: Player) => void,
+	onSelectStaff: (s: StaffMember) => void,
+	onSelectTeam: (id: number) => void
 ) {
 	switch (view) {
 		case "dashboard":
-			return <Dashboard onNavigate={setView} />;
+			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} />;
 		case "squad":
-			return <Squad />;
+			return <TeamView onSelectPlayer={onSelectPlayer} onSelectStaff={onSelectStaff} />;
 		case "league":
-			return <LeagueView onSelectMatch={onSelectMatch} />;
-		case "training":
-			return <Training />;
-		case "news":
-			return <NewsList onNavigate={setView} />;
+			return <LeagueView onSelectMatch={onSelectMatch} onSelectTeam={onSelectTeam} />;
 		case "transfers":
-			return <TransferMarket />;
+			return <TransferMarket onSelectPlayer={onSelectPlayer} onSelectStaff={onSelectStaff} />;
 		case "club":
-			return <ClubManagement />;
-		case "finances":
-			return <SponsorsFinances />;
+			return <ClubView />;
 		case "match-report":
 			return (
 				<MatchReportView
@@ -198,6 +211,6 @@ function renderView(
 				/>
 			);
 		default:
-			return <Dashboard onNavigate={setView} />;
+			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} />;
 	}
 }

@@ -40,6 +40,7 @@ const PlayerAvatar = memo(
 			// Palettes
 			const skins = ["#f8d5c2", "#e0ac69", "#8d5524", "#c68642"];
 			
+			// Colorer les cheveux différemment pour le staff (plus de poivre et sel / blanc)
 			const hairColors = isStaff
 				? ["#6b6b6b", "#a0a0a0", "#d0d0d0", "#8d8d8d", "#ffffff", "#4b3020"]
 				: ["#4b3020", "#2c1e14", "#d6b67d", "#913312", "#222222", "#c29a5b"];
@@ -117,8 +118,8 @@ const PlayerAvatar = memo(
 				<ellipse cx="50" cy="48" rx={headWidth} ry={headHeight} fill={skin} />
 
 				{/* Barbe (Hommes uniquement, sous les traits) */}
-				{!isStaff && gender === "M" && facialIdx > 0 && (
-					<g opacity="0.4" fill="#333">
+				{gender === "M" && facialIdx > 0 && (
+					<g opacity="0.4" fill={hair}>
 						{facialIdx === 1 && <path d="M 25 55 Q 25 82 50 86 Q 75 82 75 55 Q 70 78 50 78 Q 30 78 25 55" />}
 						{facialIdx === 2 && (
 							<g>

@@ -1,5 +1,5 @@
 import type { League, Team } from "@/engine/types";
-import { ChevronRight, Landmark, Shield, Trophy, Users, Wallet, Star } from "lucide-preact";
+import { Shield, Trophy, Users, Wallet, Star, MapPin } from "lucide-preact";
 import { useTranslation } from "react-i18next";
 import CreditAmount from "../Common/CreditAmount";
 
@@ -7,14 +7,12 @@ interface ClubIdentityCardProps {
 	team: Team | null;
 	league: League | null;
 	position: number;
-	onClick?: () => void;
 }
 
 export default function ClubIdentityCard({
 	team,
 	league,
 	position,
-	onClick,
 }: ClubIdentityCardProps) {
 	const { t } = useTranslation();
 
@@ -24,22 +22,19 @@ export default function ClubIdentityCard({
 	};
 
 	return (
-		<div
-			onClick={onClick}
-			className="bg-white p-7 rounded-[2rem] shadow-sm border-2 border-paper-dark cursor-pointer hover:border-accent transition-all group active:scale-[0.98] relative overflow-hidden"
-		>
-			{/* Fond décoratif subtil */}
+		<div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
+			{/* Fond décoratif très discret */}
 			<div
-				className="absolute top-0 right-0 w-64 h-64 opacity-[0.02] pointer-events-none -mr-16 -mt-16"
+				className="absolute top-0 right-0 w-32 h-32 opacity-[0.03] pointer-events-none -mr-8 -mt-8"
 				style={{
 					backgroundColor: team?.primaryColor || "#991b1b",
 					borderRadius: "100%",
 				}}
 			/>
 
-			<div className="flex items-center gap-6 mb-8 relative z-10">
-				{/* ÉCUSSON DU CLUB */}
-				<div className="relative w-20 h-20 rounded-3xl overflow-hidden shadow-sm border border-gray-100 flex flex-col shrink-0">
+			<div className="flex items-center gap-4 mb-4 relative z-10">
+				{/* ÉCUSSON DU CLUB COMPACT */}
+				<div className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col shrink-0">
 					<div
 						className="flex-1"
 						style={{ backgroundColor: team?.primaryColor || "#991b1b" }}
@@ -49,89 +44,52 @@ export default function ClubIdentityCard({
 						style={{ backgroundColor: team?.secondaryColor || "#ffffff" }}
 					/>
 					<div className="absolute inset-0 flex items-center justify-center">
-						<Shield size={40} className="text-white/30" strokeWidth={2} />
+						<Shield size={24} className="text-white/30" strokeWidth={2} />
 					</div>
 				</div>
 
-				<div className="flex-1">
-					<div className="flex items-center gap-1">
-						<h2 className="text-3xl font-serif font-black text-ink leading-tight">
-							{team?.name || "Club inconnu"}
-						</h2>
-						<ChevronRight
-							size={20}
-							className="text-gray-200 group-hover:text-accent transition-colors"
-						/>
-					</div>
-					<p className="text-[10px] text-ink-light font-black uppercase tracking-[0.25em] mt-1 opacity-50">
-						Institution de Football
+				<div className="flex-1 min-w-0">
+					<h2 className="text-lg font-serif font-black text-ink leading-tight truncate">
+						{team?.name || "Club inconnu"}
+					</h2>
+					<p className="text-[10px] text-accent font-black uppercase tracking-wider truncate">
+						{league?.name || "Ligue"}
 					</p>
+					<div className="flex items-center gap-2 mt-0.5">
+						<div className="flex items-center gap-1 text-[9px] text-ink-light font-bold">
+							<MapPin size={10} />
+							<span className="truncate max-w-[120px]">{team?.stadiumName}</span>
+						</div>
+					</div>
 				</div>
 			</div>
 
-			<div className="grid grid-cols-2 gap-y-8 gap-x-6 pt-8 border-t border-paper-dark/30 relative z-10">
-				{/* Division & Classement */}
-				<div className="flex flex-col gap-2">
-					<span className="text-[10px] text-ink-light font-black uppercase tracking-widest opacity-40">
-						Compétition
-					</span>
-					<div className="flex items-center gap-3">
-						<div className="w-12 h-12 bg-paper-dark/50 rounded-2xl flex items-center justify-center border border-gray-100 shrink-0">
-							<Trophy size={20} className="text-accent" />
-						</div>
-						<div className="leading-tight">
-							<div className="font-serif font-black text-ink text-xl">
-								{getOrdinal(position)}
-							</div>
-							<div className="text-[10px] text-ink-light font-black uppercase tracking-wider truncate max-w-[100px]">
-								{league?.name || "Ligue"}
-							</div>
-						</div>
-					</div>
+			<div className="grid grid-cols-4 gap-2 relative z-10 border-t border-paper-dark/30 pt-3">
+				{/* Stats en ligne plus compactes */}
+				<div className="flex flex-col items-center text-center">
+					<Trophy size={14} className="text-accent mb-0.5" />
+					<div className="text-[11px] font-black text-ink">{getOrdinal(position)}</div>
+					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Rang</div>
 				</div>
 
-				{/* Réputation */}
-				<div className="flex flex-col gap-2 border-l border-paper-dark/30 pl-6">
-					<span className="text-[10px] text-ink-light font-black uppercase tracking-widest opacity-40">
-						Réputation
-					</span>
-					<div className="flex items-center gap-3">
-						<div className="w-12 h-12 bg-paper-dark/50 rounded-2xl flex items-center justify-center border border-gray-100 shrink-0">
-							<Star size={20} className="text-amber-500 fill-amber-500/10" />
-						</div>
-						<div className="font-serif font-black text-ink text-xl">
-							{team?.reputation || 0}
-							<span className="text-[10px] text-ink-light ml-0.5 opacity-30 font-sans">/100</span>
-						</div>
-					</div>
+				<div className="flex flex-col items-center text-center border-l border-paper-dark/10">
+					<Star size={14} className="text-amber-500 mb-0.5" />
+					<div className="text-[11px] font-black text-ink">{team?.reputation || 0}</div>
+					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Prestige</div>
 				</div>
 
-				{/* Fans */}
-				<div className="flex flex-col gap-2">
-					<span className="text-[10px] text-ink-light font-black uppercase tracking-widest opacity-40">
-						Supporteurs
-					</span>
-					<div className="flex items-center gap-3">
-						<div className="w-12 h-12 bg-paper-dark/50 rounded-2xl flex items-center justify-center border border-gray-100 shrink-0">
-							<Users size={20} className="text-ink-light" />
-						</div>
-						<div className="font-serif font-black text-ink text-xl">
-							{team?.fanCount?.toLocaleString() || 0}
-						</div>
-					</div>
+				<div className="flex flex-col items-center text-center border-l border-paper-dark/10">
+					<Users size={14} className="text-ink-light mb-0.5" />
+					<div className="text-[11px] font-black text-ink">{team?.fanCount ? (team.fanCount >= 1000 ? (team.fanCount / 1000).toFixed(1) + 'k' : team.fanCount) : 0}</div>
+					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Fans</div>
 				</div>
 
-				{/* Trésorerie */}
-				<div className="flex flex-col gap-2 border-l border-paper-dark/30 pl-6">
-					<span className="text-[10px] text-ink-light font-black uppercase tracking-widest opacity-40">
-						Budget
-					</span>
-					<div className="flex items-center gap-3">
-						<div className="w-12 h-12 bg-paper-dark/50 rounded-2xl flex items-center justify-center border border-gray-100 shrink-0">
-							<Wallet size={20} className="text-accent" />
-						</div>
-						<CreditAmount amount={team?.budget || 0} size="lg" color="text-accent" />
+				<div className="flex flex-col items-center text-center border-l border-paper-dark/10">
+					<Wallet size={14} className="text-accent mb-0.5" />
+					<div className="text-[11px] font-black text-ink">
+						<CreditAmount amount={team?.budget || 0} size="xs" color="text-accent" />
 					</div>
+					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Budget</div>
 				</div>
 			</div>
 		</div>

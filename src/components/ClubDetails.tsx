@@ -1,5 +1,5 @@
 import { type Team, db } from "@/db/db";
-import { Landmark, MapPin, Shield, Trophy, Users, ArrowLeft } from "lucide-preact";
+import { Landmark, MapPin, Shield, Trophy, Users, ArrowLeft, Store } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import PlayerAvatar from "./PlayerAvatar";
 
@@ -42,11 +42,11 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 
 	return (
 		<div
-			className="absolute inset-0 z-[110] bg-white flex flex-col animate-fade-in overflow-hidden"
+			className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in"
 			onClick={(e) => e.stopPropagation()}
 		>
-			{/* Header */}
-			<div className="bg-paper-dark p-6 text-center border-b border-gray-300 relative flex flex-col items-center">
+			{/* Unified Header */}
+			<div className="bg-paper-dark p-6 text-center border-b border-gray-300 relative flex flex-col items-center shrink-0">
 				<button
 					onClick={onClose}
 					className="absolute top-6 left-6 text-ink-light hover:text-accent p-1 transition-colors"
@@ -65,50 +65,50 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 				</div>
 			</div>
 
-			{/* Main Content */}
-			<div className="flex-1 p-5 space-y-6 overflow-y-auto pb-10">
-				<div className="grid grid-cols-2 gap-3">
-					<div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm text-center">
-						<div className="text-[10px] text-ink-light uppercase font-bold mb-1">
+			{/* Unified Body */}
+			<div className="flex-1 p-5 space-y-6 overflow-y-auto">
+				<div className="grid grid-cols-2 gap-4">
+					<div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-center">
+						<div className="text-[10px] text-ink-light uppercase font-bold mb-1 tracking-widest">
 							Niveau Moyen
 						</div>
-						<div className="text-2xl font-mono font-bold text-accent">
+						<div className="text-3xl font-mono font-bold text-accent">
 							{stats.avgSkill}
 						</div>
 					</div>
-					<div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm text-center">
-						<div className="text-[10px] text-ink-light uppercase font-bold mb-1">
+					<div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-center">
+						<div className="text-[10px] text-ink-light uppercase font-bold mb-1 tracking-widest">
 							Réputation
 						</div>
-						<div className="text-2xl font-mono font-bold text-ink">
+						<div className="text-3xl font-mono font-bold text-ink">
 							{Math.round(team.reputation)}
 						</div>
 					</div>
 				</div>
 
-				<div className="space-y-3">
-					<div className="flex items-center gap-3 text-sm">
-						<div className="w-8 h-8 rounded-lg bg-paper-dark flex items-center justify-center text-accent">
-							<MapPin size={16} />
+				<div className="space-y-4">
+					<div className="flex items-center gap-4 text-sm bg-white p-3 rounded-xl border border-gray-50 shadow-sm">
+						<div className="w-10 h-10 rounded-xl bg-paper-dark flex items-center justify-center text-accent shrink-0">
+							<Store size={20} />
 						</div>
 						<div>
-							<div className="text-[10px] text-ink-light uppercase font-bold">
-								Stade
+							<div className="text-[10px] text-ink-light uppercase font-bold tracking-wider">
+								Stade principal
 							</div>
 							<div className="font-bold text-ink">
 								{team.stadiumName}{" "}
-								<span className="text-xs font-normal text-ink-light">
-									({team.stadiumCapacity} pl.)
+								<span className="text-xs font-normal text-ink-light ml-1">
+									({team.stadiumCapacity.toLocaleString()} places)
 								</span>
 							</div>
 						</div>
 					</div>
-					<div className="flex items-center gap-3 text-sm">
-						<div className="w-8 h-8 rounded-lg bg-paper-dark flex items-center justify-center text-accent">
-							<Landmark size={16} />
+					<div className="flex items-center gap-4 text-sm bg-white p-3 rounded-xl border border-gray-50 shadow-sm">
+						<div className="w-10 h-10 rounded-xl bg-paper-dark flex items-center justify-center text-accent shrink-0">
+							<Landmark size={20} />
 						</div>
 						<div>
-							<div className="text-[10px] text-ink-light uppercase font-bold">
+							<div className="text-[10px] text-ink-light uppercase font-bold tracking-wider">
 								Valeur de l'Effectif
 							</div>
 							<div className="font-bold text-ink">
@@ -116,12 +116,12 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 							</div>
 						</div>
 					</div>
-					<div className="flex items-center gap-3 text-sm">
-						<div className="w-8 h-8 rounded-lg bg-paper-dark flex items-center justify-center text-accent">
-							<Shield size={16} />
+					<div className="flex items-center gap-4 text-sm bg-white p-3 rounded-xl border border-gray-50 shadow-sm">
+						<div className="w-10 h-10 rounded-xl bg-paper-dark flex items-center justify-center text-accent shrink-0">
+							<Shield size={20} />
 						</div>
 						<div>
-							<div className="text-[10px] text-ink-light uppercase font-bold">
+							<div className="text-[10px] text-ink-light uppercase font-bold tracking-wider">
 								Style Tactique
 							</div>
 							<div className="font-bold text-ink capitalize">
@@ -131,39 +131,44 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 					</div>
 				</div>
 
-				<div>
-					<h3 className="text-xs font-bold uppercase tracking-widest text-ink-light mb-3 flex items-center gap-2">
-						<Users size={14} /> Joueurs à surveiller
+				<div className="pt-2">
+					<h3 className="text-xs font-black uppercase tracking-widest text-ink-light mb-4 flex items-center gap-2">
+						<Users size={16} /> Joueurs clés
 					</h3>
-					<div className="space-y-2">
+					<div className="space-y-3">
 						{keyPlayers.map((player) => (
 							<div
 								key={player.id}
-								className="flex items-center justify-between p-2 bg-paper-dark/50 rounded-lg border border-gray-100"
+								className="flex items-center justify-between p-3 bg-paper-dark/30 rounded-2xl border border-gray-100"
 							>
 								<div className="flex items-center gap-3">
 									<PlayerAvatar
 										dna={player.dna}
-										size={32}
-										className="border border-white"
+										size={40}
+										className="border-2 border-white shadow-sm"
 									/>
-									<div className="text-sm">
-										<div className="font-bold text-ink">
+									<div>
+										<div className="font-bold text-ink text-sm">
 											{player.lastName}
 										</div>
-										<div className="text-[10px] text-ink-light font-bold uppercase">
+										<div className="text-[10px] text-ink-light font-bold uppercase tracking-wider">
 											{player.position}
 										</div>
 									</div>
 								</div>
-								<div className="font-mono font-bold text-accent">
-									{player.skill}
+								<div className="text-right">
+									<div className="font-mono font-bold text-accent text-lg">
+										{player.skill}
+									</div>
+									<div className="text-[8px] uppercase font-black text-ink-light tracking-tighter">SKILL</div>
 								</div>
 							</div>
 						))}
 					</div>
 				</div>
 			</div>
+			{/* Bottom spacer for footer safety */}
+			<div className="h-16 shrink-0 bg-white" />
 		</div>
 	);
 }

@@ -1,4 +1,3 @@
-import ClubDetails from "@/components/ClubDetails";
 import { type League, type Team, db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
 import {
@@ -21,15 +20,14 @@ interface TableRow extends Team {
 }
 
 export default function LeagueTable({
-	hideHeader = false,
-}: { hideHeader?: boolean }) {
+	onShowTeam,
+}: { onShowTeam?: (id: number) => void }) {
 	const { t } = useTranslation();
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const userTeamId = useGameStore((state) => state.userTeamId);
 
 	const [table, setTable] = useState<TableRow[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
-	const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
 	const [leagues, setLeagues] = useState<League[]>([]);
 	const [currentLeagueIndex, setCurrentLeagueIndex] = useState(0);
@@ -64,7 +62,6 @@ export default function LeagueTable({
 				if (userTeamId) {
 					const userTeam = await db.teams.get(userTeamId);
 					if (userTeam) {
-						// eslint-disable-next-line eqeqeq
 						const userLeagueIndex = activeLeagues.findIndex(
 							(l) => l.id === userTeam.leagueId,
 						);
@@ -94,7 +91,6 @@ export default function LeagueTable({
 					.equals(currentSaveId)
 					.toArray();
 
-				// eslint-disable-next-line eqeqeq
 				const teams = allTeamsInSave.filter(
 					(t) => t.leagueId === targetLeagueId,
 				);
@@ -105,7 +101,6 @@ export default function LeagueTable({
 					.filter((m) => !!m.played)
 					.toArray();
 
-				// eslint-disable-next-line eqeqeq
 				const matches = allMatchesInSave.filter(
 					(m) => m.leagueId === targetLeagueId,
 				);
@@ -118,14 +113,12 @@ export default function LeagueTable({
 					let ga = 0;
 
 					matches.forEach((m) => {
-						// eslint-disable-next-line eqeqeq
 						if (m.homeTeamId === team.id) {
 							gf += m.homeScore;
 							ga += m.awayScore;
 							if (m.homeScore > m.awayScore) won++;
 							else if (m.homeScore === m.awayScore) drawn++;
 							else lost++;
-							// eslint-disable-next-line eqeqeq
 						} else if (m.awayTeamId === team.id) {
 							gf += m.awayScore;
 							ga += m.homeScore;
@@ -208,19 +201,10 @@ export default function LeagueTable({
 
 	return (
 		<div className="animate-fade-in">
-			{/* Header avec sélecteur de ligue */}
-			<div className="flex flex-col gap-3 mb-4 px-1">
-				{!hideHeader && (
-					<div className="flex justify-between items-center">
-						<h2 className="text-lg font-serif font-bold text-ink flex items-center gap-2">
-							<Trophy size={18} className="text-black" />
-							{t("league_table.title")}
-						</h2>
-					</div>
-				)}
-
+			{/* Header avec sélecteur de ligue - SANS TITRE */}
+			<div className="mb-4 px-1">
 				{leagues.length > 0 && (
-					<div className="flex items-center justify-between bg-white p-1.5 rounded-lg shadow-sm border border-gray-200">
+					<div className="flex items-center justify-between bg-white p-1.5 rounded-lg shadow-sm border border-gray-100">
 						<button
 							onClick={handlePrevLeague}
 							disabled={currentLeagueIndex === 0}
@@ -250,142 +234,133 @@ export default function LeagueTable({
 					</p>
 				</div>
 			) : (
-				<>
-					<div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-						<table className="w-full text-xs text-left border-collapse min-w-[350px]">
-							<thead className="bg-paper-dark text-[9px] uppercase font-bold text-ink-light border-b border-gray-300">
-								<tr>
-									<th className="px-1 py-2 text-center w-8">Pos</th>
-									<th className="px-2 py-2">{t("league_table.club")}</th>
-									<th
-										className="px-0.5 py-2 text-center w-7 hidden sm:table-cell"
-										title="Matchs Joués"
+				<div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+					<table className="w-full text-xs text-left border-collapse min-w-[350px]">
+						<thead className="bg-paper-dark text-[9px] uppercase font-bold text-ink-light border-b border-gray-300">
+							<tr>
+								<th className="px-1 py-2 text-center w-8">Pos</th>
+								<th className="px-2 py-2">{t("league_table.club")}</th>
+								<th
+									className="px-0.5 py-2 text-center w-7 hidden sm:table-cell"
+									title="Matchs Joués"
+								>
+									{t("league_table.p")}
+								</th>
+								<th className="px-0.5 py-2 text-center w-7" title="Gagnés">
+									G
+								</th>
+								<th className="px-0.5 py-2 text-center w-7" title="Nuls">
+									N
+								</th>
+								<th className="px-0.5 py-2 text-center w-7" title="Perdus">
+									P
+								</th>
+								<th
+									className="px-0.5 py-2 text-center w-7 hidden sm:table-cell"
+									title="Buts Pour"
+								>
+									{t("league_table.gf")}
+								</th>
+								<th
+									className="px-0.5 py-2 text-center w-7 hidden sm:table-cell"
+									title="Buts Contre"
+								>
+									{t("league_table.ga")}
+								</th>
+								<th
+									className="px-1 py-2 text-center w-8"
+									title="Différence de buts"
+								>
+									Diff
+								</th>
+								<th className="px-2 py-2 text-center w-9 font-bold text-ink bg-paper-dark/50 italic">
+									{t("league_table.pts")}
+								</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-gray-100">
+							{table.length > 0 ? (
+								table.map((row, index) => (
+									<tr
+										key={row.id}
+										onClick={() => onShowTeam?.(row.id!)}
+										className={`cursor-pointer ${row.id === userTeamId ? "bg-black/5 font-bold ring-1 ring-inset ring-black/10" : ""} hover:bg-gray-50 transition-colors ${getPositionStyle(index)}`}
 									>
-										{t("league_table.p")}
-									</th>
-									<th className="px-0.5 py-2 text-center w-7" title="Gagnés">
-										G
-									</th>
-									<th className="px-0.5 py-2 text-center w-7" title="Nuls">
-										N
-									</th>
-									<th className="px-0.5 py-2 text-center w-7" title="Perdus">
-										P
-									</th>
-									<th
-										className="px-0.5 py-2 text-center w-7 hidden sm:table-cell"
-										title="Buts Pour"
-									>
-										{t("league_table.gf")}
-									</th>
-									<th
-										className="px-0.5 py-2 text-center w-7 hidden sm:table-cell"
-										title="Buts Contre"
-									>
-										{t("league_table.ga")}
-									</th>
-									<th
-										className="px-1 py-2 text-center w-8"
-										title="Différence de buts"
-									>
-										Diff
-									</th>
-									<th className="px-2 py-2 text-center w-9 font-bold text-ink bg-paper-dark/50 italic">
-										{t("league_table.pts")}
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100">
-								{table.length > 0 ? (
-									table.map((row, index) => (
-										<tr
-											key={row.id}
-											onClick={() => setSelectedTeamId(row.id!)}
-											className={`cursor-pointer ${row.id === userTeamId ? "bg-black/5 font-bold ring-1 ring-inset ring-black/10" : ""} hover:bg-gray-50 transition-colors ${getPositionStyle(index)}`}
-										>
-											<td className="px-1 py-3 text-center text-ink-light font-mono text-[10px] border-r border-gray-100/50 relative">
-												{index + 1}
-												{leagues[currentLeagueIndex].promotionSpots > 0 &&
-													index <
-														leagues[currentLeagueIndex].promotionSpots && (
-														<ArrowUp
-															size={8}
-															className="absolute top-1 right-0.5 text-green-500 opacity-50"
-														/>
+										<td className="px-1 py-3 text-center text-ink-light font-mono text-[10px] border-r border-gray-100/50 relative">
+											{index + 1}
+											{leagues[currentLeagueIndex].promotionSpots > 0 &&
+												index <
+													leagues[currentLeagueIndex].promotionSpots && (
+													<ArrowUp
+														size={8}
+														className="absolute top-1 right-0.5 text-green-500 opacity-50"
+													/>
+												)}
+											{leagues[currentLeagueIndex].relegationSpots > 0 &&
+												index >=
+													table.length -
+														leagues[currentLeagueIndex].relegationSpots && (
+													<ArrowDown
+														size={8}
+														className="absolute top-1 right-0.5 text-red-500 opacity-50"
+													/>
+												)}
+										</td>
+										<td className="px-2 py-3">
+											<div className="flex items-center gap-1.5">
+												{index === 0 &&
+													leagues[currentLeagueIndex].level === 1 && (
+														<Trophy size={10} className="text-yellow-600" />
 													)}
-												{leagues[currentLeagueIndex].relegationSpots > 0 &&
-													index >=
-														table.length -
-															leagues[currentLeagueIndex].relegationSpots && (
-														<ArrowDown
-															size={8}
-															className="absolute top-1 right-0.5 text-red-500 opacity-50"
-														/>
-													)}
-											</td>
-											<td className="px-2 py-3">
-												<div className="flex items-center gap-1.5">
-													{index === 0 &&
-														leagues[currentLeagueIndex].level === 1 && (
-															<Trophy size={10} className="text-yellow-600" />
-														)}
-													<span className="text-ink truncate max-w-[110px] sm:max-w-none text-[11px]">
-														{row.name}
-													</span>
-												</div>
-											</td>
-											<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px] hidden sm:table-cell">
-												{row.matchesPlayed || 0}
-											</td>
-											<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px]">
-												{row.won}
-											</td>
-											<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px]">
-												{row.drawn}
-											</td>
-											<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px]">
-												{row.lost}
-											</td>
-											<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px] hidden sm:table-cell">
-												{row.goalsFor}
-											</td>
-											<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px] hidden sm:table-cell">
-												{row.goalsAgainst}
-											</td>
-											<td className="px-1 py-3 text-center text-ink-light font-mono text-[10px]">
-												{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
-											</td>
-											<td className="px-2 py-3 text-center font-bold text-black bg-black/5 italic border-l border-gray-100/50 text-[11px]">
-												{row.points || 0}
-											</td>
-										</tr>
-									))
-								) : (
-									<tr>
-										<td
-											colSpan={10}
-											className="px-3 py-6 text-center text-ink-light italic text-[10px]"
-										>
-											Aucune équipe trouvée dans cette ligue.
+												<span className="text-ink truncate max-w-[110px] sm:max-w-none text-[11px]">
+													{row.name}
+												</span>
+											</div>
+										</td>
+										<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px] hidden sm:table-cell">
+											{row.matchesPlayed || 0}
+										</td>
+										<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px]">
+											{row.won}
+										</td>
+										<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px]">
+											{row.drawn}
+										</td>
+										<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px]">
+											{row.lost}
+										</td>
+										<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px] hidden sm:table-cell">
+											{row.goalsFor}
+										</td>
+										<td className="px-0.5 py-3 text-center text-ink-light font-mono text-[10px] hidden sm:table-cell">
+											{row.goalsAgainst}
+										</td>
+										<td className="px-1 py-3 text-center text-ink-light font-mono text-[10px]">
+											{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
+										</td>
+										<td className="px-2 py-3 text-center font-bold text-black bg-black/5 italic border-l border-gray-100/50 text-[11px]">
+											{row.points || 0}
 										</td>
 									</tr>
-								)}
-							</tbody>
-						</table>
-					</div>
-
-					<div className="mt-4 px-4 py-2 bg-paper-dark/30 rounded-lg border border-dashed border-gray-300 text-[9px] text-ink-light text-center italic">
-						* Victoire = 3 pts, Nul = 1 pt.
-					</div>
-				</>
+								))
+							) : (
+								<tr>
+									<td
+										colSpan={10}
+										className="px-3 py-6 text-center text-ink-light italic text-[10px]"
+									>
+										Aucune équipe trouvée dans cette ligue.
+									</td>
+								</tr>
+							)}
+						</tbody>
+					</table>
+				</div>
 			)}
 
-			{selectedTeamId && (
-				<ClubDetails
-					teamId={selectedTeamId}
-					onClose={() => setSelectedTeamId(null)}
-				/>
-			)}
+			<div className="mt-4 px-4 py-2 bg-paper-dark/30 rounded-lg border border-dashed border-gray-300 text-[9px] text-ink-light text-center italic">
+				* Victoire = 3 pts, Nul = 1 pt.
+			</div>
 		</div>
 	);
 }

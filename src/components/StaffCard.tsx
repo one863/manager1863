@@ -1,6 +1,6 @@
 import { type StaffMember, db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
-import { ArrowLeft, Trash2, Award, Briefcase, Zap, Search, HeartPulse, UserCircle } from "lucide-preact";
+import { ArrowLeft, Trash2, Award, Briefcase, UserCircle } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "./PlayerAvatar";
@@ -36,15 +36,6 @@ export default function StaffCard({
 		}
 	};
 
-	const getRoleIcon = (role: string) => {
-		switch (role) {
-			case "COACH": return <Zap size={24} className="text-amber-500" />;
-			case "SCOUT": return <Search size={24} className="text-blue-500" />;
-			case "PHYSICAL_TRAINER": return <HeartPulse size={24} className="text-red-500" />;
-			default: return <Briefcase size={24} />;
-		}
-	};
-
 	const getRoleDescription = (role: string) => {
 		switch (role) {
 			case "COACH": return "Améliore la progression tactique et technique des joueurs.";
@@ -56,11 +47,11 @@ export default function StaffCard({
 
 	return (
 		<div
-			className="absolute inset-0 z-[150] bg-white flex flex-col animate-fade-in overflow-hidden"
+			className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in"
 			onClick={(e) => e.stopPropagation()}
 		>
-			{/* Header */}
-			<div className="bg-paper-dark p-6 text-center border-b border-gray-300 relative flex flex-col items-center">
+			{/* Unified Header - Consistent with PlayerCard and ClubDetails */}
+			<div className="bg-paper-dark p-6 text-center border-b border-gray-300 relative flex flex-col items-center shrink-0">
 				<button
 					onClick={onClose}
 					className="absolute top-6 left-6 text-ink-light hover:text-accent p-1 transition-colors"
@@ -80,7 +71,7 @@ export default function StaffCard({
 			</div>
 
 			{/* Main Content */}
-			<div className="flex-1 p-5 space-y-6 overflow-y-auto pb-24">
+			<div className="flex-1 p-5 space-y-6 overflow-y-auto">
 				<div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center">
 					<div className="text-[10px] text-ink-light uppercase font-bold mb-2 tracking-widest">
 						Niveau de Compétence
@@ -138,21 +129,23 @@ export default function StaffCard({
 				</div>
 			</div>
 
-			{/* Footer Action */}
-			{isUserStaff && (
-				<div className="p-4 bg-paper-dark border-t border-gray-200">
+			{/* Unified Footer safety */}
+			{isUserStaff ? (
+				<div className="p-4 bg-paper-dark border-t border-gray-200 pb-10 shrink-0">
 					<button
 						onClick={() => setShowConfirmFire(true)}
-						className="w-full py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 font-bold shadow-sm active:scale-95 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-2"
+						className="w-full py-4 bg-red-50 border border-red-200 rounded-xl text-red-600 font-bold shadow-sm active:scale-95 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-2"
 					>
 						<Trash2 size={16} /> Licencier le membre
 					</button>
 				</div>
+			) : (
+				<div className="h-16 shrink-0 bg-white" />
 			)}
 
 			{/* Confirmation Licenciement */}
 			{showConfirmFire && (
-				<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-8 text-center animate-fade-in z-[160]">
+				<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-8 text-center animate-fade-in z-[210]">
 					<div className="p-4 bg-red-100 rounded-full text-red-600 mb-6">
 						<Trash2 size={48} />
 					</div>

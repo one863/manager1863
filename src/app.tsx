@@ -1,13 +1,12 @@
 import { db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
-import { Suspense, lazy } from "preact/compat";
+import { Suspense } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
 
-// Lazy loading des vues principales
-const MainMenu = lazy(() => import("@/views/MainMenu"));
-const GameLayout = lazy(() => import("@/views/GameLayout"));
-const CreateTeam = lazy(() => import("@/views/CreateTeam"));
-const LoadGame = lazy(() => import("@/views/LoadGame"));
+import MainMenu from "@/views/MainMenu";
+import GameLayout from "@/views/GameLayout";
+import CreateTeam from "@/views/CreateTeam";
+import LoadGame from "@/views/LoadGame";
 
 type AppState = "menu" | "create" | "load" | "game" | "initializing";
 

@@ -1,18 +1,15 @@
-import { type Player, type Team, db } from "@/db/db";
+import { type Player, type Team, type StaffMember, db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
 import {
 	Check,
 	Layout,
-	Settings2,
 	Shield,
 	Target,
-	Users,
 	Zap,
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "@/components/PlayerAvatar";
-import PlayerCard from "@/components/PlayerCard";
 import CreditAmount from "@/components/Common/CreditAmount";
 
 const FORMATIONS: Record<
@@ -27,7 +24,146 @@ const FORMATIONS: Record<
 	"5-4-1": { GK: 1, DEF: 5, MID: 4, FWD: 1 },
 };
 
-export default function Squad() {
+export const PlayerRow = ({ 
+	player, 
+	onSelect, 
+	action 
+}: { 
+	player: Player; 
+	onSelect?: (p: Player) => void;
+	action?: preact.VNode;
+}) => (
+	<div
+		className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-yellow-50 transition-colors bg-white"
+	>
+		<div
+			className="flex items-center gap-3 flex-1 cursor-pointer"
+			onClick={() => onSelect?.(player)}
+		>
+			<PlayerAvatar
+				dna={player.dna}
+				size={40}
+				className="border border-gray-200"
+			/>
+			<div>
+				<div className="font-bold text-ink leading-tight flex items-center gap-1">
+					{player.lastName}
+				</div>
+				<div className="flex items-center gap-2 mt-0.5">
+					<span
+						className={`px-1 rounded-[2px] text-[9px] font-bold border ${getPositionClass(player.position)}`}
+					>
+						{player.position}
+						{player.position !== "GK" && ` (${player.side || "C"})`}
+					</span>
+					<span className="text-[10px] text-ink-light font-mono">
+						{player.age} ans
+					</span>
+					<div className="flex items-center gap-1">
+						<div
+							className={`w-1.5 h-1.5 rounded-full ${player.energy > 70 ? "bg-green-500" : player.energy > 40 ? "bg-amber-500" : "bg-red-500"}`}
+						/>
+						<span className="text-[10px] text-ink-light font-mono">
+							{player.energy}%
+						</span>
+					</div>
+				</div>
+				<div className="flex items-center gap-2 mt-1">
+					<div className="flex items-center gap-1">
+						<span className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">Salaire:</span>
+						<CreditAmount amount={player.wage} size="xs" color="text-ink-light" />
+					</div>
+					<div className="w-1 h-1 rounded-full bg-gray-200" />
+					<div className="flex items-center gap-1">
+						<span className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">Valeur:</span>
+						<CreditAmount amount={player.marketValue} size="xs" color="text-accent" />
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div className="flex items-center gap-4">
+			<div className="text-right">
+				<div className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">
+					Skill
+				</div>
+				<div
+					className={`font-mono font-bold text-sm ${player.skill > 80 ? "text-accent" : "text-ink"}`}
+				>
+					{player.skill}
+				</div>
+			</div>
+			{action}
+		</div>
+	</div>
+);
+
+export const StaffRow = ({ 
+	staff, 
+	onSelect, 
+	action,
+	showCost = false
+}: { 
+	staff: StaffMember; 
+	onSelect?: (s: StaffMember) => void;
+	action?: preact.VNode;
+	showCost?: boolean;
+}) => (
+	<div
+		className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-yellow-50 transition-colors bg-white"
+	>
+		<div
+			className="flex items-center gap-3 flex-1 cursor-pointer"
+			onClick={() => onSelect?.(staff)}
+		>
+			<PlayerAvatar
+				dna={staff.dna}
+				isStaff
+				size={40}
+				className="border border-gray-200"
+			/>
+			<div>
+				<div className="font-bold text-ink leading-tight">
+					{staff.name}
+				</div>
+				<div className="flex items-center gap-2 mt-0.5">
+					<span className="px-1 rounded-[2px] text-[9px] font-bold border bg-paper-dark text-ink-light border-gray-300 uppercase tracking-widest">
+						{staff.role.replace("_", " ")}
+					</span>
+					<span className="text-[10px] text-ink-light font-mono">
+						{staff.age} ans
+					</span>
+				</div>
+				{showCost && (
+					<div className="flex items-center gap-1 mt-1">
+						<span className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">Prime d'embauche:</span>
+						<CreditAmount amount={staff.skill * 2} size="xs" color="text-accent" />
+					</div>
+				)}
+			</div>
+		</div>
+
+		<div className="flex items-center gap-4">
+			<div className="text-right">
+				<div className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">
+					Skill
+				</div>
+				<div className={`font-mono font-bold text-sm text-accent`}>
+					{staff.skill}
+				</div>
+			</div>
+			{action}
+		</div>
+	</div>
+);
+
+export default function Squad({ 
+	viewMode = "squad", 
+	onSelectPlayer 
+}: { 
+	viewMode?: "squad" | "list" | "tactics",
+	onSelectPlayer?: (p: Player) => void
+}) {
 	const { t } = useTranslation();
 	const userTeamId = useGameStore((state) => state.userTeamId);
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
@@ -36,8 +172,6 @@ export default function Squad() {
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [team, setTeam] = useState<Team | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
-	const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-	const [activeTab, setActiveTab] = useState<"squad" | "tactics">("squad");
 
 	const loadData = async () => {
 		if (!userTeamId || currentSaveId === null) return;
@@ -72,183 +206,90 @@ export default function Squad() {
 	const getPlayersByPos = (pos: string) =>
 		players.filter((p) => p.position === pos).sort((a, b) => b.skill - a.skill);
 
-	const PlayerRow = ({ player }: { player: Player }) => (
-		<div
-			className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-yellow-50 transition-colors bg-white"
-		>
-			<div
-				className="flex items-center gap-3 flex-1 cursor-pointer"
-				onClick={() => setSelectedPlayer(player)}
-			>
-				<PlayerAvatar
-					dna={player.dna}
-					size={40}
-					className="border border-gray-200"
-				/>
-				<div>
-					<div className="font-bold text-ink leading-tight flex items-center gap-1">
-						{player.lastName}
-					</div>
-					<div className="flex items-center gap-2 mt-0.5">
-						<span
-							className={`px-1 rounded-[2px] text-[9px] font-bold border ${getPositionClass(player.position)}`}
-						>
-							{player.position}
-							{player.position !== "GK" && ` (${player.side || "C"})`}
-						</span>
-						<span className="text-[10px] text-ink-light font-mono">
-							{player.age} ans
-						</span>
-						<div className="flex items-center gap-1">
-							<div
-								className={`w-1.5 h-1.5 rounded-full ${player.energy > 70 ? "bg-green-500" : player.energy > 40 ? "bg-amber-500" : "bg-red-500"}`}
-							/>
-							<span className="text-[10px] text-ink-light font-mono">
-								{player.energy}%
-							</span>
-						</div>
-					</div>
-					<div className="flex items-center gap-2 mt-1">
-						<div className="flex items-center gap-1">
-							<span className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">Salaire:</span>
-							<CreditAmount amount={player.wage} size="sm" color="text-ink-light" />
-						</div>
-						<div className="w-1 h-1 rounded-full bg-gray-200" />
-						<div className="flex items-center gap-1">
-							<span className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">Valeur:</span>
-							<CreditAmount amount={player.marketValue} size="sm" color="text-accent" />
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div className="flex items-center gap-4">
-				<div className="text-right">
-					<div className="text-[9px] text-ink-light uppercase font-bold tracking-tighter">
-						Skill
-					</div>
-					<div
-						className={`font-mono font-bold text-sm ${player.skill > 80 ? "text-accent" : "text-ink"}`}
-					>
-						{player.skill}
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-
 	if (isLoading)
 		return (
 			<div className="p-8 text-center animate-pulse">{t("game.loading")}</div>
 		);
 
-	if (selectedPlayer) {
-		return (
-			<PlayerCard
-				player={selectedPlayer}
-				onClose={() => setSelectedPlayer(null)}
-				onPlayerAction={loadData}
-			/>
-		);
-	}
+	const renderSquadList = () => (
+		<div className="space-y-5 pb-24">
+			{["GK", "DEF", "MID", "FWD"].map((pos) => (
+				<section
+					key={pos}
+					className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white"
+				>
+					<div
+						className={`px-3 py-2 border-b font-bold text-[10px] uppercase tracking-widest flex justify-between items-center ${getSectionBgClass(pos)}`}
+					>
+						<span>{t(`squad.${pos.toLowerCase()}`)}</span>
+						<span className="opacity-40">
+							{getPlayersByPos(pos).length}
+						</span>
+					</div>
+					{getPlayersByPos(pos).map((p) => (
+						<PlayerRow key={p.id} player={p} onSelect={onSelectPlayer} />
+					))}
+				</section>
+			))}
+		</div>
+	);
+
+	const renderTactics = () => (
+		<div className="space-y-6 animate-fade-in pb-24">
+			<section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+				<h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
+					<Layout size={18} className="text-accent" /> Schéma Tactique
+				</h3>
+				<div className="grid grid-cols-3 gap-2">
+					{Object.keys(FORMATIONS).map((f) => (
+						<button
+							key={f}
+							onClick={() => updateFormation(f as any)}
+							className={`py-3 rounded-xl border-2 font-mono font-bold text-sm transition-all ${team?.formation === f ? "bg-accent border-accent text-white shadow-md" : "bg-paper-dark border-gray-100 text-ink-light hover:border-gray-300"}`}
+						>
+							{f}
+						</button>
+					))}
+				</div>
+			</section>
+
+			<section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+				<h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
+					<Target size={18} className="text-accent" /> Philosophie de Jeu
+				</h3>
+				<div className="grid grid-cols-1 gap-3">
+					<TacticButton
+						active={team?.tacticType === "NORMAL"}
+						title="Équilibre"
+						desc="Tactique standard."
+						icon={Target}
+						onClick={() => updateTactic("NORMAL")}
+					/>
+					<TacticButton
+						active={team?.tacticType === "PRESSING"}
+						title="Pressing"
+						desc="Étouffer l'adversaire."
+						icon={Zap}
+						onClick={() => updateTactic("PRESSING")}
+					/>
+					<TacticButton
+						active={team?.tacticType === "CA"}
+						title="Contre-Attaque"
+						desc="Attendre l'erreur et jaillir."
+						icon={Shield}
+						onClick={() => updateTactic("CA")}
+					/>
+				</div>
+			</section>
+		</div>
+	);
+
+	if (viewMode === "list") return renderSquadList();
+	if (viewMode === "tactics") return renderTactics();
 
 	return (
 		<div className="pb-24 animate-fade-in">
-			<div className="flex bg-paper-dark rounded-xl p-1 mb-6 border border-gray-200 shadow-inner">
-				<button
-					onClick={() => setActiveTab("squad")}
-					className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "squad" ? "bg-white text-accent shadow-sm" : "text-ink-light"}`}
-				>
-					<Users size={18} /> Effectif
-				</button>
-				<button
-					onClick={() => setActiveTab("tactics")}
-					className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "tactics" ? "bg-white text-accent shadow-sm" : "text-ink-light"}`}
-				>
-					<Settings2 size={18} /> Dispositif
-				</button>
-			</div>
-
-			{activeTab === "squad" ? (
-				<>
-					<div className="flex justify-between items-end mb-6 px-2">
-						<h2 className="text-xl font-serif font-bold text-ink leading-none">
-							{t("squad.title")}
-						</h2>
-					</div>
-
-					<div className="space-y-5">
-						{["GK", "DEF", "MID", "FWD"].map((pos) => (
-							<section
-								key={pos}
-								className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white"
-							>
-								<div
-									className={`px-3 py-2 border-b font-bold text-[10px] uppercase tracking-widest flex justify-between items-center ${getSectionBgClass(pos)}`}
-								>
-									<span>{t(`squad.${pos.toLowerCase()}`)}</span>
-									<span className="opacity-40">
-										{getPlayersByPos(pos).length}
-									</span>
-								</div>
-								{getPlayersByPos(pos).map((p) => (
-									<PlayerRow key={p.id} player={p} />
-								))}
-							</section>
-						))}
-					</div>
-				</>
-			) : (
-				<div className="space-y-6 animate-fade-in">
-					{/* SÉLECTEUR DE FORMATION */}
-					<section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-						<h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
-							<Layout size={18} className="text-accent" /> Schéma Tactique
-						</h3>
-						<div className="grid grid-cols-3 gap-2">
-							{Object.keys(FORMATIONS).map((f) => (
-								<button
-									key={f}
-									onClick={() => updateFormation(f as any)}
-									className={`py-3 rounded-xl border-2 font-mono font-bold text-sm transition-all ${team?.formation === f ? "bg-accent border-accent text-white shadow-md" : "bg-paper-dark border-gray-100 text-ink-light hover:border-gray-300"}`}
-								>
-									{f}
-								</button>
-							))}
-						</div>
-					</section>
-
-					{/* STYLE DE JEU */}
-					<section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-						<h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
-							<Target size={18} className="text-accent" /> Philosophie de Jeu
-						</h3>
-						<div className="grid grid-cols-1 gap-3">
-							<TacticButton
-								active={team?.tacticType === "NORMAL"}
-								title="Équilibre"
-								desc="Tactique standard."
-								icon={Target}
-								onClick={() => updateTactic("NORMAL")}
-							/>
-							<TacticButton
-								active={team?.tacticType === "PRESSING"}
-								title="Pressing"
-								desc="Étouffer l'adversaire."
-								icon={Zap}
-								onClick={() => updateTactic("PRESSING")}
-							/>
-							<TacticButton
-								active={team?.tacticType === "CA"}
-								title="Contre-Attaque"
-								desc="Attendre l'erreur et jaillir."
-								icon={Shield}
-								onClick={() => updateTactic("CA")}
-							/>
-						</div>
-					</section>
-				</div>
-			)}
+			{renderSquadList()}
 		</div>
 	);
 }

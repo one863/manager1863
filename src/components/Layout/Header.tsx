@@ -4,8 +4,7 @@ import { useLiveMatchStore } from "@/store/liveMatchStore";
 import {
 	ChevronRight,
 	Loader2,
-	Menu,
-	X,
+	Settings,
 	Castle,
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
@@ -15,7 +14,6 @@ interface HeaderProps {
 	currentDate: Date;
 	isProcessing: boolean;
 	showOverlay: boolean;
-	isMenuOpen: boolean;
 	onToggleMenu: () => void;
 	onContinue: () => void;
 }
@@ -23,7 +21,6 @@ interface HeaderProps {
 export function Header({
 	isProcessing,
 	showOverlay,
-	isMenuOpen,
 	onToggleMenu,
 	onContinue,
 }: HeaderProps) {
@@ -54,8 +51,6 @@ export function Header({
 
 	const showBall = hasMatchToday && !isLiveFinished;
 
-	// Calculer la semaine et le jour de la semaine
-	// Une saison = 18 semaines de 7 jours = 126 jours
 	const weekInSeason = Math.floor((day - 1) / 7) + 1;
 	const dayInWeek = ((day - 1) % 7) + 1;
 
@@ -66,7 +61,7 @@ export function Header({
 					onClick={onToggleMenu}
 					className="p-2 hover:bg-white/50 rounded-full transition-colors text-black"
 				>
-					{isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+					<Settings size={22} />
 				</button>
 				<h1 className="text-xl font-serif font-bold text-black tracking-tight">
 					FOOTBALL

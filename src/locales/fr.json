@@ -44,9 +44,15 @@
 		"finances": "Budget",
 		"calendar": "Calendrier",
 		"league": "Ligue",
+		"dashboard": "Bureau",
+		"club": "Club",
+		"team": "Équipe",
+		"transfers": "Mercato",
 		"quit": "Quitter"
 	},
 	"dashboard": {
+		"club_tab": "Bureau",
+		"news_tab": "Actus",
 		"division": "Ligue",
 		"finances": "Budget",
 		"next_match": "Prochain match",
@@ -104,6 +110,9 @@
 	},
 	"training": {
 		"title": "Staff & Entraînement"
+	},
+	"club": {
+		"board_tab": "Conseil"
 	},
 	"calendar": {
 		"title": "Calendrier",
@@ -233,7 +242,7 @@
 					"Note du Président"
 				],
 				"content": [
-					"Une semaine intéressante. Nous sommes {{position}}e. Votre budget est de {{budget}}M€. Continuez !",
+					"Une semaine intéressante. Nous sommes {{position}}e. Votre budget est de {{budget}}M€ Continuez !",
 					"Le Conseil a analysé les datas. La confiance est à {{confidence}}%. {{team}} est sur la bonne voie.",
 					"Nous suivons votre progression. Finances stables ({{budget}} M€). L'objectif '{{goal}}' reste la priorité."
 				]

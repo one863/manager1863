@@ -67,7 +67,7 @@ export const WorldGenerator = {
 		const DIVISIONS = 6;
 		const TEAMS_PER_DIV = 10;
 		let userTeamId = -1;
-		const LEAGUE_NAMES = ["Premier League", "Championship", "League One", "League Two", "National League", "Regional League"];
+		const LEAGUE_NAMES = ["Division 1", "Division 2", "Division 3", "Division 4", "Division 5", "Division 6"];
 
 		for (let level = 1; level <= DIVISIONS; level++) {
 			const leagueName = LEAGUE_NAMES[level - 1] || `Division ${level}`;
@@ -83,11 +83,11 @@ export const WorldGenerator = {
 				const stadiumName = `${name.split(" ")[0]} ${getRandomElement(STADIUM_SUFFIXES)}`;
 				let teamSkill = level === DIVISIONS ? randomInt(30, 35) : baseSkill + randomInt(-3, 3);
 
-				await db.teams.add({
+				const teamId = await db.teams.add({
 					saveId, leagueId: leagueId as number, name, managerName: "CPU Manager", primaryColor: generateColor(), secondaryColor: generateColor(), matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: teamSkill * 500, reputation: teamSkill, fanCount: teamSkill * 50, confidence: 50, stadiumName, stadiumCapacity: teamSkill * 200, stadiumLevel: Math.ceil(teamSkill / 20), tacticType: "NORMAL", formation: "4-4-2", version: CURRENT_DATA_VERSION,
 				} as Team);
-				// Squad generator is async but we don't need to wait for each one to continue team creation
-				generateSquad(saveId, teamId as any, teamSkill);
+				// Squad generator is async
+				await generateSquad(saveId, teamId as number, teamSkill);
 			}
 
 			if (level === DIVISIONS) {

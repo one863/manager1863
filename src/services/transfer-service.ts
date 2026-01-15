@@ -46,7 +46,18 @@ export const TransferService = {
 				const role = getRandomElement(roles);
 				const skill = Math.max(10, Math.min(99, reputation + randomInt(-10, 10)));
 				const wage = Math.round(skill * 0.5);
-				const isFemale = Math.random() < 0.5; // 50% de femmes dans le staff
+				const isFemale = Math.random() < 0.4; 
+
+				// DNA: skin-hairColor-hairStyle-facial-eyes-gender-accessory
+				const dna = [
+					randomInt(0, 3), // skin
+					randomInt(0, 5), // hairColor
+					randomInt(0, 5), // hairStyle
+					randomInt(0, 4), // facial
+					randomInt(0, 3), // eyes
+					isFemale ? 1 : 0, // gender
+					randomInt(0, 10) // accessory/variation
+				].join("-");
 
 				newStaff.push({
 					saveId,
@@ -57,7 +68,7 @@ export const TransferService = {
 					wage,
 					age: randomInt(35, 65),
 					specialty: getRandomElement(SPECIALTIES),
-					dna: `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`,
+					dna: dna,
 				} as StaffMember);
 			}
 			await db.staff.bulkAdd(newStaff);
@@ -83,10 +94,9 @@ export const TransferService = {
 
 		if (!staff || !team) throw new Error("Staff ou équipe introuvable");
 		
-		const hireCost = staff.skill * 2; // Coût de signature proportionnel au skill
+		const hireCost = staff.skill * 2; 
 		if (team.budget < hireCost) throw new Error("Budget insuffisant pour la signature");
 
-		// Vérifier si un membre du même rôle existe déjà
 		const existing = await db.staff.where("[saveId+teamId]").equals([staff.saveId, teamId]).and(s => s.role === staff.role).first();
 
 		await db.transaction("rw", [db.staff, db.teams], async () => {

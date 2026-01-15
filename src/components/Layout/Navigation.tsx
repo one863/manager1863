@@ -2,12 +2,11 @@ import { db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
 import { useLiveMatchStore } from "@/store/liveMatchStore";
 import {
-	Briefcase,
+	ArrowRightLeft,
 	Home,
-	Newspaper,
+	Shield,
 	Trophy,
 	Users,
-	Wallet,
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -49,44 +48,37 @@ export function Navigation({ currentView, onNavigate }: NavigationProps) {
 			<ul className="flex justify-around items-center h-16 px-1">
 				<NavIcon
 					icon={Home}
-					label={t("game.office")}
+					label={t("game.dashboard", "Dashboard")}
 					active={currentView === "dashboard"}
 					onClick={() => !isMatchInProgress && onNavigate("dashboard")}
-					disabled={isMatchInProgress}
-				/>
-				<NavIcon
-					icon={Wallet}
-					label={t("game.finances", "Budget")}
-					active={currentView === "finances"}
-					onClick={() => !isMatchInProgress && onNavigate("finances")}
-					disabled={isMatchInProgress}
-				/>
-				<NavIcon
-					icon={Newspaper}
-					label={t("dashboard.news_short", "Actus")}
-					active={currentView === "news"}
-					onClick={() => !isMatchInProgress && onNavigate("news")}
 					badge={unreadCount > 0 ? unreadCount : undefined}
 					disabled={isMatchInProgress}
 				/>
 				<NavIcon
+					icon={Shield}
+					label={t("game.club", "Club")}
+					active={currentView === "club"}
+					onClick={() => !isMatchInProgress && onNavigate("club")}
+					dot={hasActiveProject}
+					disabled={isMatchInProgress}
+				/>
+				<NavIcon
 					icon={Users}
-					label={t("game.squad")}
+					label={t("game.team", "Équipe")}
 					active={currentView === "squad"}
 					onClick={() => !isMatchInProgress && onNavigate("squad")}
 					disabled={isMatchInProgress}
 				/>
 				<NavIcon
-					icon={Briefcase}
-					label={t("game.staff", "Staff")}
-					active={currentView === "training"}
-					onClick={() => !isMatchInProgress && onNavigate("training")}
-					dot={hasActiveProject}
+					icon={ArrowRightLeft}
+					label={t("game.transfers", "Mercato")}
+					active={currentView === "transfers"}
+					onClick={() => !isMatchInProgress && onNavigate("transfers")}
 					disabled={isMatchInProgress}
 				/>
 				<NavIcon
 					icon={Trophy}
-					label={t("game.league")}
+					label={t("game.league", "Ligue")}
 					active={currentView === "league" || currentView === "match-report"}
 					onClick={() => !isMatchInProgress && onNavigate("league")}
 					disabled={isMatchInProgress}

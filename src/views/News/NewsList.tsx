@@ -1,4 +1,3 @@
-import Card from "@/components/Common/Card";
 import type { NewsArticle, Player } from "@/db/db";
 import { db } from "@/db/db";
 import { NewsService } from "@/services/news-service";
@@ -6,10 +5,8 @@ import { ClubService } from "@/services/club-service";
 import { useGameStore } from "@/store/gameSlice";
 import {
 	ArrowLeft,
-	Bell,
 	Building2,
 	CheckCheck,
-	CheckCircle,
 	ChevronLeft,
 	ChevronRight,
 	Info,
@@ -23,9 +20,6 @@ import {
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import Button from "@/components/Common/Button";
-
-import ClubDetails from "@/components/ClubDetails";
-import PlayerCard from "@/components/PlayerCard";
 
 interface NewsListProps {
 	onNavigate?: (view: any) => void;
@@ -53,9 +47,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 		null,
 	);
 	const [isLoading, setIsLoading] = useState(true);
-
-	const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-	const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
 	const loadNews = async () => {
 		if (!currentSaveId) return;
@@ -108,7 +99,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 		if (article.actionData.type === "SIGN_SPONSOR") {
 			const offer = article.actionData.offer;
 			
-			// Vérification du sponsor actuel
 			const team = await db.teams.get(userTeamId);
 			if (team?.sponsorName) {
 				const confirmReplacement = window.confirm(
@@ -124,17 +114,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 		}
 	};
 
-	const handleLinkClick = async (type: string, id: string, label: string) => {
-		if (type === "view" && onNavigate) {
-			onNavigate(id);
-		} else if (type === "team") {
-			setSelectedTeamId(Number.parseInt(id, 10));
-		} else if (type === "player") {
-			const player = await db.players.get(Number.parseInt(id, 10));
-			if (player) setSelectedPlayer(player);
-		}
-	};
-
 	const renderRichText = (text: string, isHeadline = false) => {
 		const parts = text.split(/(\[\[.+?\]\]|\*\*.+?\*\*)/g);
 
@@ -142,12 +121,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 			const linkMatch = part.match(/^\[\[(\w+):(.+?)\|(.+?)\]\]$/);
 			if (linkMatch) {
 				const [, type, id, label] = linkMatch;
-				
-				// Dans les titres, on ne rend pas les liens cliquables pour éviter les clics accidentels
-				// et garder un style de titre cohérent. On affiche juste le label.
-				if (isHeadline) {
-					return <span key={index}>{label}</span>;
-				}
+				if (isHeadline) return <span key={index}>{label}</span>;
 
 				return (
 					<span
@@ -155,7 +129,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 						className="text-accent font-bold cursor-pointer hover:underline"
 						onClick={(e) => {
 							e.stopPropagation();
-							handleLinkClick(type, id, label);
+							if (type === "view" && onNavigate) onNavigate(id);
 						}}
 					>
 						{label}
@@ -166,10 +140,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 			const boldMatch = part.match(/^\*\*(.+?)\*\*$/);
 			if (boldMatch) {
 				const content = boldMatch[1];
-				
-				if (isHeadline) {
-					return <span key={index}>{content}</span>;
-				}
+				if (isHeadline) return <span key={index}>{content}</span>;
 
 				const viewKey = Object.keys(VIEW_MAPPING).find((key) =>
 					content.includes(key),
@@ -182,7 +153,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 							className="text-accent font-bold cursor-pointer hover:underline"
 							onClick={(e) => {
 								e.stopPropagation();
-								handleLinkClick("view", VIEW_MAPPING[viewKey], content);
+								onNavigate(VIEW_MAPPING[viewKey]);
 							}}
 						>
 							{content}
@@ -190,11 +161,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 					);
 				}
 
-				return (
-					<strong key={index} className="text-ink font-bold">
-						{content}
-					</strong>
-				);
+				return <strong key={index} className="text-ink font-bold">{content}</strong>;
 			}
 
 			return part;
@@ -203,18 +170,12 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 
 	const getIcon = (type: string) => {
 		switch (type) {
-			case "PRESS":
-				return <Newspaper className="text-blue-700" size={18} />;
-			case "CLUB":
-				return <Info className="text-accent" size={18} />;
-			case "BOARD":
-				return <Target className="text-red-700" size={18} />;
-			case "LEAGUE":
-				return <Building2 className="text-amber-800" size={18} />;
-			case "SPONSOR":
-				return <Handshake className="text-green-700" size={18} />;
-			default:
-				return <Mail className="text-gray-500" size={18} />;
+			case "PRESS": return <Newspaper className="text-blue-700" size={18} />;
+			case "CLUB": return <Info className="text-accent" size={18} />;
+			case "BOARD": return <Target className="text-red-700" size={18} />;
+			case "LEAGUE": return <Building2 className="text-amber-800" size={18} />;
+			case "SPONSOR": return <Handshake className="text-green-700" size={18} />;
+			default: return <Mail className="text-gray-500" size={18} />;
 		}
 	};
 
@@ -223,78 +184,35 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 			<div className="p-8 text-center animate-pulse">{t("game.loading")}</div>
 		);
 
-	if (selectedTeamId) {
-		return (
-			<ClubDetails
-				teamId={selectedTeamId}
-				onClose={() => setSelectedTeamId(null)}
-			/>
-		);
-	}
-
-	if (selectedPlayer) {
-		return (
-			<PlayerCard
-				player={selectedPlayer}
-				onClose={() => setSelectedPlayer(null)}
-			/>
-		);
-	}
-
 	if (selectedArticle) {
 		const hasOlder = selectedIndex < articles.length - 1;
 		const hasNewer = selectedIndex > 0;
 
 		return (
-			<div className="absolute inset-0 z-50 bg-paper flex flex-col animate-fade-in overflow-hidden pb-16">
-				<div className="flex justify-between items-center p-4 border-b bg-paper-dark/50">
-					<button
-						onClick={() => setSelectedArticleId(null)}
-						className="flex items-center gap-1 text-ink-light hover:text-ink transition-colors font-bold uppercase text-[10px] tracking-widest"
-					>
-						<ArrowLeft size={16} /> <span>Retour</span>
-					</button>
-
-					<div className="flex gap-4">
-						<button
-							onClick={() => navigateNews("older")}
-							disabled={!hasOlder}
-							className={`p-1 transition-all ${hasOlder ? "text-ink hover:text-accent" : "text-ink/10"}`}
-						>
-							<ChevronLeft size={24} />
-						</button>
-						<button
-							onClick={() => navigateNews("newer")}
-							disabled={!hasNewer}
-							className={`p-1 transition-all ${hasNewer ? "text-ink hover:text-accent" : "text-ink/10"}`}
-						>
-							<ChevronRight size={24} />
-						</button>
+			<div className="fixed inset-0 z-[200] bg-paper flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in">
+				{/* HEADER INFO ONLY */}
+				<div className="p-4 border-b bg-paper-dark/50 text-center">
+					<div className="flex items-center justify-center gap-2">
+						<div className="p-1 bg-white rounded shadow-sm">
+							{getIcon(selectedArticle.type)}
+						</div>
+						<span className="text-[10px] font-black uppercase tracking-widest text-ink-light">
+							{selectedArticle.type} • Jour {selectedArticle.day}
+						</span>
 					</div>
 				</div>
 
-				<div className="flex-1 overflow-y-auto p-6 space-y-8 pb-20 max-w-2xl mx-auto w-full">
-					<div className="space-y-4">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-paper-dark rounded-lg shadow-inner">
-								{getIcon(selectedArticle.type)}
-							</div>
-							<div>
-								<p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
-									{selectedArticle.type === "PRESS" ? "Gazette Sportive" : selectedArticle.type}
-								</p>
-								<p className="text-[10px] text-ink-light font-mono">
-									Journal du Jour {selectedArticle.day} • {selectedArticle.date.toLocaleDateString()}
-								</p>
-							</div>
-						</div>
-						
-						<h2 className="text-3xl font-serif font-bold text-ink leading-tight border-b-2 border-ink/5 pb-4">
+				<div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 max-w-2xl mx-auto w-full">
+					<div className="space-y-4 text-center">
+						<h2 className="text-3xl font-serif font-bold text-ink leading-tight">
 							{renderRichText(selectedArticle.title, true)}
 						</h2>
+						<p className="text-[10px] text-ink-light font-mono opacity-50 uppercase tracking-widest">
+							Publié le {selectedArticle.date.toLocaleDateString()}
+						</p>
 					</div>
 
-					<div className="text-ink leading-relaxed font-serif text-xl space-y-4 first-letter:text-5xl first-letter:font-bold first-letter:mr-3 first-letter:float-left first-letter:text-accent">
+					<div className="text-ink leading-relaxed font-serif text-xl space-y-4">
 						{renderRichText(selectedArticle.content)}
 					</div>
 
@@ -317,12 +235,44 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 							)}
 						</div>
 					)}
+				</div>
 
-					<div className="pt-12 border-t border-ink/5 flex flex-col items-center opacity-30 pointer-events-none">
-						<div className="w-12 h-0.5 bg-ink/20 mb-4" />
-						<p className="text-[9px] uppercase tracking-[0.4em] font-bold text-ink">
-							Manager 1863 News Service
-						</p>
+				{/* NAVIGATION BASSE CONSOLIDÉE */}
+				<div className="p-4 bg-paper-dark border-t border-gray-200 flex gap-3 items-center pb-safe shrink-0">
+					<button
+						onClick={() => setSelectedArticleId(null)}
+						className="p-3 bg-white text-ink rounded-2xl shadow-sm active:scale-95 border border-gray-100 hover:text-accent transition-colors"
+						title="Retour à la liste"
+					>
+						<ArrowLeft size={24} />
+					</button>
+
+					<div className="flex-1 flex justify-between items-center bg-white rounded-2xl p-1 shadow-sm border border-gray-100 h-[56px]">
+						<button
+							onClick={() => navigateNews("older")}
+							disabled={!hasOlder}
+							className={`flex-1 flex items-center justify-center gap-1 h-full rounded-xl transition-all ${hasOlder ? "text-ink active:bg-gray-100" : "text-ink/10 cursor-not-allowed"}`}
+						>
+							<ChevronLeft size={24} />
+							<span className="text-[9px] font-black uppercase tracking-tighter hidden xs:block">Préc.</span>
+						</button>
+
+						<div className="w-px h-6 bg-gray-100" />
+
+						<div className="px-4 text-[11px] font-black text-ink-light whitespace-nowrap">
+							{selectedIndex + 1} / {articles.length}
+						</div>
+
+						<div className="w-px h-6 bg-gray-100" />
+
+						<button
+							onClick={() => navigateNews("newer")}
+							disabled={!hasNewer}
+							className={`flex-1 flex items-center justify-center gap-1 h-full rounded-xl transition-all ${hasNewer ? "text-ink active:bg-gray-100" : "text-ink/10 cursor-not-allowed"}`}
+						>
+							<span className="text-[9px] font-black uppercase tracking-tighter hidden xs:block">Suiv.</span>
+							<ChevronRight size={24} />
+						</button>
 					</div>
 				</div>
 			</div>
@@ -330,33 +280,23 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 	}
 
 	return (
-		<div className="space-y-6 animate-fade-in pb-24">
-			<div className="flex items-center justify-between px-2 pt-2">
-				<div className="flex items-center gap-3">
-					<div className="p-2 bg-accent rounded-lg text-paper shadow-lg">
-						<Newspaper size={20} />
-					</div>
-					<h2 className="text-xl font-serif font-bold text-ink">
-						Messagerie
-					</h2>
-				</div>
-				<div className="flex items-center gap-2">
-					{articles.some((a) => !a.isRead) && (
-						<button
-							onClick={handleMarkAllRead}
-							className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-light hover:text-accent transition-colors border border-ink/10 rounded-full bg-paper-dark/50"
-						>
-							<CheckCheck size={14} />
-							<span>Marquer tout lu</span>
-						</button>
-					)}
-				</div>
+		<div className="animate-fade-in space-y-4">
+			<div className="flex justify-end px-2 pt-1">
+				{articles.some((a) => !a.isRead) && (
+					<button
+						onClick={handleMarkAllRead}
+						className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-ink-light hover:text-accent transition-colors border border-ink/5 rounded-full bg-paper-dark/30"
+					>
+						<CheckCheck size={14} />
+						<span>Tout lire</span>
+					</button>
+				)}
 			</div>
 
 			{articles.length === 0 ? (
 				<div className="text-center py-20 px-8 flex flex-col items-center gap-4 opacity-30">
 					<Mail size={64} strokeWidth={1} />
-					<p className="font-serif italic text-lg">
+					<p className="font-serif italic text-lg text-ink-light">
 						Votre boîte de réception est vide.
 					</p>
 				</div>
@@ -389,11 +329,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 									</span>
 								</div>
 								<div className="flex items-center gap-2">
-									<span className={`text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${
-										article.isRead ? "bg-ink/5 text-ink/30" : "bg-accent text-paper"
-									}`}>
-										{article.type}
-									</span>
 									<p className="text-[10px] text-ink-light truncate opacity-60">
 										{article.content.replace(/\[\[.*?\]\]|\*\*.*?\*\*/g, "").substring(0, 60)}...
 									</p>
@@ -401,18 +336,18 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 							</div>
 
 							{!article.isRead && (
-								<div className="w-2 h-2 bg-accent rounded-full shrink-0 shadow-[0_0_8px_rgba(var(--color-accent),0.5)]" />
+								<div className="w-1.5 h-1.5 bg-accent rounded-full shrink-0 shadow-[0_0_8px_rgba(var(--color-accent),0.5)]" />
 							)}
 							
-							<ChevronRight size={16} className={`text-ink/10 group-hover:text-accent transition-colors ${article.isRead ? "" : "group-hover:translate-x-1"}`} />
+							<ChevronRight size={14} className="text-ink/10 group-hover:text-accent transition-colors shrink-0" />
 						</div>
 					))}
 				</div>
 			)}
 			
 			<div className="px-4 py-8 text-center opacity-20 flex flex-col items-center gap-2">
-				<History size={24} />
-				<p className="text-[9px] font-bold uppercase tracking-[0.3em]">Archives Archivées</p>
+				<History size={20} />
+				<p className="text-[8px] font-bold uppercase tracking-[0.3em]">Archives Archivées</p>
 			</div>
 		</div>
 	);

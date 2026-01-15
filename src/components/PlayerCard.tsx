@@ -1,16 +1,15 @@
 import type { Player } from "@/db/db";
 import { TransferService } from "@/services/transfer-service";
 import { useGameStore } from "@/store/gameSlice";
-import { AlertCircle, ArrowLeft, Trash2, TrendingUp, X } from "lucide-preact";
+import { AlertCircle, ArrowLeft, Trash2, TrendingUp } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
-import Button from "./Common/Button";
 import PlayerAvatar from "./PlayerAvatar";
 
 interface PlayerCardProps {
 	player: Player | null;
 	onClose: () => void;
-	onPlayerAction?: () => void; // Pour forcer le refresh du parent
+	onPlayerAction?: () => void;
 }
 
 export default function PlayerCard({
@@ -42,16 +41,11 @@ export default function PlayerCard({
 
 	const getPositionColor = (pos: string) => {
 		switch (pos) {
-			case "GK":
-				return "bg-yellow-100 text-yellow-800 border-yellow-300";
-			case "DEF":
-				return "bg-blue-100 text-blue-800 border-blue-300";
-			case "MID":
-				return "bg-green-100 text-green-800 border-green-300";
-			case "FWD":
-				return "bg-red-100 text-red-800 border-red-300";
-			default:
-				return "bg-gray-100";
+			case "GK": return "bg-yellow-100 text-yellow-800 border-yellow-300";
+			case "DEF": return "bg-blue-100 text-blue-800 border-blue-300";
+			case "MID": return "bg-green-100 text-green-800 border-green-300";
+			case "FWD": return "bg-red-100 text-red-800 border-red-300";
+			default: return "bg-gray-100";
 		}
 	};
 
@@ -74,17 +68,17 @@ export default function PlayerCard({
 
 	return (
 		<div
-			className="absolute inset-0 z-[110] bg-white flex flex-col animate-fade-in overflow-hidden"
+			className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in"
 			onClick={(e) => e.stopPropagation()}
 		>
-			{/* Header - Plus compact */}
-			<div className="bg-white p-3 border-b flex justify-between items-center sticky top-0 z-10">
-				<div className="flex gap-3 items-center">
+			{/* Unified Header */}
+			<div className="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-10 shrink-0">
+				<div className="flex gap-4 items-center">
 					<button
 						onClick={onClose}
-						className="text-ink-light hover:text-accent p-1"
+						className="text-ink-light hover:text-accent p-1 transition-colors"
 					>
-						<ArrowLeft size={20} />
+						<ArrowLeft size={24} />
 					</button>
 					<PlayerAvatar
 						dna={player.dna}
@@ -92,7 +86,7 @@ export default function PlayerCard({
 						className="border-2 border-accent shadow-sm"
 					/>
 					<div>
-						<h2 className="text-lg font-serif font-bold text-accent leading-tight">
+						<h2 className="text-xl font-serif font-bold text-accent leading-tight">
 							{player.firstName} {player.lastName}
 						</h2>
 						<div className="flex items-center gap-2 mt-0.5">
@@ -107,51 +101,47 @@ export default function PlayerCard({
 					</div>
 				</div>
 				<div className="text-right">
-					<div className="text-2xl font-bold text-ink">{player.skill}</div>
+					<div className="text-2xl font-black text-ink">{player.skill}</div>
 					<div className="text-[8px] text-ink-light uppercase tracking-widest font-black">
 						Niveau
 					</div>
 				</div>
 			</div>
 
-			{/* Main Body - Grille compacte */}
-			<div className="p-3 space-y-3 flex-1 overflow-y-auto pb-20">
-				{/* Quick Stats - Côte à côte plus fin */}
-				<div className="flex gap-2 text-sm bg-paper-dark p-2.5 rounded-xl border border-gray-200">
+			{/* Unified Body */}
+			<div className="p-5 space-y-6 flex-1 overflow-y-auto">
+				<div className="flex gap-4 text-sm bg-paper-dark p-4 rounded-2xl border border-gray-200">
 					<div className="flex-1">
 						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
 							{t("player_card.value")}
 						</span>
-						<span className="text-sm font-bold text-ink">M {player.marketValue}</span>
+						<span className="text-lg font-bold text-ink">M {player.marketValue}</span>
 					</div>
-					<div className="flex-1 text-right">
+					<div className="flex-1 text-right border-l border-gray-200 pl-4">
 						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
 							{t("player_card.condition")}
 						</span>
 						<span
-							className={`text-sm font-bold ${player.condition < 80 ? "text-red-600" : "text-green-700"}`}
+							className={`text-lg font-bold ${player.condition < 80 ? "text-red-600" : "text-green-700"}`}
 						>
 							{player.condition}%
 						</span>
 					</div>
 				</div>
 
-				{/* Stats en grille 2 colonnes pour gagner de la place */}
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					{/* Phase */}
-					<div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-						<h3 className="text-[9px] font-black text-accent uppercase tracking-widest mb-2 border-b border-accent/10 pb-1 flex justify-between">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+						<h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-3 border-b border-accent/10 pb-1 flex justify-between">
 							<span>{t("player_card.phase")}</span>
-							<TrendingUp size={10} />
+							<TrendingUp size={12} />
 						</h3>
 						<StatBar label={t("player_card.stamina")} value={player.stats.stamina} />
 						<StatBar label={t("player_card.playmaking")} value={player.stats.playmaking} />
 						<StatBar label={t("player_card.defense")} value={player.stats.defense} />
 					</div>
 
-					{/* Specialties */}
-					<div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-						<h3 className="text-[9px] font-black text-accent uppercase tracking-widest mb-2 border-b border-accent/10 pb-1">
+					<div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+						<h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-3 border-b border-accent/10 pb-1">
 							{t("player_card.specialty")}
 						</h3>
 						<StatBar label={t("player_card.speed")} value={player.stats.speed} />
@@ -159,9 +149,8 @@ export default function PlayerCard({
 						<StatBar label={t("player_card.technique")} value={player.stats.technique} />
 					</div>
 
-					{/* Conversion (sur toute la largeur ou en colonne) */}
-					<div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm md:col-span-2">
-						<h3 className="text-[9px] font-black text-accent uppercase tracking-widest mb-2 border-b border-accent/10 pb-1">
+					<div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm md:col-span-2">
+						<h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-3 border-b border-accent/10 pb-1">
 							{t("player_card.conversion")}
 						</h3>
 						<div className="grid grid-cols-2 gap-x-4">
@@ -172,40 +161,40 @@ export default function PlayerCard({
 				</div>
 			</div>
 
-			{/* Actions - Plus fin */}
+			{/* Unified Footer */}
 			{isUserPlayer && (
-				<div className="p-2.5 bg-paper-dark border-t border-gray-300">
+				<div className="p-4 bg-paper-dark border-t border-gray-200 pb-10 shrink-0">
 					<button
 						onClick={() => setShowConfirmSell(true)}
-						className="w-full py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-red-100 active:scale-[0.98] transition-all uppercase"
+						className="w-full py-4 bg-red-50 text-red-600 border border-red-200 rounded-2xl text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-red-100 active:scale-[0.98] transition-all uppercase"
 					>
-						<Trash2 size={12} /> Vendre (M {sellValue})
+						<Trash2 size={14} /> Vendre (M {sellValue})
 					</button>
 				</div>
 			)}
 
-			{/* Confirmation Vente */}
+			{/* Confirmation Overlay */}
 			{showConfirmSell && (
-				<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center animate-fade-in z-20">
-					<div className="bg-red-100 p-3 rounded-full text-red-500 mb-3">
-						<AlertCircle size={32} />
+				<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-8 text-center animate-fade-in z-[210]">
+					<div className="p-4 bg-red-100 rounded-full text-red-500 mb-4">
+						<AlertCircle size={48} />
 					</div>
-					<h4 className="font-serif font-bold text-xl mb-1 text-ink">
+					<h4 className="font-serif font-bold text-2xl mb-2 text-ink">
 						Vendre le joueur ?
 					</h4>
-					<p className="text-xs text-ink-light mb-6 leading-relaxed max-w-[240px]">
+					<p className="text-sm text-ink-light mb-8 leading-relaxed max-w-[280px]">
 						Confirmez-vous la vente de <span className="font-bold text-ink">{player.firstName} {player.lastName}</span> pour <span className="font-bold text-accent">M {sellValue}</span> ?
 					</p>
-					<div className="flex flex-col gap-2 w-full max-w-[240px]">
+					<div className="flex flex-col gap-3 w-full max-w-[280px]">
 						<button
 							onClick={handleSell}
-							className="w-full py-3 bg-red-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest shadow-md active:scale-95"
+							className="w-full py-4 bg-red-600 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-transform"
 						>
-							Confirmer
+							Confirmer la vente
 						</button>
 						<button
 							onClick={() => setShowConfirmSell(false)}
-							className="w-full py-3 bg-paper-dark text-ink-light rounded-xl font-bold uppercase text-[10px] tracking-widest"
+							className="w-full py-4 bg-paper-dark text-ink-light rounded-xl font-bold uppercase text-xs tracking-widest"
 						>
 							Annuler
 						</button>
