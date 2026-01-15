@@ -30,17 +30,17 @@
 *   `matches`: Fixtures, historical results, detailed events.
 *   `news`: Inbox messages and narrative events.
 
-## 3. Match Engine Detail (v2.0)
+## 3. Match Engine Detail (v2.1 - GOLD)
 
 ### Engine Logic
-The engine is a **probabilistic cycle-based simulator** (25 to 30 cycles per match). It uses a "Layered Tactical" approach where the result is the product of three distinct tiers:
+The engine is a **probabilistic cycle-based simulator** (28 to 36 cycles per match). It uses a "Layered Tactical" approach where the result is the product of three distinct tiers:
 
 1.  **Structural Tier (The Formation):** 
     *   Determines base ratings for each sector (Left, Center, Right). 
     *   Directly influenced by player position weights.
 2.  **Strategic Tier (The Coach Identity):** 
     *   Defensive, Balanced, or Offensive preference.
-    *   Applies ±15% bonuses/maluses to Attack/Defense ratings.
+    *   Applies ±10% bonuses/maluses to Attack/Defense ratings.
     *   **Tactical Skill Modifier:** A high-level coach reduces the defensive vulnerability of offensive strategies.
 3.  **Operational Tier (The Tactic):** 
     *   Direct instructions (Pressing, CA, AOW).
@@ -48,9 +48,9 @@ The engine is a **probabilistic cycle-based simulator** (25 to 30 cycles per mat
     *   **Conflict Penalty:** -5% malus if the instruction contradicts the identity, unless the coach has >7.0 Tactical Skill.
 
 ### Key Simulation Mechanics
-*   **Possession:** Calculated via Midfield ratings using a power-of-3 ratio (now adjusted for better balance).
-*   **Shot Probability:** Uses an Attack vs Defense comparison. Higher skill gaps result in higher scoring efficiency.
-*   **Fatigue & Condition:** Players' effective stats decay throughout the match based on stamina and team intensity (Pressing).
+*   **Possession:** Calculated via Midfield ratings using a **Sigmoid Curve** (Logistic function) to handle domination organically.
+*   **xG Model (Expected Goals):** Uses an Attack vs Defense comparison. The domination ratio follows a power curve (0.7) to calculate the quality of the chance, capped at 40% per action.
+*   **Fatigue & Condition:** Players' energy decays linearly, but the penalty on performance is **Non-Linear** (Quadratic). A tired player (<30% energy) becomes almost useless (18% efficiency).
 *   **Coach Management:** The selection of starters is automated for AI (and optionally for the user) based on the staff's **Management Skill**, weighting talent, energy, and condition.
 
 ## 4. UI/UX Structure
@@ -72,7 +72,7 @@ The engine is a **probabilistic cycle-based simulator** (25 to 30 cycles per mat
 
 ### Phase 2: Core Gameplay (Done)
 *   Squad Management and automated selection logic.
-*   Advanced Match Simulation with Coach Identity.
+*   Advanced Match Simulation with Coach Identity (xG, Fatigue, Tactics).
 *   League Table and progression.
 
 ### Phase 3: Depth (Current)
@@ -124,17 +124,17 @@ The engine is a **probabilistic cycle-based simulator** (25 to 30 cycles per mat
 *   `matches`: Calendriers, résultats historiques, événements détaillés.
 *   `news`: Messages de la boîte de réception et événements narratifs.
 
-## 3. Détail du Moteur de Match (v2.0)
+## 3. Détail du Moteur de Match (v2.1 - GOLD)
 
 ### Logique du Moteur
-Le moteur est un **simulateur probabiliste basé sur des cycles** (25 à 30 cycles par match). Il utilise une approche "Tactique par couches" où le résultat est le produit de trois niveaux distincts :
+Le moteur est un **simulateur probabiliste basé sur des cycles** (28 à 36 cycles par match). Il utilise une approche "Tactique par couches" où le résultat est le produit de trois niveaux distincts :
 
 1.  **Niveau Structurel (La Formation) :**
     *   Détermine les notes de base pour chaque secteur (Gauche, Centre, Droite).
     *   Directement influencé par le poids des positions des joueurs.
 2.  **Niveau Stratégique (L'Identité du Coach) :**
     *   Préférence Défensive, Équilibrée ou Offensive.
-    *   Applique des bonus/malus de ±15% aux notes d'Attaque/Défense.
+    *   Applique des bonus/malus de ±10% aux notes d'Attaque/Défense.
     *   **Modificateur de Compétence Tactique :** Un coach de haut niveau réduit la vulnérabilité défensive des stratégies offensives.
 3.  **Niveau Opérationnel (La Tactique) :**
     *   Instructions directes (Pressing, Contre-Attaque, Attaque sur les ailes).
@@ -142,9 +142,9 @@ Le moteur est un **simulateur probabiliste basé sur des cycles** (25 à 30 cycl
     *   **Pénalité de Conflit :** Malus de -5% si l'instruction contredit l'identité, sauf si le coach a une compétence tactique > 7.0.
 
 ### Mécaniques Clés de Simulation
-*   **Possession :** Calculée via les notes du Milieu de terrain en utilisant un ratio de puissance 3 (ajusté pour un meilleur équilibre).
-*   **Probabilité de Tir :** Utilise une comparaison Attaque vs Défense. Des écarts de compétence plus élevés entraînent une plus grande efficacité de score.
-*   **Fatigue & Condition :** Les statistiques effectives des joueurs diminuent tout au long du match en fonction de l'endurance et de l'intensité de l'équipe (Pressing).
+*   **Possession :** Calculée via les notes du Milieu de terrain en utilisant une **Courbe Sigmoïde** (Fonction logistique) pour gérer la domination de manière organique.
+*   **Modèle xG (Expected Goals) :** Utilise une comparaison Attaque vs Défense. Le ratio de domination suit une courbe de puissance (0.7) pour calculer la qualité de l'occasion, plafonnée à 40% par action.
+*   **Fatigue & Condition :** L'énergie des joueurs baisse linéairement, mais la pénalité de performance est **Non-Linéaire** (Quadratique). Un joueur épuisé (<30% d'énergie) devient quasi inutile (18% d'efficacité).
 *   **Gestion du Coach :** La sélection des titulaires est automatisée pour l'IA (et optionnellement pour l'utilisateur) en fonction de la **Compétence de Management** du staff, pondérant talent, énergie et condition.
 
 ## 4. Structure UI/UX
@@ -166,7 +166,7 @@ Le moteur est un **simulateur probabiliste basé sur des cycles** (25 à 30 cycl
 
 ### Phase 2 : Gameplay de Base (Terminé)
 *   Gestion de l'effectif et logique de sélection automatisée.
-*   Simulation de match avancée avec l'identité du coach.
+*   Simulation de match avancée avec l'identité du coach (xG, Fatigue, Tactiques).
 *   Tableau de la ligue et progression.
 
 ### Phase 3 : Profondeur (En cours)

@@ -1,4 +1,4 @@
-import type { MatchEvent } from "@/engine/types";
+import type { MatchEvent } from "@/engine/core/types";
 import { h } from "preact";
 
 interface EventItemProps {

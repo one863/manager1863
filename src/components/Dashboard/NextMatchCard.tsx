@@ -1,4 +1,4 @@
-import type { Match, Team } from "@/engine/types";
+import type { Match, Team } from "@/engine/core/types";
 import { AlertCircle, Calendar, Info } from "lucide-preact";
 import { h } from "preact";
 import { useTranslation } from "react-i18next";

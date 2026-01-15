@@ -1,4 +1,4 @@
-import type { Team } from "@/engine/types";
+import type { Team } from "@/engine/core/types";
 import {
 	AlertCircle,
 	CalendarClock,

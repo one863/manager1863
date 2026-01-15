@@ -211,7 +211,7 @@ export default function MatchLive() {
 				home: liveMatch.homeTeam.name,
 				away: liveMatch.awayTeam.name,
 				score: `${homeScore.value}-${awayScore.value}`,
-				possession: `${liveMatch.result.homePossession}% / ${100 - liveiamatch.result.homePossession}%`,
+				possession: `${liveMatch.result.homePossession}% / ${100 - liveMatch.result.homePossession}%`,
 			},
 			events: liveMatch.result.events,
 		};

@@ -8,7 +8,7 @@ import {
 	type PlayerStats,
 	type Team,
 	TeamRatings,
-} from "@/engine/types";
+} from "@/engine/core/types";
 import Dexie, { type Table } from "dexie";
 
 // We'export the types from engine/types to keep them in sync

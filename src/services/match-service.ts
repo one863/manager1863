@@ -1,8 +1,8 @@
 import { generateSeasonFixtures } from "@/data/league-templates";
 import { type Match, type Player, type Team, type StaffMember, db } from "@/db/db";
 import { calculateTeamRatings } from "@/engine/converter";
-import { FORMATIONS } from "@/engine/tactics";
-import type { MatchResult } from "@/engine/types";
+import { FORMATIONS } from "@/engine/core/tactics";
+import type { MatchResult } from "@/engine/core/types";
 import { ClubService } from "@/services/club-service";
 import { NewsService } from "./news-service";
 import { randomInt } from "@/utils/math";
@@ -218,18 +218,18 @@ export const MatchService = {
 					homeT?.tacticType || "NORMAL",
 					homeCoach?.preferredStrategy || "BALANCED",
 					saveId,
-					date
+					date,
+					homeCoach?.stats.tactical
 				);
-				if (homeCoach) homeRatings.tacticSkill = homeCoach.stats.tactical;
 
 				const awayRatings = calculateTeamRatings(
 					awayPlayers,
 					awayT?.tacticType || "NORMAL",
 					awayCoach?.preferredStrategy || "BALANCED",
 					saveId,
-					date
+					date,
+					awayCoach?.stats.tactical
 				);
-				if (awayCoach) awayRatings.tacticSkill = awayCoach.stats.tactical;
 
 				matchesToSimulate.push({
 					matchId: match.id,
@@ -260,11 +260,8 @@ export const MatchService = {
 				db.staff.where("[saveId+teamId]").equals([saveId, userMatch.awayTeamId]).and(s => s.role === "COACH").first()
 			]);
 
-			const homeRatings = calculateTeamRatings(homePlayers, homeT?.tacticType || "NORMAL", homeCoach?.preferredStrategy || "BALANCED", saveId, date);
-			if (homeCoach) homeRatings.tacticSkill = homeCoach.stats.tactical;
-
-			const awayRatings = calculateTeamRatings(awayPlayers, awayT?.tacticType || "NORMAL", awayCoach?.preferredStrategy || "BALANCED", saveId, date);
-			if (awayCoach) awayRatings.tacticSkill = awayCoach.stats.tactical;
+			const homeRatings = calculateTeamRatings(homePlayers, homeT?.tacticType || "NORMAL", homeCoach?.preferredStrategy || "BALANCED", saveId, date, homeCoach?.stats.tactical);
+			const awayRatings = calculateTeamRatings(awayPlayers, awayT?.tacticType || "NORMAL", awayCoach?.preferredStrategy || "BALANCED", saveId, date, awayCoach?.stats.tactical);
 
 			const matchData = {
 				homeRatings,

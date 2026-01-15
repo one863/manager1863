@@ -1,33 +1,48 @@
 import { z } from "zod";
 
+// --- Constantes de Simulation ---
+export const ENGINE_LIMITS = {
+	MAX_SKILL: 10.99,
+	MIN_SKILL: 1.0,
+	MAX_MATCH_MINUTES: 120,
+};
+
+// --- Enums réutilisables ---
+export const PlayerPositionSchema = z.enum(["GK", "DEF", "MID", "FWD"]);
+export const PlayerSideSchema = z.enum(["L", "C", "R"]);
+export const TacticTypeSchema = z.enum(["NORMAL", "CA", "PRESSING", "AIM", "AOW"]);
+export const StrategyTypeSchema = z.enum(["DEFENSIVE", "BALANCED", "OFFENSIVE"]);
+export const NewsTypeSchema = z.enum(["PRESS", "CLUB", "LEAGUE", "TRANSFER", "SPONSOR", "BOARD"]);
+export const MatchEventTypeSchema = z.enum([
+	"GOAL",
+	"MISS",
+	"SE",
+	"CARD",
+	"INJURY",
+	"TRANSITION",
+	"SET_PIECE",
+	"SPECIAL",
+]);
+
 // --- Schémas de base ---
 
 export const TeamRatingsSchema = z.object({
-	midfield: z.number().min(1).max(10.99),
-	attackLeft: z.number().min(1).max(10.99),
-	attackCenter: z.number().min(1).max(10.99),
-	attackRight: z.number().min(1).max(10.99),
-	defenseLeft: z.number().min(1).max(10.99),
-	defenseCenter: z.number().min(1).max(10.99),
-	defenseRight: z.number().min(1).max(10.99),
-	setPieces: z.number().min(1).max(10.99),
-	tacticSkill: z.number().min(1).max(10.99),
-	tacticType: z.enum(["NORMAL", "CA", "PRESSING", "AIM", "AOW"]),
-	strategy: z.enum(["DEFENSIVE", "BALANCED", "OFFENSIVE"]),
+	midfield: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	attackLeft: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	attackCenter: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	attackRight: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	defenseLeft: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	defenseCenter: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	defenseRight: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	setPieces: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	tacticSkill: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	tacticType: TacticTypeSchema,
+	strategy: StrategyTypeSchema,
 });
 
 export const MatchEventSchema = z.object({
-	minute: z.number().int().min(0).max(120),
-	type: z.enum([
-		"GOAL",
-		"MISS",
-		"SE",
-		"CARD",
-		"INJURY",
-		"TRANSITION",
-		"SET_PIECE",
-		"SPECIAL",
-	]),
+	minute: z.number().int().min(0).max(ENGINE_LIMITS.MAX_MATCH_MINUTES),
+	type: MatchEventTypeSchema,
 	teamId: z.number(),
 	scorerId: z.number().optional(),
 	scorerName: z.string().optional(),
@@ -49,19 +64,19 @@ export const MatchResultSchema = z.object({
 // --- Schémas de la Base de Données (Persistance) ---
 
 export const PlayerStatsSchema = z.object({
-	stamina: z.number().min(1).max(10.99),
-	playmaking: z.number().min(1).max(10.99),
-	defense: z.number().min(1).max(10.99),
-	speed: z.number().min(1).max(10.99),
-	head: z.number().min(1).max(10.99),
-	technique: z.number().min(1).max(10.99),
-	scoring: z.number().min(1).max(10.99),
-	setPieces: z.number().min(1).max(10.99),
-	// Legacy fields still used in some places
-	strength: z.number().min(1).max(10.99).optional(),
-	dribbling: z.number().min(1).max(10.99).optional(),
-	passing: z.number().min(1).max(10.99).optional(),
-	shooting: z.number().min(1).max(10.99).optional(),
+	stamina: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	playmaking: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	defense: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	speed: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	head: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	technique: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	scoring: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	setPieces: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
+	// Legacy
+	strength: z.number().optional(),
+	dribbling: z.number().optional(),
+	passing: z.number().optional(),
+	shooting: z.number().optional(),
 });
 
 export const PlayerSchema = z.object({
@@ -71,10 +86,10 @@ export const PlayerSchema = z.object({
 	firstName: z.string(),
 	lastName: z.string(),
 	age: z.number().int().min(14).max(50),
-	position: z.enum(["GK", "DEF", "MID", "FWD"]),
-	side: z.enum(["L", "C", "R"]).default("C"),
+	position: PlayerPositionSchema,
+	side: PlayerSideSchema.default("C"),
 	dna: z.string(),
-	skill: z.number().min(1).max(10.99),
+	skill: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
 	stats: PlayerStatsSchema,
 	form: z.number().min(1).max(8).default(5),
 	formBackground: z.number().min(1).max(8).default(5),
@@ -119,30 +134,12 @@ export const TeamSchema = z.object({
 	stadiumName: z.string(),
 	stadiumCapacity: z.number().int().nonnegative(),
 	stadiumLevel: z.number().int().min(1),
-	// Nouveaux champs pour sponsors multiples
 	sponsors: z.array(SponsorSchema).default([]),
-	// Legacy fields (kept for migration/compatibility)
-	sponsorName: z.string().optional(),
-	sponsorIncome: z.number().nonnegative().optional(),
-	sponsorExpiryDate: z.coerce.date().optional(),
-	sponsorExpiryDay: z.number().optional(),
-	sponsorExpirySeason: z.number().optional(),
-	
-	stadiumUpgradeEndDay: z.number().optional(),
-	stadiumProject: z.any().optional(),
-	trainingEndDay: z.number().optional(),
-	trainingStartDay: z.number().optional(),
-	trainingFocus: z.enum(["GENERAL", "PHYSICAL", "ATTACK", "DEFENSE", "GK"]).optional(), // MODIFIÉ
-	seasonGoal: z
-		.enum(["CHAMPION", "PROMOTION", "MID_TABLE", "AVOID_RELEGATION"])
-		.optional(),
+	trainingFocus: z.enum(["GENERAL", "PHYSICAL", "ATTACK", "DEFENSE", "GK"]).optional(),
+	seasonGoal: z.enum(["CHAMPION", "PROMOTION", "MID_TABLE", "AVOID_RELEGATION"]).optional(),
 	seasonGoalStatus: z.enum(["PENDING", "SUCCESS", "FAILED"]).optional(),
-	tacticType: z
-		.enum(["NORMAL", "CA", "PRESSING", "AIM", "AOW"])
-		.default("NORMAL"),
-	formation: z
-		.enum(["4-4-2", "4-3-3", "3-5-2", "3-4-3", "4-2-4", "5-4-1", "2-3-5"])
-		.default("4-4-2"),
+	tacticType: TacticTypeSchema.default("NORMAL"),
+	formation: z.enum(["4-4-2", "4-3-3", "3-5-2", "3-4-3", "4-2-4", "5-4-1", "2-3-5"]).default("4-4-2"),
 	version: z.number(),
 });
 
@@ -176,7 +173,7 @@ export const NewsArticleSchema = z.object({
 	date: z.coerce.date(),
 	title: z.string(),
 	content: z.string(),
-	type: z.enum(["PRESS", "CLUB", "LEAGUE", "TRANSFER", "SPONSOR", "BOARD"]),
+	type: NewsTypeSchema,
 	importance: z.number(),
 	isRead: z.boolean(),
 	actionData: z.any().optional(),
@@ -205,6 +202,10 @@ export const ExportDataSchema = z.object({
 });
 
 // --- Types dérivés (TypeScript) ---
+export type PlayerPosition = z.infer<typeof PlayerPositionSchema>;
+export type TacticType = z.infer<typeof TacticTypeSchema>;
+export type StrategyType = z.infer<typeof StrategyTypeSchema>;
+export type MatchEventType = z.infer<typeof MatchEventTypeSchema>;
 
 export type Sponsor = z.infer<typeof SponsorSchema>;
 export type TeamRatings = z.infer<typeof TeamRatingsSchema>;

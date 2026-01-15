@@ -1,11 +1,11 @@
 import i18next from "i18next";
 import en from "../locales/en.json";
 import fr from "../locales/fr.json";
-import { simulateMatch } from "./simulator";
+import { simulateMatch } from "./core/simulator";
 
 // Initialisation i18next pour le worker (Narratives)
 i18next.init({
-	lng: "fr", // Sera écrasé par le payload
+	lng: "fr",
 	fallbackLng: "en",
 	resources: {
 		en: { translation: en },
@@ -17,6 +17,22 @@ i18next.init({
 	},
 });
 
+/**
+ * Fonction centrale pour exécuter une simulation avec des valeurs par défaut
+ */
+async function runSimulation(data: any) {
+	return await simulateMatch(
+		data.homeRatings,
+		data.awayRatings,
+		data.homeTeamId,
+		data.awayTeamId,
+		data.homePlayers,
+		data.awayPlayers,
+		data.homeName || "Home",
+		data.awayName || "Away",
+	);
+}
+
 self.onmessage = async (e: MessageEvent) => {
 	const { type, payload } = e.data;
 
@@ -25,70 +41,30 @@ self.onmessage = async (e: MessageEvent) => {
 		await i18next.changeLanguage(payload.language);
 	}
 
-	if (type === "SIMULATE_BATCH") {
-		const { matches, saveId } = payload;
-		const results = [];
+	switch (type) {
+		case "SIMULATE_BATCH": {
+			const { matches, saveId } = payload;
+			const results = [];
 
-		for (const matchData of matches) {
-			const {
-				homeRatings,
-				awayRatings,
-				homeTeamId,
-				awayTeamId,
-				homePlayers,
-				awayPlayers,
-				matchId,
-				homeName,
-				awayName,
-			} = matchData;
+			for (const matchData of matches) {
+				const result = await runSimulation(matchData);
+				results.push({
+					matchId: matchData.matchId,
+					result,
+				});
+			}
 
-			const result = await simulateMatch(
-				homeRatings,
-				awayRatings,
-				homeTeamId,
-				awayTeamId,
-				homePlayers,
-				awayPlayers,
-				homeName || "Home",
-				awayName || "Away",
-			);
-
-			results.push({
-				matchId,
-				result,
-			});
+			self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId } });
+			break;
 		}
 
-		self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId } });
-	}
-
-	if (type === "SIMULATE_MATCH") {
-		const {
-			homeRatings,
-			awayRatings,
-			homeTeamId,
-			awayTeamId,
-			homePlayers,
-			awayPlayers,
-			requestId,
-			homeName,
-			awayName,
-		} = payload;
-
-		const result = await simulateMatch(
-			homeRatings,
-			awayRatings,
-			homeTeamId,
-			awayTeamId,
-			homePlayers,
-			awayPlayers,
-			homeName || "Home",
-			awayName || "Away",
-		);
-
-		self.postMessage({
-			type: "MATCH_COMPLETE",
-			payload: { result, requestId },
-		});
+		case "SIMULATE_MATCH": {
+			const result = await runSimulation(payload);
+			self.postMessage({
+				type: "MATCH_COMPLETE",
+				payload: { result, requestId: payload.requestId },
+			});
+			break;
+		}
 	}
 };
