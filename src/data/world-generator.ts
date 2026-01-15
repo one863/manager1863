@@ -76,34 +76,50 @@ export const WorldGenerator = {
 			} as League);
 
 			const teamsCount = level === DIVISIONS ? TEAMS_PER_DIV - 1 : TEAMS_PER_DIV;
-			const baseSkill = 95 - level * 10;
+			const baseSkill = 10.4 - level * 1.2; 
 
 			for (let i = 0; i < teamsCount; i++) {
 				const name = generateTeamName(usedNames);
 				const stadiumName = `${name.split(" ")[0]} ${getRandomElement(STADIUM_SUFFIXES)}`;
-				let teamSkill = level === DIVISIONS ? randomInt(30, 35) : baseSkill + randomInt(-3, 3);
+				const teamSkill = baseSkill + (randomInt(-3, 3) / 10);
 
 				const teamId = await db.teams.add({
-					saveId, leagueId: leagueId as number, name, managerName: "CPU Manager", primaryColor: generateColor(), secondaryColor: generateColor(), matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: teamSkill * 500, reputation: teamSkill, fanCount: teamSkill * 50, confidence: 50, stadiumName, stadiumCapacity: teamSkill * 200, stadiumLevel: Math.ceil(teamSkill / 20), tacticType: "NORMAL", formation: "4-4-2", version: CURRENT_DATA_VERSION,
+					saveId, leagueId: leagueId as number, name, managerName: "CPU Manager", primaryColor: generateColor(), secondaryColor: generateColor(), matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: teamSkill * 5000, reputation: teamSkill * 10, fanCount: Math.floor(teamSkill * 500), confidence: 50, stadiumName, stadiumCapacity: Math.floor(teamSkill * 2000), stadiumLevel: Math.ceil(teamSkill / 2), tacticType: "NORMAL", formation: "4-4-2", version: CURRENT_DATA_VERSION,
 				} as Team);
-				// Squad generator is async
+				
 				await generateSquad(saveId, teamId as number, teamSkill);
 			}
 
 			if (level === DIVISIONS) {
-				const playerTeamSkill = 35;
+				const playerTeamSkill = 3.5;
 				userTeamId = (await db.teams.add({
 					saveId, leagueId: leagueId as number, name: userTeamName, managerName, primaryColor, secondaryColor, matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: 2500, reputation: 30, fanCount: 200, confidence: 50, stadiumName: "Community Field", stadiumCapacity: 500, stadiumLevel: 1, tacticType: "NORMAL", formation: "4-4-2", seasonGoal: "PROMOTION", seasonGoalStatus: "PENDING", version: CURRENT_DATA_VERSION,
 				} as Team)) as number;
 
 				await generateSquad(saveId, userTeamId, playerTeamSkill);
 
-				// Génération CORRECTE du DNA pour Archibald
 				const isFemale = Math.random() < 0.3;
 				const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`;
 
+				// Initialiser les stats pour Archibald/Alice
+				const helperStats = {
+					management: 4.5,
+					training: 5.2, // Débloque GENERAL
+					tactical: 4.8,
+					physical: 3.5,
+					goalkeeping: 3.0
+				};
+
 				await db.staff.add({
-					saveId, teamId: userTeamId, name: isFemale ? "Alice Helper" : "Archibald Helper", role: "COACH", skill: randomInt(35, 45), wage: 10, age: 58, dna,
+					saveId, 
+					teamId: userTeamId, 
+					name: isFemale ? "Alice Helper" : "Archibald Helper", 
+					role: "COACH", 
+					skill: 4.2, 
+					stats: helperStats,
+					wage: 15, 
+					age: 58, 
+					dna
 				} as StaffMember);
 			}
 		}

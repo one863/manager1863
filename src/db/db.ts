@@ -22,18 +22,25 @@ export type {
 	GameStateData,
 };
 
+export interface StaffStats {
+	management: number;
+	training: number;
+	tactical: number;
+	physical: number;
+	goalkeeping: number;
+}
+
 export interface StaffMember {
 	id?: number;
 	saveId: number;
 	teamId: number;
 	name: string;
 	role: "COACH" | "SCOUT" | "PHYSICAL_TRAINER";
-	skill: number; // 1-100
+	skill: number;
+	stats: StaffStats;
 	wage: number;
 	age: number;
-	specialty?: string;
 	dna: string;
-	lastSkillChange?: number;
 }
 
 export interface SeasonHistory {
@@ -57,7 +64,7 @@ export interface SaveSlot {
 	lastPlayedDate: Date;
 }
 
-// --- Base de Données ---
+export const CURRENT_DATA_VERSION = 1; 
 
 class Manager1863DB extends Dexie {
 	players!: Table<Player>;
@@ -71,17 +78,13 @@ class Manager1863DB extends Dexie {
 	staff!: Table<StaffMember>;
 
 	constructor() {
-		super("Manager1863_Storage");
+		super("Manager1863_Storage_v2"); 
 
-		// Passage à la version 21 pour ajouter lastSkillChange au staff
-		this.version(21).stores({
-			players:
-				"++id, saveId, teamId, [saveId+teamId], [saveId+position], [saveId+teamId+skill], skill, isStarter",
-			teams:
-				"++id, saveId, leagueId, [saveId+leagueId], [saveId+leagueId+points], [saveId+reputation]",
+		this.version(1).stores({
+			players: "++id, saveId, teamId, [saveId+teamId]",
+			teams: "++id, saveId, leagueId, [saveId+leagueId]",
 			leagues: "++id, saveId, level, [saveId+level]",
-			matches:
-				"++id, saveId, leagueId, day, [saveId+day], [saveId+leagueId], [saveId+leagueId+day]",
+			matches: "++id, saveId, leagueId, day, [saveId+day]",
 			saveSlots: "id, lastPlayedDate",
 			gameState: "saveId",
 			news: "++id, saveId, day, [saveId+day]",
@@ -97,7 +100,6 @@ class Manager1863DB extends Dexie {
 }
 
 export const db = new Manager1863DB();
-export const CURRENT_DATA_VERSION = 21;
 
 const SALT = "victoria-era-football-1863";
 export async function computeSaveHash(saveId: number): Promise<string> {

@@ -1,7 +1,7 @@
 import type { Player } from "@/db/db";
 import { TransferService } from "@/services/transfer-service";
 import { useGameStore } from "@/store/gameSlice";
-import { AlertCircle, ArrowLeft, Trash2, TrendingUp } from "lucide-preact";
+import { AlertCircle, ArrowLeft, Trash2, TrendingUp, User, Star, Award, TrendingDown, Minus } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "./PlayerAvatar";
@@ -49,30 +49,75 @@ export default function PlayerCard({
 		}
 	};
 
-	const StatBar = ({ label, value }: { label: string; value: number }) => (
-		<div className="flex items-center mb-1.5">
-			<span className="w-20 text-ink-light truncate font-bold uppercase tracking-tighter text-[9px]">
-				{label}
+	const getFormLabel = (form: number) => {
+		const f = Math.floor(form);
+		if (f >= 8) return "Incroyable";
+		if (f >= 7) return "Excellent";
+		if (f >= 6) return "Très Bon";
+		if (f >= 5) return "Bon";
+		if (f >= 4) return "Passable";
+		if (f >= 3) return "Médiocre";
+		if (f >= 2) return "Faible";
+		return "Désastreux";
+	};
+
+	const FormTrend = ({ form, background }: { form: number, background: number }) => {
+		const diff = background - form;
+		if (diff > 0.5) return <TrendingUp size={16} className="text-green-500" />;
+		if (diff < -0.5) return <TrendingDown size={16} className="text-red-500" />;
+		return <Minus size={16} className="text-gray-400" />;
+	};
+
+	const RatingBadge = ({ rating }: { rating: number }) => {
+		const getColor = (r: number) => {
+			if (r >= 9) return "bg-lime-400 text-black";
+			if (r >= 7) return "bg-green-500 text-white";
+			if (r >= 5) return "bg-yellow-500 text-white";
+			if (r >= 4) return "bg-orange-500 text-white";
+			return "bg-red-600 text-white";
+		};
+
+		return (
+			<span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shadow-sm ${getColor(rating)}`}>
+				{rating.toFixed(1)}
 			</span>
-			<div className="flex-1 h-2 bg-gray-100 rounded-sm overflow-hidden border border-gray-200">
-				<div
-					className={`h-full transition-all duration-500 ${value > 75 ? "bg-green-500" : value > 50 ? "bg-accent" : value > 25 ? "bg-orange-400" : "bg-red-500"}`}
-					style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-				/>
+		);
+	};
+
+	const StatBar = ({ label, value }: { label: string; value: number }) => {
+		const displayValue = Math.floor(value);
+		const progressPercentage = (value / 10) * 100;
+		
+		return (
+			<div className="flex items-center mb-1.5">
+				<span className="w-20 text-ink-light truncate font-bold uppercase tracking-tighter text-[9px]">
+					{label}
+				</span>
+				<div className="flex-1 h-2 bg-gray-100 rounded-sm overflow-hidden border border-gray-200">
+					<div
+						className={`h-full transition-all duration-500 ${value > 8 ? "bg-green-500" : value > 6 ? "bg-accent" : value > 4 ? "bg-orange-400" : "bg-red-500"}`}
+						style={{ width: `${Math.min(100, Math.max(0, progressPercentage))}%` }}
+					/>
+				</div>
+				<span className="w-6 text-right font-mono font-bold text-ink ml-1.5 text-[10px]">
+					{displayValue}
+				</span>
 			</div>
-			<span className="w-6 text-right font-mono font-bold text-ink ml-1.5 text-[10px]">
-				{value}
-			</span>
-		</div>
-	);
+		);
+	};
+
+	const lastRating = player.lastRatings && player.lastRatings.length > 0 ? player.lastRatings[0] : null;
 
 	return (
 		<div
-			className="fixed inset-0 z-[200] bg-white flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in"
+			className="fixed inset-x-0 bottom-0 z-[200] bg-white flex flex-col max-w-md mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up h-[90vh]"
 			onClick={(e) => e.stopPropagation()}
 		>
+			{/* Pull bar for drawer feel */}
+			<div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3 shrink-0" />
+
 			{/* Unified Header */}
-			<div className="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-10 shrink-0">
+			<div className="bg-white px-4 pb-4 border-b flex justify-between items-center sticky top-0 z-10 shrink-0">
 				<div className="flex gap-4 items-center">
 					<button
 						onClick={onClose}
@@ -100,24 +145,30 @@ export default function PlayerCard({
 						</div>
 					</div>
 				</div>
-				<div className="text-right">
-					<div className="text-2xl font-black text-ink">{player.skill}</div>
+				<div className="text-right flex flex-col items-end">
+					<div className="text-2xl font-black text-ink">{Math.floor(player.skill)}</div>
 					<div className="text-[8px] text-ink-light uppercase tracking-widest font-black">
 						Niveau
 					</div>
+					{lastRating && (
+						<div className="mt-1 flex items-center gap-1">
+							<span className="text-[8px] text-ink-light uppercase font-bold">Dernier Match:</span>
+							<RatingBadge rating={lastRating} />
+						</div>
+					)}
 				</div>
 			</div>
 
 			{/* Unified Body */}
 			<div className="p-5 space-y-6 flex-1 overflow-y-auto">
-				<div className="flex gap-4 text-sm bg-paper-dark p-4 rounded-2xl border border-gray-200">
-					<div className="flex-1">
+				<div className="grid grid-cols-2 gap-3">
+					<div className="bg-paper-dark p-3 rounded-2xl border border-gray-200">
 						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
 							{t("player_card.value")}
 						</span>
 						<span className="text-lg font-bold text-ink">M {player.marketValue}</span>
 					</div>
-					<div className="flex-1 text-right border-l border-gray-200 pl-4">
+					<div className="bg-paper-dark p-3 rounded-2xl border border-gray-200">
 						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
 							{t("player_card.condition")}
 						</span>
@@ -127,7 +178,40 @@ export default function PlayerCard({
 							{player.condition}%
 						</span>
 					</div>
+					<div className="bg-paper-dark p-3 rounded-2xl border border-gray-200 flex items-center justify-between">
+						<div>
+							<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
+								Forme
+							</span>
+							<div className="flex items-center gap-2">
+								<span className="text-sm font-bold text-ink">{getFormLabel(player.form)}</span>
+								<FormTrend form={player.form} background={player.formBackground} />
+							</div>
+						</div>
+						<Star size={20} className="text-yellow-500 opacity-50" />
+					</div>
+					<div className="bg-paper-dark p-3 rounded-2xl border border-gray-200 flex items-center justify-between">
+						<div>
+							<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
+								Expérience
+							</span>
+							<span className="text-lg font-bold text-ink">{Math.floor(player.experience)}/10</span>
+						</div>
+						<Award size={20} className="text-blue-500 opacity-50" />
+					</div>
 				</div>
+
+				{/* Historique des notes */}
+				{player.lastRatings && player.lastRatings.length > 0 && (
+					<div className="bg-paper-dark p-4 rounded-2xl border border-gray-200">
+						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest mb-3">Historique des Performances</span>
+						<div className="flex gap-2">
+							{player.lastRatings.map((r, i) => (
+								<RatingBadge key={i} rating={r} />
+							))}
+						</div>
+					</div>
+				)}
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
@@ -153,7 +237,7 @@ export default function PlayerCard({
 						<h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-3 border-b border-accent/10 pb-1">
 							{t("player_card.conversion")}
 						</h3>
-						<div className="grid grid-cols-2 gap-x-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
 							<StatBar label={t("player_card.scoring")} value={player.stats.scoring} />
 							<StatBar label={t("player_card.setPieces")} value={player.stats.setPieces} />
 						</div>

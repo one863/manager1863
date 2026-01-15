@@ -3,15 +3,15 @@ import { z } from "zod";
 // --- Schémas de base ---
 
 export const TeamRatingsSchema = z.object({
-	midfield: z.number().min(1).max(20),
-	attackLeft: z.number().min(1).max(20),
-	attackCenter: z.number().min(1).max(20),
-	attackRight: z.number().min(1).max(20),
-	defenseLeft: z.number().min(1).max(20),
-	defenseCenter: z.number().min(1).max(20),
-	defenseRight: z.number().min(1).max(20),
-	setPieces: z.number().min(1).max(20),
-	tacticSkill: z.number().min(1).max(20),
+	midfield: z.number().min(1).max(10.99),
+	attackLeft: z.number().min(1).max(10.99),
+	attackCenter: z.number().min(1).max(10.99),
+	attackRight: z.number().min(1).max(10.99),
+	defenseLeft: z.number().min(1).max(10.99),
+	defenseCenter: z.number().min(1).max(10.99),
+	defenseRight: z.number().min(1).max(10.99),
+	setPieces: z.number().min(1).max(10.99),
+	tacticSkill: z.number().min(1).max(10.99),
 	tacticType: z.enum(["NORMAL", "CA", "PRESSING", "AIM", "AOW"]),
 });
 
@@ -42,24 +42,25 @@ export const MatchResultSchema = z.object({
 		homeChances: z.number().int(),
 		awayChances: z.number().int(),
 	}),
+	playerPerformances: z.record(z.string(), z.number()).optional(), // playerId -> rating
 });
 
 // --- Schémas de la Base de Données (Persistance) ---
 
 export const PlayerStatsSchema = z.object({
-	stamina: z.number().int().min(1).max(100),
-	playmaking: z.number().int().min(1).max(100),
-	defense: z.number().int().min(1).max(100),
-	speed: z.number().int().min(1).max(100),
-	head: z.number().int().min(1).max(100),
-	technique: z.number().int().min(1).max(100),
-	scoring: z.number().int().min(1).max(100),
-	setPieces: z.number().int().min(1).max(100),
+	stamina: z.number().min(1).max(10.99),
+	playmaking: z.number().min(1).max(10.99),
+	defense: z.number().min(1).max(10.99),
+	speed: z.number().min(1).max(10.99),
+	head: z.number().min(1).max(10.99),
+	technique: z.number().min(1).max(10.99),
+	scoring: z.number().min(1).max(10.99),
+	setPieces: z.number().min(1).max(10.99),
 	// Legacy fields still used in some places
-	strength: z.number().int().min(1).max(100).optional(),
-	dribbling: z.number().int().min(1).max(100).optional(),
-	passing: z.number().int().min(1).max(100).optional(),
-	shooting: z.number().int().min(1).max(100).optional(),
+	strength: z.number().min(1).max(10.99).optional(),
+	dribbling: z.number().min(1).max(10.99).optional(),
+	passing: z.number().min(1).max(10.99).optional(),
+	shooting: z.number().min(1).max(10.99).optional(),
 });
 
 export const PlayerSchema = z.object({
@@ -72,8 +73,11 @@ export const PlayerSchema = z.object({
 	position: z.enum(["GK", "DEF", "MID", "FWD"]),
 	side: z.enum(["L", "C", "R"]).default("C"),
 	dna: z.string(),
-	skill: z.number().min(0).max(100),
+	skill: z.number().min(1).max(10.99),
 	stats: PlayerStatsSchema,
+	form: z.number().min(1).max(8).default(5),
+	formBackground: z.number().min(1).max(8).default(5),
+	experience: z.number().min(1).max(10).default(1),
 	energy: z.number().min(0).max(100),
 	condition: z.number().min(0).max(100),
 	morale: z.number().min(0).max(100),
@@ -81,6 +85,8 @@ export const PlayerSchema = z.object({
 	wage: z.number().nonnegative(),
 	isStarter: z.boolean().optional(),
 	lastTrainingSkillChange: z.number().optional(),
+	playedThisWeek: z.boolean().default(false),
+	lastRatings: z.array(z.number()).default([]),
 });
 
 export const SponsorSchema = z.object({
@@ -124,7 +130,8 @@ export const TeamSchema = z.object({
 	stadiumUpgradeEndDay: z.number().optional(),
 	stadiumProject: z.any().optional(),
 	trainingEndDay: z.number().optional(),
-	trainingFocus: z.enum(["PHYSICAL", "TECHNICAL"]).optional(),
+	trainingStartDay: z.number().optional(),
+	trainingFocus: z.enum(["GENERAL", "PHYSICAL", "ATTACK", "DEFENSE", "GK"]).optional(), // MODIFIÉ
 	seasonGoal: z
 		.enum(["CHAMPION", "PROMOTION", "MID_TABLE", "AVOID_RELEGATION"])
 		.optional(),

@@ -19,6 +19,7 @@ export async function repairSaveData(saveId: number) {
 		if (oldVersion < 2) await migrateToV2(saveId);
 		if (oldVersion < 3) await migrateToV3(saveId);
 		if (oldVersion < 20) await migrateToV20(saveId);
+		if (oldVersion < 22) await migrateToV22(saveId);
 
 		await db.gameState.update(saveId, { version: CURRENT_DATA_VERSION });
 	}
@@ -82,5 +83,32 @@ async function migrateToV20(saveId: number) {
 			const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`;
 			await db.staff.update(staff.id!, { dna });
 		}
+	}
+}
+
+async function migrateToV22(saveId: number) {
+	// Migration vers l'échelle 1-10
+	const players = await db.players.where("saveId").equals(saveId).toArray();
+	for (const player of players) {
+		const stats = { ...player.stats };
+		for (const key in stats) {
+			if (typeof (stats as any)[key] === 'number') {
+				(stats as any)[key] = Math.max(1, (stats as any)[key] / 10);
+			}
+		}
+		
+		await db.players.update(player.id!, {
+			skill: Math.max(1, player.skill / 10),
+			stats: stats,
+			form: 5,
+			experience: Math.max(1, Math.min(10, Math.floor(player.age / 3)))
+		});
+	}
+
+	const staffMembers = await db.staff.where("saveId").equals(saveId).toArray();
+	for (const staff of staffMembers) {
+		await db.staff.update(staff.id!, {
+			skill: Math.max(1, staff.skill / 10)
+		});
 	}
 }

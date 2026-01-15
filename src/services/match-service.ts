@@ -4,7 +4,7 @@ import { calculateTeamRatings } from "@/engine/converter";
 import { FORMATIONS } from "@/engine/tactics";
 import type { MatchResult } from "@/engine/types";
 import { ClubService } from "@/services/club-service";
-import { NewsService } from "@/services/news-service";
+import { NewsService } from "./news-service";
 import { randomInt } from "@/utils/math";
 import i18next from "i18next";
 
@@ -75,7 +75,7 @@ export const MatchService = {
 			db.teams.get(teamId),
 		]);
 
-		const coachSkill = coach ? coach.skill : 50; // Default average if no coach
+		const coachSkill = coach ? coach.skill : 5; // Updated scale 1-10
 		const formationKey = team?.formation || "4-4-2";
 		const req =
 			(FORMATIONS as any)[formationKey] || (FORMATIONS as any)["4-4-2"];
@@ -112,7 +112,7 @@ export const MatchService = {
 				if (candidates.length === 0) break;
 
 				// Coach Logic: Pick based on skill/competence
-				const errorMargin = Math.max(0.05, 1 - coachSkill / 100);
+				const errorMargin = Math.max(0.05, 1 - coachSkill / 10);
 				const maxIndex = Math.min(
 					candidates.length - 1,
 					Math.floor(candidates.length * errorMargin),
@@ -347,8 +347,8 @@ export const MatchService = {
 				result.awayScore,
 				result.homeScore,
 			),
-			this.applyMatchFatigue(match.homeTeamId, saveId),
-			this.applyMatchFatigue(match.awayTeamId, saveId),
+			this.applyMatchFatigue(match.homeTeamId, saveId, result),
+			this.applyMatchFatigue(match.awayTeamId, saveId, result),
 		]);
 
 		if (generateNews) {
@@ -386,14 +386,14 @@ export const MatchService = {
 		}
 	},
 
-	async applyMatchFatigue(teamId: number, saveId: number) {
-		const team = await db.teams.get(teamId);
+	async applyMatchFatigue(teamId: number, saveId: number, result: MatchResult) {
 		const starters = await db.players
 			.where("[saveId+teamId]")
 			.equals([saveId, teamId])
 			.and((p) => !!p.isStarter)
 			.toArray();
 
+		const team = await db.teams.get(teamId);
 		let baseFatigue = randomInt(20, 30);
 		if (team?.tacticType === "PRESSING") baseFatigue += 10;
 
@@ -406,9 +406,15 @@ export const MatchService = {
 			const condLoss = randomInt(1, 4);
 			const newCondition = Math.max(10, currentCondition - condLoss);
 
+			// Mise à jour de l'historique des notes (Ratings)
+			const matchRating = result.playerPerformances?.[player.id!.toString()] || 5;
+			const newRatings = [matchRating, ...(player.lastRatings || [])].slice(0, 5);
+
 			await db.players.update(player.id!, {
 				energy: newEnergy,
 				condition: newCondition,
+				playedThisWeek: true,
+				lastRatings: newRatings,
 			});
 		}
 	},

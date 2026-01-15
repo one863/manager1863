@@ -112,6 +112,8 @@ export default function TransferMarket({
 			<div className="p-8 text-center animate-pulse">{t("game.loading")}</div>
 		);
 
+	const getHireCost = (skill: number) => Math.round(skill * 10);
+
 	return (
 		<div className="animate-fade-in relative flex flex-col h-full overflow-hidden">
 			<SubTabs
@@ -190,7 +192,7 @@ export default function TransferMarket({
 								);
 							} else {
 								const staff = marketStaff[virtualRow.index];
-								const hireCost = staff.skill * 2;
+								const hireCost = getHireCost(staff.skill);
 								return (
 									<div
 										key={staff.id}
@@ -207,7 +209,6 @@ export default function TransferMarket({
 										<StaffRow 
 											staff={staff} 
 											onSelect={onSelectStaff}
-											showCost
 											action={
 												<button
 													onClick={(e) => { e.stopPropagation(); setItemToBuy({ type: "staff", item: staff }); }}
@@ -228,7 +229,7 @@ export default function TransferMarket({
 
 			{/* MODAL CONFIRMATION */}
 			{itemToBuy && (
-				<div className="fixed inset-0 z-[140] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+				<div className="fixed inset-0 z-[500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
 					<div className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full border-2 border-accent text-center">
 						<div className="p-3 bg-accent/10 rounded-full text-accent inline-block mb-4">
 							<ShoppingCart size={32} />
@@ -237,7 +238,9 @@ export default function TransferMarket({
 						<p className="text-sm text-ink-light mt-2 leading-relaxed">
 							Voulez-vous engager <span className="font-bold text-ink">{itemToBuy.type === "player" ? itemToBuy.item.lastName : itemToBuy.item.name}</span> ?
 							<br />
-							Coût total : <span className="font-bold text-accent">M {itemToBuy.type === "player" ? itemToBuy.item.marketValue : itemToBuy.item.skill * 2}</span>
+							Prime de signature : <span className="font-bold text-accent">M {itemToBuy.type === "player" ? itemToBuy.item.marketValue : getHireCost(itemToBuy.item.skill)}</span>
+							<br />
+							Salaire hebdo : <span className="font-bold text-accent">M {itemToBuy.item.wage}</span>
 						</p>
 						<div className="flex gap-3 w-full pt-6">
 							<button onClick={() => setItemToBuy(null)} className="flex-1 py-3 bg-paper-dark rounded-xl font-bold text-xs uppercase tracking-widest text-ink-light">Annuler</button>

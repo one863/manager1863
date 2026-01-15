@@ -2,10 +2,11 @@ import { useGameStore } from "@/store/gameSlice";
 import { useLiveMatchStore } from "@/store/liveMatchStore";
 import { useSignal } from "@preact/signals";
 import { ArrowLeft, Check, Copy, Download, FastForward } from "lucide-preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import EventItem from "./Match/EventItem";
 import Scoreboard from "./Match/Scoreboard";
+import MatchReport from "./MatchReport";
 
 interface Scorer {
 	name: string;
@@ -28,6 +29,7 @@ export default function MatchLive() {
 	const displayedEvents = useSignal<any[]>([]);
 	const isFinished = useSignal(false);
 	const copyFeedback = useSignal(false);
+	const [showReport, setShowReport] = useState(false);
 
 	const homeScorers = useSignal<Scorer[]>([]);
 	const awayScorers = useSignal<Scorer[]>([]);
@@ -59,10 +61,10 @@ export default function MatchLive() {
 			if (e.type === "GOAL") {
 				if (e.teamId === liveMatch.homeTeam.id) {
 					h++;
-					hScorersList.push({ name: e.scorerName, minute: e.minute });
+					hScorersList.push({ name: g.scorerName, minute: g.minute });
 				} else {
 					a++;
-					aScorersList.push({ name: e.scorerName, minute: e.minute });
+					aScorersList.push({ name: g.scorerName, minute: g.minute });
 				}
 			}
 		});
@@ -214,16 +216,57 @@ export default function MatchLive() {
 			events: liveMatch.result.events,
 		};
 		const text = JSON.stringify(logs, null, 2);
+		
+		let success = false;
 		try {
-			await navigator.clipboard.writeText(text);
+			const textArea = document.createElement("textarea");
+			textArea.value = text;
+			textArea.style.position = "fixed";
+			textArea.style.left = "-9999px";
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+			success = document.execCommand("copy");
+			document.body.removeChild(textArea);
+		} catch (e) {}
+
+		if (!success) {
+			try {
+				await navigator.clipboard.writeText(text);
+				success = true;
+			} catch (err) {}
+		}
+
+		if (success) {
 			copyFeedback.value = true;
 			setTimeout(() => (copyFeedback.value = false), 2000);
-		} catch (err) {
-			console.error("Failed to copy", err);
 		}
 	};
 
 	if (!liveMatch) return null;
+
+	if (showReport) {
+		return (
+			<MatchReport 
+				match={{
+					...liveMatch,
+					id: liveMatch.matchId,
+					homeTeamId: liveMatch.homeTeam.id, // AJOUTÉ
+					awayTeamId: liveMatch.awayTeam.id, // AJOUTÉ
+					homeScore: homeScore.value,
+					awayScore: awayScore.value,
+					details: liveMatch.result,
+					date: new Date(),
+					played: true,
+					leagueId: 0,
+					saveId: currentSaveId || 0
+				}}
+				homeTeam={liveMatch.homeTeam}
+				awayTeam={liveMatch.awayTeam}
+				onClose={() => finalizeLiveMatch()}
+			/>
+		);
+	}
 
 	return (
 		<div className="fixed inset-0 z-[400] bg-white flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in">
@@ -232,11 +275,10 @@ export default function MatchLive() {
 				<div className="pointer-events-auto flex items-center gap-3">
 					{isFinished.value ? (
 						<button
-							onClick={() => finalizeLiveMatch()}
-							className="p-2 bg-white/90 rounded-full shadow-lg text-ink hover:text-accent transition-all active:scale-95 border border-gray-100"
-							title="Quitter"
+							onClick={() => setShowReport(true)}
+							className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-full shadow-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
 						>
-							<ArrowLeft size={24} />
+							<Check size={14} /> Voir le Rapport
 						</button>
 					) : (
 						<button

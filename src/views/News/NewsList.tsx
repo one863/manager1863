@@ -189,41 +189,57 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 		const hasNewer = selectedIndex > 0;
 
 		return (
-			<div className="fixed inset-0 z-[200] bg-paper flex flex-col max-w-md mx-auto border-x border-paper-dark shadow-2xl overflow-hidden animate-fade-in">
-				{/* HEADER INFO ONLY */}
-				<div className="p-4 border-b bg-paper-dark/50 text-center">
-					<div className="flex items-center justify-center gap-2">
-						<div className="p-1 bg-white rounded shadow-sm">
+			<div 
+				className="fixed inset-x-0 bottom-0 z-[200] bg-white flex flex-col max-w-md mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up h-[90vh]"
+				onClick={(e) => e.stopPropagation()}
+			>
+				{/* Pull bar for drawer feel */}
+				<div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3 shrink-0" />
+
+				{/* Unified Header */}
+				<div className="bg-white px-4 pb-4 border-b flex justify-between items-center sticky top-0 z-10 shrink-0">
+					<div className="flex gap-4 items-center">
+						<button
+							onClick={() => setSelectedArticleId(null)}
+							className="text-ink-light hover:text-accent p-1 transition-colors"
+						>
+							<ArrowLeft size={24} />
+						</button>
+						<div className="w-10 h-10 bg-paper-dark rounded-xl flex items-center justify-center border-2 border-accent/10 shadow-sm">
 							{getIcon(selectedArticle.type)}
 						</div>
-						<span className="text-[10px] font-black uppercase tracking-widest text-ink-light">
-							{selectedArticle.type} • Jour {selectedArticle.day}
-						</span>
+						<div>
+							<h2 className="text-xs font-black text-accent uppercase tracking-widest leading-none">
+								Dépêche {selectedArticle.type}
+							</h2>
+							<div className="text-[10px] text-ink-light font-mono mt-1">
+								Jour {selectedArticle.day} • {selectedArticle.date.toLocaleDateString()}
+							</div>
+						</div>
+					</div>
+					<div className="text-right">
+						<div className="text-lg font-mono font-black text-ink">{selectedIndex + 1}/{articles.length}</div>
 					</div>
 				</div>
 
-				<div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32 max-w-2xl mx-auto w-full">
-					<div className="space-y-4 text-center">
-						<h2 className="text-3xl font-serif font-bold text-ink leading-tight">
+				<div className="flex-1 overflow-y-auto p-6 space-y-6">
+					<div className="space-y-4">
+						<h2 className="text-2xl font-serif font-bold text-ink leading-tight">
 							{renderRichText(selectedArticle.title, true)}
 						</h2>
-						<p className="text-[10px] text-ink-light font-mono opacity-50 uppercase tracking-widest">
-							Publié le {selectedArticle.date.toLocaleDateString()}
-						</p>
+						<div className="w-12 h-1 bg-accent/20 rounded-full" />
 					</div>
 
-					<div className="text-ink leading-relaxed font-serif text-xl space-y-4">
+					<div className="text-ink leading-relaxed font-serif text-lg space-y-4">
 						{renderRichText(selectedArticle.content)}
 					</div>
 
 					{selectedArticle.actionData && (
-						<div className="mt-12 p-6 bg-accent/5 rounded-xl border-2 border-accent/20 border-dashed">
+						<div className="mt-8 p-6 bg-paper-dark rounded-2xl border border-gray-100 shadow-inner">
 							{selectedArticle.actionData.type === "SIGN_SPONSOR" && (
-								<div className="space-y-4">
-									<div className="text-center space-y-1">
-										<p className="text-xs font-bold uppercase text-accent tracking-widest">Offre Contractuelle</p>
-										<p className="text-sm italic text-ink-light">Voulez-vous ratifier cet accord de partenariat ?</p>
-									</div>
+								<div className="space-y-4 text-center">
+									<p className="text-xs font-bold uppercase text-accent tracking-widest">Offre Contractuelle</p>
+									<p className="text-sm italic text-ink-light">Voulez-vous ratifier cet accord de partenariat ?</p>
 									<Button 
 										onClick={() => handleAction(selectedArticle)}
 										className="w-full flex items-center justify-center gap-2 py-4 shadow-lg shadow-accent/20"
@@ -237,16 +253,8 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 					)}
 				</div>
 
-				{/* NAVIGATION BASSE CONSOLIDÉE */}
-				<div className="p-4 bg-paper-dark border-t border-gray-200 flex gap-3 items-center pb-safe shrink-0">
-					<button
-						onClick={() => setSelectedArticleId(null)}
-						className="p-3 bg-white text-ink rounded-2xl shadow-sm active:scale-95 border border-gray-100 hover:text-accent transition-colors"
-						title="Retour à la liste"
-					>
-						<ArrowLeft size={24} />
-					</button>
-
+				{/* NAVIGATION BASSE */}
+				<div className="p-4 bg-paper-dark border-t border-gray-200 flex gap-3 items-center pb-10 shrink-0">
 					<div className="flex-1 flex justify-between items-center bg-white rounded-2xl p-1 shadow-sm border border-gray-100 h-[56px]">
 						<button
 							onClick={() => navigateNews("older")}
@@ -256,12 +264,6 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 							<ChevronLeft size={24} />
 							<span className="text-[9px] font-black uppercase tracking-tighter hidden xs:block">Préc.</span>
 						</button>
-
-						<div className="w-px h-6 bg-gray-100" />
-
-						<div className="px-4 text-[11px] font-black text-ink-light whitespace-nowrap">
-							{selectedIndex + 1} / {articles.length}
-						</div>
 
 						<div className="w-px h-6 bg-gray-100" />
 
