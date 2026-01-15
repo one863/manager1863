@@ -10,12 +10,12 @@ const ratingsCache = new Map<
 	{ ratings: TeamRatings; timestamp: number }
 >();
 
-function getCacheKey(starters: Player[], tactic: string): string {
+function getCacheKey(starters: Player[], tactic: string, strategy: string, tacticalSkill: number): string {
 	const ids = starters
 		.map((p) => p.id)
 		.sort()
 		.join(",");
-	return `${ids}-${tactic}`;
+	return `${ids}-${tactic}-${strategy}-${tacticalSkill}`;
 }
 
 function calculateSector(
@@ -26,7 +26,6 @@ function calculateSector(
 ): number {
 	return (
 		starters.reduce((acc, p) => {
-			// Utilisation du skill effectif (incluant la forme)
 			const formMultiplier = 0.6 + (p.form || 5) / 10;
 			const contribution =
 				p.skill * (weights[p.position] || 0) * (p.condition / 100) * formMultiplier;
@@ -52,8 +51,10 @@ function calculateSector(
 export function calculateTeamRatings(
 	players: Player[],
 	tactic: TeamRatings["tacticType"] = "NORMAL",
+	strategy: TeamRatings["strategy"] = "BALANCED",
 	saveId?: number,
 	date?: Date,
+	tacticalSkill = 5.0, // Niveau tactique du coach (1-10)
 ): TeamRatings {
 	let starters = players.filter((p) => p.isStarter);
 	let wasRandom = false;
@@ -61,8 +62,8 @@ export function calculateTeamRatings(
 	if (starters.length < 11) {
 		const remainingCount = 11 - starters.length;
 		const availablePlayers = players.filter((p) => !p.isStarter);
-		const shuffled = [...availablePlayers].sort(() => Math.random() - 0.5);
-		starters = [...starters, ...shuffled.slice(0, remainingCount)];
+		const bestAvailable = [...availablePlayers].sort((a, b) => b.skill - a.skill);
+		starters = [...starters, ...bestAvailable.slice(0, remainingCount)];
 		wasRandom = true;
 	}
 
@@ -79,7 +80,7 @@ export function calculateTeamRatings(
 		NewsService.addNews(saveId, news);
 	}
 
-	const cacheKey = getCacheKey(starters, tactic);
+	const cacheKey = getCacheKey(starters, tactic, strategy, tacticalSkill);
 	const cached = ratingsCache.get(cacheKey);
 	if (cached && Date.now() - cached.timestamp < 60000) return cached.ratings;
 
@@ -93,66 +94,79 @@ export function calculateTeamRatings(
 			"ALL",
 		),
 
-		attackCenter: calculateSector(
-			starters,
-			{ GK: 0, DEF: 0, MID: 0.3, FWD: 1.0 },
-			"C",
-		),
-		attackLeft: calculateSector(
-			starters,
-			{ GK: 0, DEF: 0.1, MID: 0.9, FWD: 0.5 },
-			"L",
-		),
-		attackRight: calculateSector(
-			starters,
-			{ GK: 0, DEF: 0.1, MID: 0.9, FWD: 0.5 },
-			"R",
-		),
+		attackCenter: calculateSector(starters, { GK: 0, DEF: 0, MID: 0.4, FWD: 1.4 }, "C"),
+		attackLeft: calculateSector(starters, { GK: 0, DEF: 0.1, MID: 1.0, FWD: 0.7 }, "L"),
+		attackRight: calculateSector(starters, { GK: 0, DEF: 0.1, MID: 1.0, FWD: 0.7 }, "R"),
 
-		defenseCenter:
-			calculateSector(starters, { GK: 1.0, DEF: 1.0, MID: 0.3, FWD: 0 }, "C") *
-			gkBonus,
-		defenseLeft: calculateSector(
-			starters,
-			{ GK: 0.1, DEF: 0.9, MID: 0.4, FWD: 0 },
-			"L",
-		),
-		defenseRight: calculateSector(
-			starters,
-			{ GK: 0.1, DEF: 0.9, MID: 0.4, FWD: 0 },
-			"R",
-		),
+		defenseCenter: calculateSector(starters, { GK: 1.0, DEF: 0.9, MID: 0.3, FWD: 0 }, "C") * gkBonus,
+		defenseLeft: calculateSector(starters, { GK: 0.1, DEF: 0.8, MID: 0.4, FWD: 0 }, "L"),
+		defenseRight: calculateSector(starters, { GK: 0.1, DEF: 0.8, MID: 0.4, FWD: 0 }, "R"),
 
-		setPieces:
-			starters.reduce(
-				(acc, p) => acc + (p.stats.setPieces || p.stats.shooting || 0),
-				0,
-			) / 11,
-		tacticSkill: 10,
+		setPieces: starters.reduce((acc, p) => acc + (p.stats.setPieces || p.stats.shooting || 0), 0) / 11,
+		tacticSkill: tacticalSkill,
 		tacticType: tactic,
+		strategy: strategy,
 	};
 
-	// Ajustement du DIVIDER pour l'échelle 1-10
-	// Avant: on divisait par 20 des valeurs qui pouvaient monter à 300+ (Skill 1-100)
-	// Maintenant: Skill est 1-10. Une ligne de 4 joueurs à skill 7 = 28.
-	// On veut des notes d'équipe entre 1 et 10.99.
-	const DIVIDER = 4; // Ajusté de 20 à 4
+	const DIVIDER = 6;
 	const ratings = { ...baseRatings };
+	
+	// --- Application de la Logique de Stratégie & Coach ---
+	const strategyMalusBase = 0.15;
+	const malusFactor = strategyMalusBase * (1 - tacticalSkill / 10); 
+	const bonusFactor = 0.15;
+
+	// --- Logique de Cohésion (Synergie Tactique/Stratégie) ---
+	let cohesionMultiplier = 1.0;
+	
+	// Synergies positives (+5%)
+	if (strategy === "OFFENSIVE" && (tactic === "PRESSING" || tactic === "AOW")) {
+		cohesionMultiplier = 1.05;
+	} else if (strategy === "DEFENSIVE" && (tactic === "CA" || tactic === "NORMAL")) {
+		cohesionMultiplier = 1.05;
+	} else if (strategy === "BALANCED") {
+		cohesionMultiplier = 1.02; // Petit bonus pour la stabilité
+	}
+	
+	// Conflits négatifs (-5% si coach inexpérimenté)
+	// Un bon coach (tacticalSkill > 7) arrive à éviter le malus de conflit
+	if (tacticalSkill < 7) {
+		if (strategy === "OFFENSIVE" && tactic === "CA") cohesionMultiplier = 0.95;
+		if (strategy === "DEFENSIVE" && tactic === "PRESSING") cohesionMultiplier = 0.95;
+	}
+
+	if (strategy === "OFFENSIVE") {
+		ratings.attackCenter *= (1 + bonusFactor) * cohesionMultiplier;
+		ratings.attackLeft *= (1 + bonusFactor) * cohesionMultiplier;
+		ratings.attackRight *= (1 + bonusFactor) * cohesionMultiplier;
+		
+		ratings.defenseCenter *= (1 - malusFactor);
+		ratings.defenseLeft *= (1 - malusFactor);
+		ratings.defenseRight *= (1 - malusFactor);
+	} else if (strategy === "DEFENSIVE") {
+		ratings.defenseCenter *= (1 + bonusFactor) * cohesionMultiplier;
+		ratings.defenseLeft *= (1 + bonusFactor) * cohesionMultiplier;
+		ratings.defenseRight *= (1 + bonusFactor) * cohesionMultiplier;
+		
+		ratings.attackCenter *= (1 - malusFactor);
+		ratings.attackLeft *= (1 - malusFactor);
+		ratings.attackRight *= (1 - malusFactor);
+	} else {
+		// Balanced
+		const sectorsToApply = ["midfield", "attackLeft", "attackCenter", "attackRight", "defenseLeft", "defenseCenter", "defenseRight"];
+		for (const s of sectorsToApply) {
+			(ratings as any)[s] *= cohesionMultiplier;
+		}
+	}
+
 	const sectors: (keyof TeamRatings)[] = [
-		"midfield",
-		"attackLeft",
-		"attackCenter",
-		"attackRight",
-		"defenseLeft",
-		"defenseCenter",
-		"defenseRight",
+		"midfield", "attackLeft", "attackCenter", "attackRight", "defenseLeft", "defenseCenter", "defenseRight",
 	];
+
 	for (const sector of sectors) {
-		(ratings as any)[sector] = clamp(
-			(baseRatings as any)[sector] / DIVIDER,
-			1,
-			10.99,
-		);
+		if (typeof (ratings as any)[sector] === "number") {
+			(ratings as any)[sector] = clamp((ratings as any)[sector] / DIVIDER, 1, 10.99);
+		}
 	}
 
 	ratings.setPieces = clamp(ratings.setPieces, 1, 10.99);
@@ -160,7 +174,7 @@ export function calculateTeamRatings(
 	const effect = (TACTIC_DEFINITIONS as any)[tactic];
 	if (effect) {
 		for (const [key, multiplier] of Object.entries(effect)) {
-			if (typeof multiplier === "number") {
+			if (typeof multiplier === "number" && (ratings as any)[key] !== undefined) {
 				(ratings as any)[key] *= multiplier;
 				(ratings as any)[key] = clamp((ratings as any)[key], 1, 10.99);
 			}

@@ -1,7 +1,7 @@
 import { BoardObjectiveCard } from "@/components/Dashboard/BoardObjectiveCard";
 import { type Team, db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
-import { Heart, Target, TrendingUp } from "lucide-preact";
+import { Heart, Target, TrendingUp, Award, UserCheck, ShieldAlert } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 
@@ -32,50 +32,104 @@ export default function BoardView() {
 
 	if (isLoading || !team) return null;
 
-	return (
-		<div className="space-y-6 animate-fade-in">
-			{/* CONFIANCE DU BOARD */}
-			<div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-				<h3 className="text-[10px] font-black uppercase tracking-widest text-ink-light mb-6 flex items-center gap-2">
-					<Heart size={14} className={(team.confidence || 0) > 50 ? "text-green-500" : "text-red-500"} /> 
-					Confiance de la Présidence
-				</h3>
-				<div className="flex justify-between items-end mb-2">
-					<span className="text-4xl font-serif font-black text-ink">{team.confidence}%</span>
-					<span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-						(team.confidence || 0) > 70 ? "bg-green-100 text-green-700" : 
-						(team.confidence || 0) > 40 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-					}`}>
-						{(team.confidence || 0) > 70 ? "Excellente" : (team.confidence || 0) > 40 ? "Stable" : "Critique"}
-					</span>
-				</div>
-				<div className="h-2 bg-paper-dark rounded-full overflow-hidden border border-gray-100 shadow-inner">
-					<div 
-						className={`h-full transition-all duration-1000 ${
-							(team.confidence || 0) > 70 ? "bg-green-500" : 
-							(team.confidence || 0) > 40 ? "bg-amber-500" : "bg-red-500"
-						}`}
-						style={{ width: `${team.confidence || 0}%` }}
-					/>
-				</div>
-			</div>
+	const confidence = team.confidence || 0;
+	const isAtRisk = confidence < 30;
 
-			{/* OBJECTIFS */}
+	return (
+		<div className="space-y-6 animate-fade-in pb-20">
+			{/* SECTION : ÉTAT DU MANDAT */}
+			<section className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+				<div className="p-6">
+					<div className="flex justify-between items-start mb-6">
+						<div>
+							<h3 className="text-[10px] font-black uppercase tracking-widest text-ink-light flex items-center gap-2 mb-1">
+								<UserCheck size={14} className="text-accent" /> Votre Mandat
+							</h3>
+							<p className="text-xs text-ink-light italic">Point de situation avec la présidence</p>
+						</div>
+						<div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+							confidence > 70 ? "bg-green-50 text-green-600 border border-green-100" : 
+							confidence > 40 ? "bg-amber-50 text-amber-600 border border-amber-100" : "bg-red-50 text-red-600 border border-red-100"
+						}`}>
+							{confidence > 70 ? "Soutien Total" : confidence > 40 ? "En Observation" : "Menacé"}
+						</div>
+					</div>
+
+					<div className="flex items-center gap-6 mb-4">
+						<div className="relative shrink-0">
+							<svg className="w-20 h-20 transform -rotate-90">
+								<circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-100" />
+								<circle 
+									cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="6" fill="transparent" 
+									strokeDasharray={226}
+									strokeDashoffset={226 - (226 * confidence) / 100}
+									className={`transition-all duration-1000 ${confidence > 70 ? "text-green-500" : confidence > 40 ? "text-amber-500" : "text-red-500"}`}
+								/>
+							</svg>
+							<div className="absolute inset-0 flex items-center justify-center font-serif font-black text-xl text-ink">
+								{confidence}%
+							</div>
+						</div>
+						<div className="space-y-2 flex-1">
+							<div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
+								<span className="text-ink-light italic">Confiance</span>
+								<span className="text-ink">{confidence}/100</span>
+							</div>
+							<div className="h-1.5 bg-gray-50 rounded-full overflow-hidden border border-gray-100">
+								<div 
+									className={`h-full transition-all duration-1000 ${confidence > 70 ? "bg-green-500" : confidence > 40 ? "bg-amber-500" : "bg-red-500"}`}
+									style={{ width: `${confidence}%` }}
+								/>
+							</div>
+							<p className="text-[10px] leading-relaxed text-ink-light mt-2 italic">
+								{confidence > 70 ? "Le président est ravi de votre gestion. Vous avez carte blanche." : 
+								 confidence > 30 ? "Vos résultats sont acceptables, mais la vigilance reste de mise." : 
+								 "Le Conseil exige des résultats immédiats. Votre poste est en jeu."}
+							</p>
+						</div>
+					</div>
+				</div>
+
+				{isAtRisk && (
+					<div className="bg-red-50 px-6 py-3 border-t border-red-100 flex items-center gap-3">
+						<ShieldAlert size={16} className="text-red-500" />
+						<span className="text-[9px] font-black uppercase tracking-widest text-red-700 animate-pulse">
+							Avertissement de licenciement imminent
+						</span>
+					</div>
+				)}
+			</section>
+
+			{/* SECTION : OBJECTIFS DE SAISON */}
 			<div className="space-y-3">
 				<h3 className="text-[10px] font-black uppercase tracking-widest text-ink-light px-2 flex items-center gap-2">
-					<Target size={14} className="text-accent" /> Feuille de Route
+					<Target size={14} className="text-accent" /> Feuille de Route Officielle
 				</h3>
 				<BoardObjectiveCard team={team} position={position} />
 			</div>
 
-			{/* ANALYSE MANAGEMENT */}
-			<div className="bg-paper-dark/50 p-6 rounded-3xl border border-white/50">
-				<div className="flex items-center gap-3 mb-4">
-					<TrendingUp size={16} className="text-accent" />
-					<h4 className="text-[10px] font-black uppercase tracking-widest text-ink">Analyse du Board</h4>
+			{/* SECTION : ANALYSE STRATÉGIQUE */}
+			<div className="grid grid-cols-2 gap-4">
+				<div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+					<Award size={16} className="text-accent mb-2" />
+					<h4 className="text-[10px] font-black uppercase tracking-widest text-ink mb-1">Stabilité</h4>
+					<p className="text-[10px] text-ink-light leading-tight italic">
+						La pérennité du club repose sur votre capacité à maintenir un équilibre financier.
+					</p>
 				</div>
-				<p className="text-sm text-ink-light leading-relaxed italic">
-					"Le conseil d'administration surveille attentivement vos résultats. Le respect des objectifs fixés en début de saison est primordial pour conserver votre poste."
+				<div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+					<TrendingUp size={16} className="text-accent mb-2" />
+					<h4 className="text-[10px] font-black uppercase tracking-widest text-ink mb-1">Croissance</h4>
+					<p className="text-[10px] text-ink-light leading-tight italic">
+						Plus votre réputation augmente, plus le Conseil vous octroiera de liberté.
+					</p>
+				</div>
+			</div>
+
+			{/* MESSAGE DE LA PRÉSIDENCE */}
+			<div className="bg-paper-dark/30 p-6 rounded-3xl border border-gray-200 border-dashed">
+				<p className="text-sm text-ink-light leading-relaxed font-serif italic text-center">
+					"Monsieur le Manager, souvenez-vous que vous n'êtes que le gardien de cette institution. Les archives se souviendront de vos victoires, mais le Conseil ne tolérera pas l'échec."
 				</p>
 			</div>
 		</div>

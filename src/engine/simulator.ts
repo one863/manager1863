@@ -154,9 +154,11 @@ export async function simulateMatch(
 		const attackingRatings = controllingTeam === "home" ? homeCycleRatings : awayCycleRatings;
 		const defendingRatings = controllingTeam === "home" ? awayCycleRatings : homeCycleRatings;
 		const attackingId = controllingTeam === "home" ? homeTeamId : awayTeamId;
-		const attackingPlayers = controllingTeam === "home" ? homePlayers : awayPlayers;
-		const defendingPlayers = controllingTeam === "home" ? awayPlayers : homePlayers;
+		const attackingPlayers = (controllingTeam === "home" ? homePlayers : awayPlayers).filter(p => p.isStarter);
+		const defendingPlayers = (controllingTeam === "home" ? awayPlayers : homePlayers).filter(p => p.isStarter);
 		const attackingName = controllingTeam === "home" ? homeName : awayName;
+
+		if (attackingPlayers.length === 0) continue;
 
 		if (controllingTeam === "home") result.stats.homeChances++;
 		else result.stats.awayChances++;
@@ -177,25 +179,28 @@ export async function simulateMatch(
 	}
 
 	if (result.homePossession > 60 && away.tacticType === "CA") {
-		handleCounterAttack(result, "away", away, home, awayTeamId, awayPlayers, homePlayers, awayName);
+		handleCounterAttack(result, "away", away, home, awayTeamId, awayPlayers.filter(p => p.isStarter), homePlayers.filter(p => p.isStarter), awayName);
 	} else if (result.homePossession < 40 && home.tacticType === "CA") {
-		handleCounterAttack(result, "home", home, away, homeTeamId, homePlayers, awayPlayers, homeName);
+		handleCounterAttack(result, "home", home, away, homeTeamId, homePlayers.filter(p => p.isStarter), awayPlayers.filter(p => p.isStarter), homeName);
 	}
 
 	if (probability(0.05)) {
 		const pressTeam = home.tacticType === "PRESSING" ? "home" : away.tacticType === "PRESSING" ? "away" : null;
 		if (pressTeam) {
 			const tId = pressTeam === "home" ? homeTeamId : awayTeamId;
-			const attPlayers = pressTeam === "home" ? homePlayers : awayPlayers;
-			const defPlayers = pressTeam === "home" ? awayPlayers : homePlayers;
+			const attPlayers = (pressTeam === "home" ? homePlayers : awayPlayers).filter(p => p.isStarter);
+			const defPlayers = (pressTeam === "home" ? awayPlayers : homePlayers).filter(p => p.isStarter);
 			const tName = pressTeam === "home" ? homeName : awayName;
-			result.events.push({
-				minute: randomInt(10, 80),
-				type: "TRANSITION",
-				teamId: tId,
-				description: getUniqueNarrativeString("match", "transition", { team: pressTeam === "home" ? "Home" : "Away" }, result.events),
-			});
-			handleNormalAttack(result, randomInt(10, 80), pressTeam, pressTeam === "home" ? home : away, pressTeam === "home" ? away : home, tId, attPlayers, defPlayers, tName);
+			
+			if (attPlayers.length > 0) {
+				result.events.push({
+					minute: randomInt(10, 80),
+					type: "TRANSITION",
+					teamId: tId,
+					description: getUniqueNarrativeString("match", "transition", { team: pressTeam === "home" ? "Home" : "Away" }, result.events),
+				});
+				handleNormalAttack(result, randomInt(10, 80), pressTeam, pressTeam === "home" ? home : away, pressTeam === "home" ? away : home, tId, attPlayers, defPlayers, tName);
+			}
 		}
 	}
 
@@ -228,19 +233,18 @@ function handleNormalAttack(result: MatchResult, minute: number, controllingTeam
 	let attackPower = (att as any)[`attack${sector}`] || 1;
 	const defensePower = (def as any)[`defense${sector}`] || 1;
 
-	const starters = players.filter((p) => p.isStarter);
-	if (starters.length === 0) return;
+	if (players.length === 0) return;
 
-	const fwds = starters.filter((p) => p.position === "FWD");
-	const mids = starters.filter((p) => p.position === "MID");
-	const defs = starters.filter((p) => p.position === "DEF");
+	const fwds = players.filter((p) => p.position === "FWD");
+	const mids = players.filter((p) => p.position === "MID");
+	const defs = players.filter((p) => p.position === "DEF");
 
 	const roll = Math.random();
 	let shooter: Player;
 	if (roll < 0.5 && fwds.length > 0) shooter = getRandomElement(fwds);
 	else if (roll < 0.9 && mids.length > 0) shooter = getRandomElement(mids);
 	else if (defs.length > 0) shooter = getRandomElement(defs);
-	else shooter = getRandomElement(starters);
+	else shooter = getRandomElement(players);
 
 	const rawShooting = shooter.stats?.scoring || shooter.stats?.shooting || 5;
 	const shooterShooting = getEffectiveStat(rawShooting, shooter.form);
@@ -250,7 +254,11 @@ function handleNormalAttack(result: MatchResult, minute: number, controllingTeam
 
 	const attack3 = Math.pow(attackPower, 3);
 	const defense3 = Math.pow(defensePower, 3);
-	const scoringChance = attack3 / (attack3 + defense3);
+	let scoringChance = attack3 / (attack3 + defense3);
+
+	if (att.strategy === "DEFENSIVE") {
+		scoringChance *= 0.8;
+	}
 
 	if (probability(scoringChance)) {
 		if (controllingTeam === "home") result.homeScore++;
@@ -279,16 +287,19 @@ function handleNormalAttack(result: MatchResult, minute: number, controllingTeam
 function handleSetPiece(result: MatchResult, minute: number, controllingTeam: "home" | "away", att: TeamRatings, def: TeamRatings, teamId: number, players: Player[], teamName: string) {
 	const att3 = Math.pow(att.setPieces || 1, 3);
 	const def3 = Math.pow(def.defenseCenter || 1, 3);
-	const chance = att3 / (att3 + def3);
+	let chance = att3 / (att3 + def3);
 
-	const starters = players.filter(p => p.isStarter);
-	if (starters.length === 0) return;
+	if (att.strategy === "DEFENSIVE") {
+		chance *= 0.8;
+	}
+
+	if (players.length === 0) return;
 
 	if (probability(chance)) {
 		if (controllingTeam === "home") result.homeScore++;
 		else result.awayScore++;
 
-		const taker = starters.reduce((prev, curr) => {
+		const taker = players.reduce((prev, curr) => {
 			const prevRaw = prev.stats?.setPieces || prev.stats?.shooting || 0;
 			const currRaw = curr.stats?.setPieces || curr.stats?.shooting || 0;
 			const prevVal = getEffectiveStat(prevRaw, prev.form);
@@ -316,8 +327,8 @@ function handleSetPiece(result: MatchResult, minute: number, controllingTeam: "h
 }
 
 function handleSpecialEvent(result: MatchResult, minute: number, controllingTeam: "home" | "away", teamId: number, players: Player[], teamName: string) {
-	const starters = players.filter(p => p.isStarter);
-	const speedster = starters.find((p) => {
+	if (players.length === 0) return;
+	const speedster = players.find((p) => {
 		const effectiveSpeed = getEffectiveStat(p.stats?.speed || 5, p.form);
 		return effectiveSpeed > 8 && p.condition > 50;
 	});

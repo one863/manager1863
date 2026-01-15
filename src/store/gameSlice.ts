@@ -18,6 +18,7 @@ interface GameState {
 	isTampered: boolean;
 	isGameOver: boolean;
 	unreadNewsCount: number;
+	lastUpdate: number;
 
 	initialize: (
 		slotId: number,
@@ -33,6 +34,7 @@ interface GameState {
 	deleteSaveAndQuit: () => Promise<void>;
 	refreshUnreadNewsCount: () => Promise<void>;
 	finalizeLiveMatch: () => Promise<void>;
+	triggerRefresh: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -45,6 +47,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 	isTampered: false,
 	isGameOver: false,
 	unreadNewsCount: 0,
+	lastUpdate: Date.now(),
 
 	initialize: async (slotId, date, teamId, _managerName, _teamName) => {
 		// SECURITY: Ensure any residual live match state is cleared when starting fresh
@@ -59,6 +62,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 			isProcessing: false,
 			isTampered: false,
 			isGameOver: false,
+			lastUpdate: Date.now(),
 		});
 		await get().refreshUnreadNewsCount();
 	},
@@ -95,6 +99,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 				isProcessing: false,
 				isTampered: !isValid,
 				isGameOver: !!state.isGameOver,
+				lastUpdate: Date.now(),
 			});
 			await get().refreshUnreadNewsCount();
 			return true;
@@ -192,6 +197,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 						season: nextSeason,
 						currentDate: nextDate,
 						isProcessing: false,
+						lastUpdate: Date.now(),
 					});
 					await get().refreshUnreadNewsCount();
 					return;
@@ -205,7 +211,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 				season,
 				nextDate,
 			);
-			set({ day: nextDay, currentDate: nextDate, isProcessing: false });
+			set({ day: nextDay, currentDate: nextDate, isProcessing: false, lastUpdate: Date.now() });
 			await get().refreshUnreadNewsCount();
 		}
 	},
@@ -265,6 +271,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 			season: finalSeason,
 			currentDate: nextDate,
 			isProcessing: false,
+			lastUpdate: Date.now(),
 		});
 
 		await get().refreshUnreadNewsCount();
@@ -307,11 +314,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 			unreadNewsCount: 0,
 			season: 1,
 			day: 1,
+			lastUpdate: Date.now(),
 		});
 	},
 
 	setProcessing: (status) => set({ isProcessing: status }),
 	setUserTeam: (id) => set({ userTeamId: id }),
+	triggerRefresh: () => set({ lastUpdate: Date.now() }),
 }));
 
 async function updateGameState(

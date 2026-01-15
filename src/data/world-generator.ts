@@ -20,6 +20,10 @@ const SUFFIXES = [
 
 const STADIUM_SUFFIXES = ["Park", "Road", "Ground", "Stadium", "Field", "Lane"];
 
+const COACH_NAMES = [
+	"James Smith", "William Taylor", "George Brown", "Thomas Wilson", "Charles Johnson", "Arthur Davies", "Robert Robinson", "Edward Thompson", "Harry Wright", "Frederick Walker"
+];
+
 function generateTeamName(usedNames: Set<string>): string {
 	let name = "";
 	let attempts = 0;
@@ -41,6 +45,35 @@ function generateColor(): string {
 		color += letters[Math.floor(Math.random() * 16)];
 	}
 	return color;
+}
+
+async function generateCoach(saveId: number, teamId: number, baseSkill: number) {
+	const skill = baseSkill + (randomInt(-10, 10) / 10);
+	const strategy = getRandomElement(["DEFENSIVE", "BALANCED", "OFFENSIVE"]) as "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
+	const isFemale = Math.random() < 0.2;
+	const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`;
+	
+	const stats = {
+		management: skill + (randomInt(-1, 1)),
+		training: skill + (randomInt(-1, 1)),
+		tactical: skill + (randomInt(-1, 1)),
+		physical: skill + (randomInt(-1, 1)),
+		goalkeeping: skill + (randomInt(-1, 1)),
+		strategy: skill + (randomInt(-1, 1))
+	};
+
+	await db.staff.add({
+		saveId,
+		teamId,
+		name: getRandomElement(COACH_NAMES),
+		role: "COACH",
+		skill: skill,
+		stats: stats,
+		wage: Math.round(skill * 20),
+		age: randomInt(35, 65),
+		dna,
+		preferredStrategy: strategy
+	} as StaffMember);
 }
 
 async function generateTutorialNews(saveId: number, managerName: string) {
@@ -88,6 +121,8 @@ export const WorldGenerator = {
 				} as Team);
 				
 				await generateSquad(saveId, teamId as number, teamSkill);
+				// Générer un coach pour l'IA
+				await generateCoach(saveId, teamId as number, baseSkill);
 			}
 
 			if (level === DIVISIONS) {
@@ -107,7 +142,8 @@ export const WorldGenerator = {
 					training: 5.2, // Débloque GENERAL
 					tactical: 4.8,
 					physical: 3.5,
-					goalkeeping: 3.0
+					goalkeeping: 3.0,
+					strategy: 4.0
 				};
 
 				await db.staff.add({
@@ -119,7 +155,8 @@ export const WorldGenerator = {
 					stats: helperStats,
 					wage: 15, 
 					age: 58, 
-					dna
+					dna,
+					preferredStrategy: "BALANCED"
 				} as StaffMember);
 			}
 		}

@@ -1,7 +1,7 @@
 import { type StaffMember, db } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
-import { ArrowLeft, Trash2, Award, Briefcase, UserCircle, AlertCircle, TrendingUp } from "lucide-preact";
-import { useState } from "preact/hooks";
+import { ArrowLeft, Trash2, Award, Briefcase, AlertCircle, TrendingUp, Target, Shield, Zap } from "lucide-preact";
+import { useState, useEffect } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "./PlayerAvatar";
 
@@ -12,13 +12,18 @@ interface StaffCardProps {
 }
 
 export default function StaffCard({
-	staff,
+	staff: initialStaff,
 	onClose,
 	onStaffAction,
 }: StaffCardProps) {
 	const { t } = useTranslation();
 	const userTeamId = useGameStore((state) => state.userTeamId);
+	const [staff, setStaff] = useState<StaffMember | null>(initialStaff);
 	const [showConfirmFire, setShowConfirmFire] = useState(false);
+
+	useEffect(() => {
+		setStaff(initialStaff);
+	}, [initialStaff]);
 
 	if (!staff) return null;
 
@@ -58,7 +63,6 @@ export default function StaffCard({
 		</div>
 	);
 
-	// Default stats if missing (fallback for older saves)
 	const stats = staff.stats || {
 		management: staff.skill,
 		training: staff.skill,
@@ -66,6 +70,9 @@ export default function StaffCard({
 		physical: staff.skill,
 		goalkeeping: staff.skill
 	};
+
+	const strategyLabel = staff.preferredStrategy === "OFFENSIVE" ? "Offensif" : staff.preferredStrategy === "DEFENSIVE" ? "Défensif" : "Équilibré";
+	const StrategyIcon = staff.preferredStrategy === "OFFENSIVE" ? Zap : staff.preferredStrategy === "DEFENSIVE" ? Shield : Target;
 
 	return (
 		<div
@@ -97,6 +104,21 @@ export default function StaffCard({
 			</div>
 
 			<div className="p-5 space-y-6 flex-1 overflow-y-auto">
+				{staff.role === "COACH" && (
+					<div className="bg-paper-dark p-4 rounded-2xl border border-gray-100 flex items-center gap-4">
+						<div className={`p-3 rounded-full ${staff.preferredStrategy === "OFFENSIVE" ? "bg-red-100 text-red-600" : staff.preferredStrategy === "DEFENSIVE" ? "bg-blue-100 text-blue-600" : "bg-accent/10 text-accent"}`}>
+							<StrategyIcon size={24} />
+						</div>
+						<div>
+							<h4 className="text-[10px] font-black uppercase tracking-widest text-ink-light">Identité Tactique</h4>
+							<p className="text-sm font-bold text-ink">{strategyLabel}</p>
+							<p className="text-[9px] text-ink-light italic opacity-70">
+								{staff.preferredStrategy === "DEFENSIVE" ? "Prudence et bloc regroupé" : staff.preferredStrategy === "OFFENSIVE" ? "Projection rapide vers l'avant" : "Maîtrise et équilibre des lignes"}.
+							</p>
+						</div>
+					</div>
+				)}
+
 				<div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
 					<h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-4 border-b border-accent/10 pb-1 flex justify-between">
 						<span>Compétences Clés</span>
@@ -107,7 +129,6 @@ export default function StaffCard({
 					<StatBar label="Tactique" value={stats.tactical} />
 					<StatBar label="Physique" value={stats.physical} />
 					<StatBar label="Gardiens" value={stats.goalkeeping} />
-					<p className="mt-4 text-[9px] text-ink-light italic">Un niveau de 5 est requis pour débloquer les programmes spécialisés.</p>
 				</div>
 
 				<div className="space-y-4">

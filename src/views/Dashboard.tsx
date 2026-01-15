@@ -1,4 +1,4 @@
-import { type League, type Match, type Team, db } from "@/db/db";
+import { type League, type Match, type Team, type StaffMember, db, Player } from "@/db/db";
 import { useGameStore } from "@/store/gameSlice";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -11,7 +11,8 @@ import BoardView from "@/views/Club/BoardView";
 export default function Dashboard({
 	onNavigate,
 	onShowClub,
-}: { onNavigate?: (view: any) => void; onShowClub?: (id: number) => void }) {
+	onSelectPlayer,
+}: { onNavigate?: (view: any) => void; onShowClub?: (id: number) => void; onSelectPlayer?: (p: Player) => void }) {
 	const { t } = useTranslation();
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const userTeamId = useGameStore((state) => state.userTeamId);
@@ -21,6 +22,7 @@ export default function Dashboard({
 
 	const [team, setTeam] = useState<Team | null>(null);
 	const [league, setLeague] = useState<League | null>(null);
+	const [coach, setCoach] = useState<StaffMember | null>(null);
 	const [nextMatch, setNextMatch] = useState<{
 		match: Match;
 		opponent: Team;
@@ -39,8 +41,14 @@ export default function Dashboard({
 		const loadDashboardData = async () => {
 			if (!currentSaveId || !userTeamId) return;
 			try {
-				const userTeam = await db.teams.get(userTeamId);
+				const [userTeam, userCoach] = await Promise.all([
+					db.teams.get(userTeamId),
+					db.staff.where("[saveId+teamId]").equals([currentSaveId, userTeamId]).and(s => s.role === "COACH").first(),
+				]);
+				
 				setTeam(userTeam || null);
+				setCoach(userCoach || null);
+
 				if (userTeam) {
 					const userLeague = await db.leagues.get(userTeam.leagueId);
 					setLeague(userLeague || null);
@@ -99,6 +107,7 @@ export default function Dashboard({
 							team={team}
 							league={league}
 							position={position}
+							coach={coach}
 						/>
 
 						<NextMatchCard
@@ -113,7 +122,7 @@ export default function Dashboard({
 					<BoardView />
 				) : (
 					<div className="animate-fade-in">
-						<NewsList onNavigate={onNavigate} />
+						<NewsList onNavigate={onNavigate} onSelectPlayer={onSelectPlayer} />
 					</div>
 				)}
 			</div>

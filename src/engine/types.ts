@@ -13,6 +13,7 @@ export const TeamRatingsSchema = z.object({
 	setPieces: z.number().min(1).max(10.99),
 	tacticSkill: z.number().min(1).max(10.99),
 	tacticType: z.enum(["NORMAL", "CA", "PRESSING", "AIM", "AOW"]),
+	strategy: z.enum(["DEFENSIVE", "BALANCED", "OFFENSIVE"]),
 });
 
 export const MatchEventSchema = z.object({

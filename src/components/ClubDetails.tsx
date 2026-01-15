@@ -1,5 +1,5 @@
-import { type Team, db } from "@/db/db";
-import { Landmark, Shield, Trophy, Users, ArrowLeft, Store } from "lucide-preact";
+import { type Team, type League, type StaffMember, db } from "@/db/db";
+import { Landmark, Shield, Trophy, Users, ArrowLeft, Store, Zap, Target, Shield as DefenseIcon } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import PlayerAvatar from "./PlayerAvatar";
 
@@ -10,6 +10,8 @@ interface ClubDetailsProps {
 
 export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 	const [team, setTeam] = useState<Team | null>(null);
+	const [league, setLeague] = useState<League | null>(null);
+	const [coach, setCoach] = useState<StaffMember | null>(null);
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const [keyPlayers, setKeyPlayers] = useState<any[]>([]);
 	const [stats, setStats] = useState({ avgSkill: 0, totalValue: 0 });
@@ -17,9 +19,20 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 
 	useEffect(() => {
 		const loadClubData = async () => {
-			const teamData = await db.teams.get(teamId);
+			const [teamData, coachData] = await Promise.all([
+				db.teams.get(teamId),
+				db.staff.where("teamId").equals(teamId).and(s => s.role === "COACH").first()
+			]);
+
 			if (teamData) {
 				setTeam(teamData);
+				setCoach(coachData || null);
+				
+				if (teamData.leagueId) {
+					const leagueData = await db.leagues.get(teamData.leagueId);
+					if (leagueData) setLeague(leagueData);
+				}
+
 				const players = await db.players
 					.where("teamId")
 					.equals(teamId)
@@ -40,15 +53,17 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 
 	if (isLoading || !team) return null;
 
+	const strategy = coach?.preferredStrategy || "BALANCED";
+	const strategyLabel = strategy === "OFFENSIVE" ? "Offensif" : strategy === "DEFENSIVE" ? "Défensif" : "Équilibré";
+	const StrategyIcon = strategy === "OFFENSIVE" ? Zap : strategy === "DEFENSIVE" ? DefenseIcon : Target;
+
 	return (
 		<div
 			className="fixed inset-x-0 bottom-0 z-[200] bg-white flex flex-col max-w-md mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up h-[90vh]"
 			onClick={(e) => e.stopPropagation()}
 		>
-			{/* Pull bar for drawer feel */}
 			<div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3 shrink-0" />
 
-			{/* Unified Header */}
 			<div className="bg-white px-4 pb-4 border-b flex justify-between items-center sticky top-0 z-10 shrink-0">
 				<div className="flex gap-4 items-center">
 					<button
@@ -79,20 +94,21 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 				</div>
 			</div>
 
-			{/* Unified Body */}
 			<div className="p-5 space-y-6 flex-1 overflow-y-auto">
 				<div className="grid grid-cols-2 gap-3">
 					<div className="bg-paper-dark p-3 rounded-2xl border border-gray-200">
 						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
 							Réputation
 						</span>
-						<span className="text-lg font-bold text-ink">{Math.round(team.reputation)}/100</span>
+						<span className="text-lg font-bold text-ink">{Math.round(team.reputation)}</span>
 					</div>
 					<div className="bg-paper-dark p-3 rounded-2xl border border-gray-200">
 						<span className="block text-[8px] text-ink-light uppercase font-black tracking-widest">
 							Division
 						</span>
-						<span className="text-lg font-bold text-ink">Niveau {team.leagueId ? "Ligue" : "Amateur"}</span>
+						<span className="text-lg font-bold text-ink">
+							{league ? `Niveau ${league.level}` : "Amateur"}
+						</span>
 					</div>
 				</div>
 
@@ -129,15 +145,18 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 					</div>
 
 					<div className="flex items-center gap-4 text-sm bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-						<div className="w-10 h-10 rounded-xl bg-paper-dark flex items-center justify-center text-accent shrink-0">
-							<Shield size={20} />
+						<div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${strategy === "OFFENSIVE" ? "bg-red-50 text-red-600" : strategy === "DEFENSIVE" ? "bg-blue-50 text-blue-600" : "bg-paper-dark text-accent"}`}>
+							<StrategyIcon size={20} />
 						</div>
-						<div>
+						<div className="flex-1">
 							<div className="text-[10px] text-ink-light uppercase font-bold tracking-wider">
-								Philosophie de Jeu
+								Philosophie & Coach
 							</div>
-							<div className="font-bold text-ink capitalize">
-								{(team.tacticType || "Normal").toLowerCase()}
+							<div className="flex justify-between items-center">
+								<span className="font-bold text-ink">
+									{strategyLabel} ({(team.tacticType || "Normal").toLowerCase()})
+								</span>
+								{coach && <span className="text-[10px] text-ink-light italic">{coach.name}</span>}
 							</div>
 						</div>
 					</div>
@@ -181,7 +200,6 @@ export default function ClubDetails({ teamId, onClose }: ClubDetailsProps) {
 				</div>
 			</div>
 
-			{/* Footer spacer */}
 			<div className="p-4 bg-paper-dark border-t border-gray-200 pb-10 shrink-0" />
 		</div>
 	);

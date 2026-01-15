@@ -65,6 +65,7 @@ export default function CreateTeam({
 					db.gameState,
 					db.news,
 					db.history,
+					db.staff
 				],
 				async () => {
 					await Promise.all([
@@ -75,6 +76,7 @@ export default function CreateTeam({
 						db.matches.where("saveId").equals(slotId).delete(),
 						db.news.where("saveId").equals(slotId).delete(),
 						db.history.where("saveId").equals(slotId).delete(),
+						db.staff.where("saveId").equals(slotId).delete(),
 					]);
 				},
 			);
@@ -145,10 +147,10 @@ export default function CreateTeam({
 						<Shield size={32} />
 					</div>
 					<h1 className="text-2xl font-serif font-bold text-ink tracking-tight">
-						{t("create.title")}
+						Fondation du Club
 					</h1>
 					<p className="text-ink-light italic text-xs">
-						{t("create.subtitle")}
+						Établissez les statuts de votre institution
 					</p>
 				</header>
 
@@ -158,7 +160,7 @@ export default function CreateTeam({
 							<div className="grid grid-cols-1 gap-4">
 								<div className="space-y-1">
 									<label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
-										<User size={10} /> Identité du Manager
+										<User size={10} /> Identité du Président
 									</label>
 									<div className="flex gap-2">
 										<input
@@ -180,13 +182,13 @@ export default function CreateTeam({
 
 								<div className="space-y-1">
 									<label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
-										<Shield size={10} /> {t("create.club_label")}
+										<Shield size={10} /> Nom du Club
 									</label>
 									<input
 										type="text"
 										value={teamName}
 										onInput={(e) => setTeamName(e.currentTarget.value)}
-										placeholder={t("create.club_placeholder")}
+										placeholder="Ex: London City FC"
 										className="w-full bg-paper-dark/30 border-2 border-gray-100 rounded-xl px-4 py-2.5 text-sm text-ink font-serif focus:border-accent outline-none transition-all"
 									/>
 								</div>
@@ -194,7 +196,7 @@ export default function CreateTeam({
 
 							<div className="space-y-3 pt-1">
 								<label className="text-[9px] uppercase font-black text-ink-light flex items-center gap-1.5 tracking-widest px-1">
-									<Palette size={10} /> Couleurs de l'Institution
+									<Palette size={10} /> Couleurs du Club
 								</label>
 								<div className="grid grid-cols-6 gap-2">
 									{CLUB_COLORS.map((c, i) => (
@@ -225,16 +227,7 @@ export default function CreateTeam({
 										</button>
 									))}
 								</div>
-								<p className="text-[9px] text-center font-bold uppercase tracking-widest text-accent bg-accent/5 py-1 rounded-full">
-									{selectedColor.name}
-								</p>
 							</div>
-						</div>
-
-						<div className="bg-paper-dark/20 p-4 rounded-xl border border-gray-200">
-							<p className="text-[11px] text-ink-light leading-relaxed font-serif italic text-center px-2 opacity-80">
-								"{t("create.charter_text")}"
-							</p>
 						</div>
 
 						<div className="flex gap-3">

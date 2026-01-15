@@ -19,6 +19,7 @@ export default function PlayerCard({
 }: PlayerCardProps) {
 	const { t } = useTranslation();
 	const userTeamId = useGameStore((state) => state.userTeamId);
+	const triggerRefresh = useGameStore((state) => state.triggerRefresh);
 	const [showConfirmSell, setShowConfirmSell] = useState(false);
 
 	if (!player) return null;
@@ -31,6 +32,7 @@ export default function PlayerCard({
 		if (!userTeamId) return;
 		try {
 			await TransferService.sellPlayer(player.id!, userTeamId);
+			triggerRefresh();
 			setShowConfirmSell(false);
 			if (onPlayerAction) onPlayerAction();
 			onClose();

@@ -194,7 +194,7 @@ function renderView(
 ) {
 	switch (view) {
 		case "dashboard":
-			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} />;
+			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} onSelectPlayer={onSelectPlayer} />;
 		case "squad":
 			return <TeamView onSelectPlayer={onSelectPlayer} onSelectStaff={onSelectStaff} />;
 		case "league":
@@ -211,6 +211,6 @@ function renderView(
 				/>
 			);
 		default:
-			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} />;
+			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} onSelectPlayer={onSelectPlayer} />;
 	}
 }

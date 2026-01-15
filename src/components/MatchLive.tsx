@@ -61,10 +61,10 @@ export default function MatchLive() {
 			if (e.type === "GOAL") {
 				if (e.teamId === liveMatch.homeTeam.id) {
 					h++;
-					hScorersList.push({ name: g.scorerName, minute: g.minute });
+					hScorersList.push({ name: e.scorerName, minute: e.minute });
 				} else {
 					a++;
-					aScorersList.push({ name: g.scorerName, minute: g.minute });
+					aScorersList.push({ name: e.scorerName, minute: e.minute });
 				}
 			}
 		});
@@ -163,23 +163,23 @@ export default function MatchLive() {
 
 		let h = 0;
 		let a = 0;
-		const hScorers: Scorer[] = [];
-		const aScorers: Scorer[] = [];
+		const hScorersList: Scorer[] = [];
+		const aScorersList: Scorer[] = [];
 		liveMatch.result.events.forEach((e: any) => {
 			if (e.type === "GOAL") {
 				if (e.teamId === liveMatch.homeTeam.id) {
 					h++;
-					hScorers.push({ name: e.scorerName, minute: e.minute });
+					hScorersList.push({ name: e.scorerName, minute: e.minute });
 				} else {
 					a++;
-					aScorers.push({ name: e.scorerName, minute: e.minute });
+					aScorersList.push({ name: e.scorerName, minute: e.minute });
 				}
 			}
 		});
 		homeScore.value = h;
 		awayScore.value = a;
-		homeScorers.value = hScorers;
-		awayScorers.value = aScorers;
+		homeScorers.value = hScorersList;
+		awayScorers.value = aScorersList;
 
 		updateLiveMatchMinute(90, currentSaveId);
 	};
@@ -211,7 +211,7 @@ export default function MatchLive() {
 				home: liveMatch.homeTeam.name,
 				away: liveMatch.awayTeam.name,
 				score: `${homeScore.value}-${awayScore.value}`,
-				possession: `${liveMatch.result.homePossession}% / ${100 - liveMatch.result.homePossession}%`,
+				possession: `${liveMatch.result.homePossession}% / ${100 - liveiamatch.result.homePossession}%`,
 			},
 			events: liveMatch.result.events,
 		};
@@ -251,8 +251,8 @@ export default function MatchLive() {
 				match={{
 					...liveMatch,
 					id: liveMatch.matchId,
-					homeTeamId: liveMatch.homeTeam.id, // AJOUTÉ
-					awayTeamId: liveMatch.awayTeam.id, // AJOUTÉ
+					homeTeamId: liveMatch.homeTeam.id, 
+					awayTeamId: liveMatch.awayTeam.id, 
 					homeScore: homeScore.value,
 					awayScore: awayScore.value,
 					details: liveMatch.result,

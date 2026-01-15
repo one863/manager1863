@@ -1,5 +1,5 @@
 import { generateSeasonFixtures } from "@/data/league-templates";
-import { type Match, type Player, type Team, db } from "@/db/db";
+import { type Match, type Player, type Team, type StaffMember, db } from "@/db/db";
 import { calculateTeamRatings } from "@/engine/converter";
 import { FORMATIONS } from "@/engine/tactics";
 import type { MatchResult } from "@/engine/types";
@@ -61,11 +61,9 @@ export const MatchService = {
 		teamId: number,
 		currentPlayers: Player[],
 	) {
-		// 1. Check if we need to fill gaps
 		const currentStarters = currentPlayers.filter((p) => p.isStarter);
 		if (currentStarters.length >= 11) return;
 
-		// 2. Fetch Context (Coach & Formation)
 		const [coach, team] = await Promise.all([
 			db.staff
 				.where("[saveId+teamId]")
@@ -75,12 +73,12 @@ export const MatchService = {
 			db.teams.get(teamId),
 		]);
 
-		const coachSkill = coach ? coach.skill : 5; // Updated scale 1-10
+		// Utilisation du niveau de Management du coach (ou 3.0 par défaut si pas de coach)
+		const managementLevel = coach?.stats?.management || 3.0;
 		const formationKey = team?.formation || "4-4-2";
 		const req =
 			(FORMATIONS as any)[formationKey] || (FORMATIONS as any)["4-4-2"];
 
-		// 3. Prepare pools
 		const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
 		currentStarters.forEach((p) => {
 			if (counts[p.position] !== undefined) counts[p.position]++;
@@ -97,10 +95,16 @@ export const MatchService = {
 		const newStartersIds: number[] = [];
 
 		const pickForPos = (pos: "GK" | "DEF" | "MID" | "FWD", count: number) => {
+			// Tri des candidats par "Valeur de sélection"
+			// Un bon coach privilégie le Skill mais aussi la Condition et l'Énergie
 			let candidates = available
 				.filter((p) => p.position === pos)
-				.sort((a, b) => b.skill - a.skill);
-			// Fallback: if not enough candidates of correct position, take anyone sorted by skill
+				.sort((a, b) => {
+					const scoreA = a.skill * 0.7 + (a.condition / 20) + (a.energy / 50);
+					const scoreB = b.skill * 0.7 + (b.condition / 20) + (b.energy / 50);
+					return scoreB - scoreA;
+				});
+			
 			if (candidates.length < count) {
 				const others = available
 					.filter((p) => p.position !== pos)
@@ -111,8 +115,11 @@ export const MatchService = {
 			for (let i = 0; i < count; i++) {
 				if (candidates.length === 0) break;
 
-				// Coach Logic: Pick based on skill/competence
-				const errorMargin = Math.max(0.05, 1 - coachSkill / 10);
+				// Logique de Management : 
+				// Plus le niveau est haut, plus le coach choisit précisément le meilleur candidat.
+				// À 10, errorMargin = 0 -> toujours le meilleur.
+				// À 3, errorMargin = 0.7 -> peut choisir n'importe qui dans le top 70%.
+				const errorMargin = Math.max(0, 1 - managementLevel / 10);
 				const maxIndex = Math.min(
 					candidates.length - 1,
 					Math.floor(candidates.length * errorMargin),
@@ -122,7 +129,6 @@ export const MatchService = {
 				const picked = candidates[pickIndex];
 				newStartersIds.push(picked.id!);
 
-				// Remove from available and candidates
 				available = available.filter((p) => p.id !== picked.id);
 				candidates.splice(pickIndex, 1);
 			}
@@ -133,7 +139,6 @@ export const MatchService = {
 		pickForPos("MID", needed.MID);
 		pickForPos("FWD", needed.FWD);
 
-		// If still < 11, fill with whatever remains
 		while (
 			newStartersIds.length + currentStarters.length < 11 &&
 			available.length > 0
@@ -143,7 +148,6 @@ export const MatchService = {
 			available.shift();
 		}
 
-		// Update DB and currentPlayers array in place
 		if (newStartersIds.length > 0) {
 			await db.players
 				.where("id")
@@ -171,60 +175,66 @@ export const MatchService = {
 				(m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) &&
 				!m.played,
 		);
-		if (userMatch) {
-			const [homeTeam, awayTeam] = await Promise.all([
-				db.teams.get(userMatch.homeTeamId),
-				db.teams.get(userMatch.awayTeamId),
-			]);
-			if (homeTeam && awayTeam) {
-				await NewsService.announceMatchDay(
-					saveId,
-					date,
-					homeTeam.name,
-					awayTeam.name,
-					homeTeam.stadiumName,
-				);
-			}
-		}
-
+		
 		const otherMatches = todaysMatches.filter(
 			(m) =>
 				!m.played && m.homeTeamId !== userTeamId && m.awayTeamId !== userTeamId,
 		);
 
-		if (otherMatches.length > 0) {
-			const allPlayers = await db.players
-				.where("saveId")
-				.equals(saveId)
-				.toArray();
-			const playersByTeam = allPlayers.reduce(
-				(acc, player) => {
-					if (!acc[player.teamId]) acc[player.teamId] = [];
-					acc[player.teamId].push(player);
-					return acc;
-				},
-				{} as Record<number, Player[]>,
-			);
+		const allPlayers = await db.players
+			.where("saveId")
+			.equals(saveId)
+			.toArray();
+		
+		const playersByTeam = allPlayers.reduce(
+			(acc, player) => {
+				if (!acc[player.teamId]) acc[player.teamId] = [];
+				acc[player.teamId].push(player);
+				return acc;
+			},
+			{} as Record<number, Player[]>,
+		);
 
+		for (const match of otherMatches) {
+			await this.autoSelectStarters(saveId, match.homeTeamId, playersByTeam[match.homeTeamId] || []);
+			await this.autoSelectStarters(saveId, match.awayTeamId, playersByTeam[match.awayTeamId] || []);
+		}
+
+		if (otherMatches.length > 0) {
 			const matchesToSimulate = [];
 			for (const match of otherMatches) {
 				const homePlayers = playersByTeam[match.homeTeamId] || [];
 				const awayPlayers = playersByTeam[match.awayTeamId] || [];
-				const [homeT, awayT] = await Promise.all([
+				
+				const [homeT, awayT, homeCoach, awayCoach] = await Promise.all([
 					db.teams.get(match.homeTeamId),
 					db.teams.get(match.awayTeamId),
+					db.staff.where("[saveId+teamId]").equals([saveId, match.homeTeamId]).and(s => s.role === "COACH").first(),
+					db.staff.where("[saveId+teamId]").equals([saveId, match.awayTeamId]).and(s => s.role === "COACH").first()
 				]);
+
+				const homeRatings = calculateTeamRatings(
+					homePlayers,
+					homeT?.tacticType || "NORMAL",
+					homeCoach?.preferredStrategy || "BALANCED",
+					saveId,
+					date
+				);
+				if (homeCoach) homeRatings.tacticSkill = homeCoach.stats.tactical;
+
+				const awayRatings = calculateTeamRatings(
+					awayPlayers,
+					awayT?.tacticType || "NORMAL",
+					awayCoach?.preferredStrategy || "BALANCED",
+					saveId,
+					date
+				);
+				if (awayCoach) awayRatings.tacticSkill = awayCoach.stats.tactical;
 
 				matchesToSimulate.push({
 					matchId: match.id,
-					homeRatings: calculateTeamRatings(
-						homePlayers,
-						homeT?.tacticType || "NORMAL",
-					),
-					awayRatings: calculateTeamRatings(
-						awayPlayers,
-						awayT?.tacticType || "NORMAL",
-					),
+					homeRatings,
+					awayRatings,
 					homeTeamId: match.homeTeamId,
 					awayTeamId: match.awayTeamId,
 					homePlayers,
@@ -237,36 +247,28 @@ export const MatchService = {
 		}
 
 		if (userMatch) {
-			const homePlayers = await db.players
-				.where("[saveId+teamId]")
-				.equals([saveId, userMatch.homeTeamId])
-				.toArray();
-			const awayPlayers = await db.players
-				.where("[saveId+teamId]")
-				.equals([saveId, userMatch.awayTeamId])
-				.toArray();
+			const homePlayers = playersByTeam[userMatch.homeTeamId] || [];
+			const awayPlayers = playersByTeam[userMatch.awayTeamId] || [];
 
-			// AUTO-SELECT for User Team (Coach Logic)
-			if (userMatch.homeTeamId === userTeamId) {
-				await this.autoSelectStarters(saveId, userTeamId, homePlayers);
-			} else if (userMatch.awayTeamId === userTeamId) {
-				await this.autoSelectStarters(saveId, userTeamId, awayPlayers);
-			}
+			await this.autoSelectStarters(saveId, userMatch.homeTeamId, homePlayers);
+			await this.autoSelectStarters(saveId, userMatch.awayTeamId, awayPlayers);
 
-			const [homeT, awayT] = await Promise.all([
+			const [homeT, awayT, homeCoach, awayCoach] = await Promise.all([
 				db.teams.get(userMatch.homeTeamId),
 				db.teams.get(userMatch.awayTeamId),
+				db.staff.where("[saveId+teamId]").equals([saveId, userMatch.homeTeamId]).and(s => s.role === "COACH").first(),
+				db.staff.where("[saveId+teamId]").equals([saveId, userMatch.awayTeamId]).and(s => s.role === "COACH").first()
 			]);
 
+			const homeRatings = calculateTeamRatings(homePlayers, homeT?.tacticType || "NORMAL", homeCoach?.preferredStrategy || "BALANCED", saveId, date);
+			if (homeCoach) homeRatings.tacticSkill = homeCoach.stats.tactical;
+
+			const awayRatings = calculateTeamRatings(awayPlayers, awayT?.tacticType || "NORMAL", awayCoach?.preferredStrategy || "BALANCED", saveId, date);
+			if (awayCoach) awayRatings.tacticSkill = awayCoach.stats.tactical;
+
 			const matchData = {
-				homeRatings: calculateTeamRatings(
-					homePlayers,
-					homeT?.tacticType || "NORMAL",
-				),
-				awayRatings: calculateTeamRatings(
-					awayPlayers,
-					awayT?.tacticType || "NORMAL",
-				),
+				homeRatings,
+				awayRatings,
 				homeTeamId: userMatch.homeTeamId,
 				awayTeamId: userMatch.awayTeamId,
 				homePlayers,

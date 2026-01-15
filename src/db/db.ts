@@ -41,6 +41,7 @@ export interface StaffMember {
 	wage: number;
 	age: number;
 	dna: string;
+	preferredStrategy: "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
 }
 
 export interface SeasonHistory {

@@ -23,6 +23,7 @@ import Button from "@/components/Common/Button";
 
 interface NewsListProps {
 	onNavigate?: (view: any) => void;
+	onSelectPlayer?: (p: Player) => void;
 }
 
 const VIEW_MAPPING: Record<string, string> = {
@@ -35,7 +36,7 @@ const VIEW_MAPPING: Record<string, string> = {
 	Tactique: "squad",
 };
 
-export default function NewsView({ onNavigate }: NewsListProps) {
+export default function NewsView({ onNavigate, onSelectPlayer }: NewsListProps) {
 	const { t } = useTranslation();
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const userTeamId = useGameStore((state) => state.userTeamId);
@@ -114,6 +115,15 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 		}
 	};
 
+	const handleLinkClick = async (type: string, id: string, label: string) => {
+		if (type === "view" && onNavigate) {
+			onNavigate(id);
+		} else if (type === "player" && onSelectPlayer) {
+			const player = await db.players.get(parseInt(id));
+			if (player) onSelectPlayer(player);
+		}
+	};
+
 	const renderRichText = (text: string, isHeadline = false) => {
 		const parts = text.split(/(\[\[.+?\]\]|\*\*.+?\*\*)/g);
 
@@ -129,7 +139,7 @@ export default function NewsView({ onNavigate }: NewsListProps) {
 						className="text-accent font-bold cursor-pointer hover:underline"
 						onClick={(e) => {
 							e.stopPropagation();
-							if (type === "view" && onNavigate) onNavigate(id);
+							handleLinkClick(type, id, label);
 						}}
 					>
 						{label}

@@ -6,6 +6,7 @@ import {
 	Shield,
 	Target,
 	Zap,
+	TrendingUp,
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -101,26 +102,112 @@ export default function Squad({ viewMode = "squad", onSelectPlayer }: { viewMode
 	const userTeamId = useGameStore((state) => state.userTeamId);
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const day = useGameStore((state) => state.day);
+	const lastUpdate = useGameStore((state) => state.lastUpdate);
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [team, setTeam] = useState<Team | null>(null);
+	const [coach, setCoach] = useState<StaffMember | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
 	const loadData = async () => {
 		if (!userTeamId || currentSaveId === null) return;
-		const [squad, teamData] = await Promise.all([
+		const [squad, teamData, coachData] = await Promise.all([
 			db.players.where("[saveId+teamId]").equals([currentSaveId, userTeamId]).toArray(),
 			db.teams.get(userTeamId),
+			db.staff.where("[saveId+teamId]").equals([currentSaveId, userTeamId]).and(s => s.role === "COACH").first(),
 		]);
 		setPlayers(squad);
 		if (teamData) setTeam(teamData);
+		if (coachData) setCoach(coachData);
 		setIsLoading(false);
 	};
 
-	useEffect(() => { loadData(); }, [userTeamId, currentSaveId, day]);
+	useEffect(() => { loadData(); }, [userTeamId, currentSaveId, day, lastUpdate]);
+
+	const updateTactic = async (tactic: Team["tacticType"]) => {
+		if (!userTeamId) return;
+		await db.teams.update(userTeamId, { tacticType: tactic });
+		loadData();
+	};
+
+	const updateFormation = async (formation: Team["formation"]) => {
+		if (!userTeamId) return;
+		await db.teams.update(userTeamId, { formation });
+		loadData();
+	};
 
 	if (isLoading) return <div className="p-8 text-center animate-pulse">{t("game.loading")}</div>;
 
 	const getPlayersByPos = (pos: string) => players.filter((p) => p.position === pos).sort((a, b) => b.skill - a.skill);
+
+	if (viewMode === "tactics") {
+		return (
+			<div className="space-y-6 animate-fade-in pb-24">
+				{/* INFORMATION STRATÉGIQUE (COACH) - LECTURE SEULE */}
+				{coach && (
+					<section className="bg-paper-dark p-4 rounded-2xl border border-gray-100 flex items-center gap-4">
+						<div className={`p-3 rounded-full ${coach.preferredStrategy === "OFFENSIVE" ? "bg-red-100 text-red-600" : coach.preferredStrategy === "DEFENSIVE" ? "bg-blue-100 text-blue-600" : "bg-accent/10 text-accent"}`}>
+							{coach.preferredStrategy === "OFFENSIVE" ? <Zap size={24} /> : coach.preferredStrategy === "DEFENSIVE" ? <Shield size={24} /> : <Target size={24} />}
+						</div>
+						<div>
+							<h4 className="text-[10px] font-black uppercase tracking-widest text-ink-light">Stratégie du Coach</h4>
+							<p className="text-sm font-bold text-ink">
+								{coach.name} ({coach.preferredStrategy === "OFFENSIVE" ? "Offensif" : coach.preferredStrategy === "DEFENSIVE" ? "Défensif" : "Équilibré"})
+							</p>
+							<p className="text-[9px] text-ink-light italic opacity-70">
+								Style : {coach.preferredStrategy === "DEFENSIVE" ? "Prudence et bloc regroupé" : coach.preferredStrategy === "OFFENSIVE" ? "Projection rapide vers l'avant" : "Maîtrise et équilibre des lignes"}.
+							</p>
+						</div>
+					</section>
+				)}
+
+				<section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+					<h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
+						<Layout size={18} className="text-accent" /> Schéma Tactique
+					</h3>
+					<div className="grid grid-cols-3 gap-2">
+						{Object.keys(FORMATIONS).map((f) => (
+							<button
+								key={f}
+								onClick={() => updateFormation(f as any)}
+								className={`py-3 rounded-xl border-2 font-mono font-bold text-sm transition-all ${team?.formation === f ? "bg-accent border-accent text-white shadow-md" : "bg-paper-dark border-gray-100 text-ink-light hover:border-gray-300"}`}
+							>
+								{f}
+							</button>
+						))}
+					</div>
+				</section>
+
+				<section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+					<h3 className="text-sm font-bold text-ink-light uppercase tracking-widest mb-4 flex items-center gap-2">
+						<Target size={18} className="text-accent" /> Philosophie de Jeu
+					</h3>
+					<div className="grid grid-cols-1 gap-3">
+						<TacticButton
+							active={team?.tacticType === "NORMAL"}
+							title="Équilibre"
+							desc="Tactique standard."
+							icon={Target}
+							onClick={() => updateTactic("NORMAL")}
+						/>
+						<TacticButton
+							active={team?.tacticType === "PRESSING"}
+							title="Pressing"
+							desc="Étouffer l'adversaire."
+							icon={Zap}
+							onClick={() => updateTactic("PRESSING")}
+						/>
+						<TacticButton
+							active={team?.tacticType === "CA"}
+							title="Contre-Attaque"
+							desc="Attendre l'erreur et jaillir."
+							icon={Shield}
+							onClick={() => updateTactic("CA")}
+						/>
+					</div>
+				</section>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-5 pb-24 px-4">
@@ -136,6 +223,28 @@ export default function Squad({ viewMode = "squad", onSelectPlayer }: { viewMode
 				</section>
 			))}
 		</div>
+	);
+}
+
+function TacticButton({ active, title, desc, icon: Icon, onClick }: any) {
+	return (
+		<button
+			onClick={onClick}
+			className={`flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left ${active ? "bg-accent/5 border-accent shadow-sm" : "bg-white border-gray-100 hover:border-gray-200"}`}
+		>
+			<div className={`p-2 rounded-lg ${active ? "bg-accent text-white" : "bg-gray-100 text-gray-400"}`}>
+				<Icon size={20} />
+			</div>
+			<div>
+				<div className={`font-bold text-sm ${active ? "text-accent" : "text-ink"}`}>{title}</div>
+				<div className="text-[10px] text-ink-light italic">{desc}</div>
+			</div>
+			{active && (
+				<div className="ml-auto mt-1">
+					<Check size={16} className="text-accent" strokeWidth={3} />
+				</div>
+			)}
+		</button>
 	);
 }
 
