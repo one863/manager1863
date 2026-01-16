@@ -73,7 +73,7 @@ export const ClubService = {
 			}
 		}
 
-		await this.processDailyPlayerUpdates(saveId, teamId);
+		await this.processDailyPlayerUpdates(saveId, teamId, currentDay, currentDate);
 	},
 
 	async processWeeklyFinances(saveId: number, teamId: number, day: number, date: Date) {
@@ -124,14 +124,30 @@ export const ClubService = {
 		});
 	},
 
-	async processDailyPlayerUpdates(saveId: number, teamId: number) {
+	async processDailyPlayerUpdates(saveId: number, teamId: number, day: number, date: Date) {
 		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
 		for (const player of players) {
-			await db.players.update(player.id!, {
+			const updateData: any = {
 				energy: clamp(player.energy + 5, 0, 100),
 				condition: clamp(player.condition + 2, 0, 100),
 				morale: clamp(player.morale + (player.morale < 50 ? 1 : -1), 0, 100)
-			});
+			};
+
+			if (player.injuryDays > 0) {
+				updateData.injuryDays = player.injuryDays - 1;
+				if (updateData.injuryDays === 0) {
+					await NewsService.addNews(saveId, {
+						day,
+						date,
+						title: "RETOUR DE BLESSURE",
+						content: `${player.firstName} ${player.lastName} est de nouveau disponible.`,
+						type: "CLUB",
+						importance: 1,
+					});
+				}
+			}
+
+			await db.players.update(player.id!, updateData);
 		}
 	},
 
@@ -155,6 +171,16 @@ export const ClubService = {
 			confidence: clamp(team.confidence + (isWin ? 5 : -5), 0, 100),
 			pendingIncome: (team.pendingIncome || 0) + ticketIncome,
 		});
+
+		// Decrease suspensions
+		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
+		for (const player of players) {
+			if (player.suspensionMatches > 0) {
+				await db.players.update(player.id!, {
+					suspensionMatches: player.suspensionMatches - 1
+				});
+			}
+		}
 
 		return { repChange, totalIncome: ticketIncome };
 	},

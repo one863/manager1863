@@ -35,13 +35,28 @@ export default function MatchLive() {
 	const awayScorers = useSignal<Scorer[]>([]);
 	const homeChances = useSignal(0);
 	const awayChances = useSignal(0);
+	const homeShots = useSignal(0);
+	const awayShots = useSignal(0);
+	const homeXG = useSignal(0);
+	const awayXG = useSignal(0);
+	const currentPossession = useSignal(50);
 
 	const isPausedRef = useRef(false);
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	// Helper to calculate possession at a given minute
+	const calculatePossessionAtMinute = (minute: number, finalPossession: number) => {
+		if (minute <= 0) return 50;
+		const weight = minute / 90;
+		const base = 50 * (1 - weight) + finalPossession * weight;
+		const jitter = Math.sin(minute * 0.5) * 2;
+		return Math.round(Math.max(30, Math.min(70, base + jitter)));
+	};
+
 	// Initialisation
 	useEffect(() => {
 		if (!liveMatch) return;
+		
 		const pastEvents = liveMatch.result.events.filter(
 			(e: any) => e.minute <= currentMinute.value,
 		);
@@ -49,15 +64,16 @@ export default function MatchLive() {
 
 		let h = 0;
 		let a = 0;
-		let hChances = 0;
-		let aChances = 0;
 		const hScorersList: Scorer[] = [];
 		const aScorersList: Scorer[] = [];
+		let hXG = 0;
+		let aXG = 0;
+		let hShots = 0;
+		let aShots = 0;
+		let hChances = 0;
+		let aChances = 0;
 
 		pastEvents.forEach((e: any) => {
-			if (e.teamId === liveMatch.homeTeam.id) hChances++;
-			else if (e.teamId === liveMatch.awayTeam.id) aChances++;
-
 			if (e.type === "GOAL") {
 				if (e.teamId === liveMatch.homeTeam.id) {
 					h++;
@@ -67,17 +83,34 @@ export default function MatchLive() {
 					aScorersList.push({ name: e.scorerName, minute: e.minute });
 				}
 			}
+			
+			if (e.xg) {
+				if (e.teamId === liveMatch.homeTeam.id) {
+					hXG += e.xg;
+					hShots++;
+					if (e.type === "GOAL" || e.xg > 0.18) hChances++;
+				} else {
+					aXG += e.xg;
+					aShots++;
+					if (e.type === "GOAL" || e.xg > 0.18) aChances++;
+				}
+			}
 		});
 
 		homeScore.value = h;
 		awayScore.value = a;
 		homeChances.value = hChances;
 		awayChances.value = aChances;
+		homeShots.value = hShots;
+		awayShots.value = aShots;
+		homeXG.value = hXG;
+		awayXG.value = aXG;
 		homeScorers.value = hScorersList;
 		awayScorers.value = aScorersList;
+		currentPossession.value = calculatePossessionAtMinute(currentMinute.value, liveMatch.result.homePossession);
 
 		if (currentMinute.value >= 90) isFinished.value = true;
-	}, []);
+	}, [liveMatch]); // Depend on liveMatch for initial load
 
 	// Timer Loop
 	useEffect(() => {
@@ -91,11 +124,19 @@ export default function MatchLive() {
 			if (currentMinute.value >= 90) {
 				clearInterval(timer);
 				isFinished.value = true;
+				currentPossession.value = liveMatch.result.homePossession;
+				homeXG.value = liveMatch.result.stats.homeXG || homeXG.value;
+				awayXG.value = liveMatch.result.stats.awayXG || awayXG.value;
+				homeShots.value = liveMatch.result.stats.homeShots || homeShots.value;
+				awayShots.value = liveMatch.result.stats.awayShots || awayShots.value;
+				homeChances.value = liveMatch.result.stats.homeChances || homeChances.value;
+				awayChances.value = liveMatch.result.stats.awayChances || awayChances.value;
 				if (currentSaveId) updateLiveMatchMinute(90, currentSaveId);
 				return;
 			}
 
 			currentMinute.value += 1;
+			currentPossession.value = calculatePossessionAtMinute(currentMinute.value, liveMatch.result.homePossession);
 
 			if (currentMinute.value % 5 === 0 && currentSaveId) {
 				updateLiveMatchMinute(currentMinute.value, currentSaveId);
@@ -109,8 +150,17 @@ export default function MatchLive() {
 				displayedEvents.value = [...displayedEvents.value, ...eventsNow];
 
 				eventsNow.forEach((e: any) => {
-					if (e.teamId === liveMatch.homeTeam.id) homeChances.value++;
-					else if (e.teamId === liveMatch.awayTeam.id) awayChances.value++;
+					if (e.xg) {
+						if (e.teamId === liveMatch.homeTeam.id) {
+							homeXG.value += e.xg;
+							homeShots.value++;
+							if (e.type === "GOAL" || e.xg > 0.18) homeChances.value++;
+						} else {
+							awayXG.value += e.xg;
+							awayShots.value++;
+							if (e.type === "GOAL" || e.xg > 0.18) awayChances.value++;
+						}
+					}
 				});
 
 				const goals = eventsNow.filter((e: any) => e.type === "GOAL");
@@ -160,11 +210,19 @@ export default function MatchLive() {
 		currentMinute.value = 90;
 		isFinished.value = true;
 		displayedEvents.value = liveMatch.result.events;
+		currentPossession.value = liveMatch.result.homePossession;
+		homeXG.value = liveMatch.result.stats.homeXG || 0;
+		awayXG.value = liveMatch.result.stats.awayXG || 0;
+		homeShots.value = liveMatch.result.stats.homeShots || 0;
+		awayShots.value = liveMatch.result.stats.awayShots || 0;
+		homeChances.value = liveMatch.result.stats.homeChances || 0;
+		awayChances.value = liveMatch.result.stats.awayChances || 0;
 
 		let h = 0;
 		let a = 0;
 		const hScorersList: Scorer[] = [];
 		const aScorersList: Scorer[] = [];
+		
 		liveMatch.result.events.forEach((e: any) => {
 			if (e.type === "GOAL") {
 				if (e.teamId === liveMatch.homeTeam.id) {
@@ -176,6 +234,7 @@ export default function MatchLive() {
 				}
 			}
 		});
+		
 		homeScore.value = h;
 		awayScore.value = a;
 		homeScorers.value = hScorersList;
@@ -321,7 +380,11 @@ export default function MatchLive() {
 				awayScorers={awayScorers}
 				homeChances={homeChances}
 				awayChances={awayChances}
-				possession={liveMatch.result.homePossession}
+				homeShots={homeShots}
+				awayShots={awayShots}
+				homeXG={homeXG}
+				awayXG={awayXG}
+				possession={currentPossession}
 				isFinished={isFinished.value}
 			/>
 

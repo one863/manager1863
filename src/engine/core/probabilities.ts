@@ -1,49 +1,35 @@
 import { clamp } from "@/utils/math";
 
 /**
- * Bibliothèque de probabilités avancées pour le moteur de simulation.
- * Permet des calculs non-linéaires plus réalistes que le hasard pur.
- */
-
-/**
  * Calcule un taux de succès basé sur une courbe Sigmoïde.
- * Idéal pour comparer deux puissances (ex: Attaque vs Défense).
- * @param power L'attaquant
- * @param resistance Le défenseur
- * @param steepness Courbure (plus haut = plus punitif)
  */
 export function calculateSuccessRate(power: number, resistance: number, steepness = 2): number {
 	if (power <= 0) return 0;
 	if (resistance <= 0) return 1;
-	
-	// Ratio de force
 	const ratio = power / resistance;
-	
-	// Fonction logistique : 1 / (1 + exp(-k * (x - 1)))
-	// Centrée sur ratio = 1 (50% de chance si égalité)
 	return 1 / (1 + Math.exp(-steepness * (ratio - 1)));
 }
 
 /**
  * Calcule l'impact de la fatigue de manière non-linéaire.
- * L'impact est faible au début, puis s'accélère dramatiquement sous les 50% d'énergie.
+ * DURCISSEMENT PLATINUM : La chute est désormais exponentielle sous les 60%.
  */
 export function getFatiguePenalty(energy: number): number {
 	const e = clamp(energy / 100, 0, 1);
 	
-	// Si énergie > 80%, performance optimale (100%)
-	if (e > 0.8) return 1.0;
+	// Si énergie > 85%, performance optimale (100%)
+	if (e > 0.85) return 1.0;
 	
-	// Entre 50% et 80%, légère baisse (de 100% à 85%)
-	if (e > 0.5) return 0.85 + (e - 0.5) * 0.5; 
+	// Entre 60% et 85%, baisse linéaire modérée (de 100% à 75%)
+	if (e > 0.6) return 0.75 + (e - 0.6) * 1.0; 
 	
-	// Sous 50%, chute brutale (Courbe quadratique)
-	return Math.pow(e, 2) * 2; 
+	// Sous 60%, chute TRÈS BRUTALE (Courbe cubique)
+	// À 40% (e=0.4), le joueur ne vaut plus que ~18% de sa note initiale
+	return Math.pow(e, 3) * 2.8; 
 }
 
 /**
  * Génère un nombre suivant une distribution normale (Courbe de Gauss).
- * Utile pour les notes de performance (Ratings) pour éviter les extrêmes trop fréquents.
  */
 export function boxMullerRandom(mean: number, stdDev: number): number {
 	const u = 1 - Math.random(); 
@@ -54,17 +40,14 @@ export function boxMullerRandom(mean: number, stdDev: number): number {
 
 /**
  * Sélectionne un élément dans une liste en fonction de son poids.
- * @param items Liste d'objets avec une propriété weight
  */
 export function weightedPick<T>(items: { item: T; weight: number }[]): T {
 	const totalWeight = items.reduce((acc, i) => acc + i.weight, 0);
 	let random = Math.random() * totalWeight;
-	
 	for (const { item, weight } of items) {
 		if (random < weight) return item;
 		random -= weight;
 	}
-	
 	return items[0].item;
 }
 
@@ -72,6 +55,18 @@ export function weightedPick<T>(items: { item: T; weight: number }[]): T {
  * Probabilité de blessure ou carton basée sur l'agressivité et la fatigue.
  */
 export function calculateRiskEvent(baseRisk: number, fatiguePenalty: number, intensityBonus = 1.0): boolean {
+	// Higher fatigue penalty (closer to 0) means higher risk
+	// 2 - 1.0 = 1.0 risk multiplier at full health
+	// 2 - 0.2 = 1.8 risk multiplier at high fatigue
 	const adjustedRisk = baseRisk * (2 - fatiguePenalty) * intensityBonus;
 	return Math.random() < adjustedRisk;
+}
+
+/**
+ * Calculate expected goals based on position and pressure (Simplified)
+ */
+export function calculateXG(attackPower: number, defensePower: number, skill: number): number {
+	const base = calculateSuccessRate(attackPower, defensePower, 1.5);
+	const skillFactor = 0.5 + skill / 10;
+	return clamp(base * 0.3 * skillFactor, 0.01, 0.8);
 }

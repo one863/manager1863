@@ -30,13 +30,14 @@ async function runSimulation(data: any) {
 		data.awayPlayers,
 		data.homeName || "Home",
 		data.awayName || "Away",
+		data.homeCoach, // Données transmises depuis le service
+		data.awayCoach,
 	);
 }
 
 self.onmessage = async (e: MessageEvent) => {
 	const { type, payload } = e.data;
 
-	// Mise à jour de la langue si nécessaire
 	if (payload?.language && i18next.language !== payload.language) {
 		await i18next.changeLanguage(payload.language);
 	}

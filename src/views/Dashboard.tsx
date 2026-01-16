@@ -27,6 +27,8 @@ export default function Dashboard({
 		match: Match;
 		opponent: Team;
 	} | null>(null);
+	const [userForm, setUserForm] = useState<Match[]>([]);
+	const [opponentForm, setOpponentForm] = useState<Match[]>([]);
 	const [position, setPosition] = useState<number>(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<"club" | "board" | "news">("club");
@@ -39,11 +41,11 @@ export default function Dashboard({
 
 	useEffect(() => {
 		const loadDashboardData = async () => {
-			if (!currentSaveId || !userTeamId) return;
+			if (currentSaveId === null || userTeamId === null) return;
 			try {
 				const [userTeam, userCoach] = await Promise.all([
 					db.teams.get(userTeamId),
-					db.staff.where("[saveId+teamId]").equals([currentSaveId, userTeamId]).and(s => s.role === "COACH").first(),
+					db.staff.where("[saveId+teamId]").equals([currentSaveId, userTeamId]).first(),
 				]);
 				
 				setTeam(userTeam || null);
@@ -52,13 +54,23 @@ export default function Dashboard({
 				if (userTeam) {
 					const userLeague = await db.leagues.get(userTeam.leagueId);
 					setLeague(userLeague || null);
+					
 					const leagueTeams = await db.teams
 						.where("leagueId")
 						.equals(userTeam.leagueId)
 						.toArray();
-					leagueTeams.sort((a, b) => (b.points || 0) - (a.points || 0));
+					leagueTeams.sort((a, b) => (b.points || 0) - (a.points || 0) || (b.goalDifference || 0) - (a.goalDifference || 0));
 					setPosition(leagueTeams.findIndex((t) => t.id === userTeamId) + 1);
 
+					// Get user form - SAFE QUERY
+					const userRecent = await db.matches
+						.where("saveId")
+						.equals(currentSaveId)
+						.filter(m => m.played === true && (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId))
+						.toArray();
+					setUserForm(userRecent.sort((a, b) => b.day - a.day).slice(0, 5));
+
+					// Get next match - SAFE QUERY
 					const futureMatches = await db.matches
 						.where("[saveId+day]")
 						.between([currentSaveId, day], [currentSaveId, 999])
@@ -69,17 +81,28 @@ export default function Dashboard({
 							(m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) &&
 							!m.played,
 					);
+					
 					if (myNextMatch) {
 						const opponentId =
 							myNextMatch.homeTeamId === userTeamId
 								? myNextMatch.awayTeamId
 								: myNextMatch.homeTeamId;
 						const opponent = await db.teams.get(opponentId);
-						if (opponent) setNextMatch({ match: myNextMatch, opponent });
+						if (opponent) {
+							setNextMatch({ match: myNextMatch, opponent });
+							
+							// Get opponent form - SAFE QUERY
+							const oppRecent = await db.matches
+								.where("saveId")
+								.equals(currentSaveId)
+								.filter(m => m.played === true && (m.homeTeamId === opponentId || m.awayTeamId === opponentId))
+								.toArray();
+							setOpponentForm(oppRecent.sort((a, b) => b.day - a.day).slice(0, 5));
+						}
 					}
 				}
 			} catch (e) {
-				console.error(e);
+				console.error("Dashboard load error", e);
 			} finally {
 				setIsLoading(false);
 			}
@@ -112,10 +135,13 @@ export default function Dashboard({
 
 						<NextMatchCard
 							nextMatch={nextMatch}
-							userTeamId={userTeamId}
+							userTeamId={userTeamId!}
 							userTeamName={team?.name || ""}
 							currentDate={currentDate}
 							onShowOpponent={onShowClub}
+							userForm={userForm}
+							opponentForm={opponentForm}
+							currentDay={day}
 						/>
 					</div>
 				) : activeTab === "board" ? (

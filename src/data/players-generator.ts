@@ -1,18 +1,29 @@
-import type { Player, PlayerStats } from "@/db/db";
+import type { Player, PlayerStats, PlayerTrait, Position } from "@/db/db";
 
 const firstNames = [
 	"Arthur", "William", "George", "Thomas", "James", "John", "Charles", "Henry",
 	"Edward", "Frederick", "Walter", "Albert", "Robert", "Joseph", "Samuel",
 	"Alfred", "Harry", "Frank", "Richard", "Ernest", "David", "Peter", "Hugh",
+	"Oliver", "Jack", "Harry", "Jacob", "Charlie", "Thomas", "George", "Oscar",
+	"James", "William", "Noah", "Alfiam", "Freddie", "Leo", "Archie", "Arthur",
+	"Paul", "Steven", "Mark", "Andrew", "Kevin", "Brian", "Gary", "Timothy",
+	"Patrick", "Sean", "Gregory", "Julian", "Marcus", "Lucas", "Victor", "Felix"
 ];
 
 const lastNames = [
 	"Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson",
 	"Thomas", "Roberts", "Johnson", "Lewis", "Walker", "Robinson", "Wood",
 	"Thompson", "Wright", "White", "Watson", "Kinnaird", "Alcock", "Crompton",
+	"Green", "Baker", "Adams", "Campbell", "Phillips", "Murray", "Parker", "Collins",
+	"Graham", "Stewarts", "Morris", "Morgan", "Bell", "Murphy", "Cook", "Bailey",
+	"Richardson", "Cox", "Marshall", "Ward", "Foster", "Griffin", "Knight", "Scott",
+	"Henderson", "Grant", "Elliott", "Fisher", "Reynolds", "Palmer", "Webb", "Hunt"
 ];
 
-export type Position = "GK" | "DEF" | "MID" | "FWD";
+const traitList: PlayerTrait[] = [
+	"COUNTER_ATTACKER", "SHORT_PASSER", "CLUTCH_FINISHER", "WING_WIZARD", 
+	"IRON_DEFENDER", "MARATHON_MAN", "BOX_TO_BOX", "FREE_KICK_EXPERT", "SWEEPER_GK"
+];
 
 function randomInt(min: number, max: number): number {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -28,73 +39,59 @@ function getRandomElement<T>(arr: T[]): T {
 
 function generateStats(position: Position, skill: number): PlayerStats {
 	const getAttr = (base: number) =>
-		Math.max(1, Math.min(10.99, base + randomDecimal(-1.5, 1.5)));
+		Math.max(1, Math.min(20.99, base + randomDecimal(-3, 3)));
 
 	const stats: PlayerStats = {
-		stamina: getAttr(skill),
-		playmaking: getAttr(skill),
-		defense: getAttr(skill),
-		speed: getAttr(skill),
-		head: getAttr(skill),
-		technique: getAttr(skill),
-		scoring: getAttr(skill),
-		setPieces: getAttr(skill),
-		strength: getAttr(skill),
-		dribbling: getAttr(skill),
-		passing: getAttr(skill),
-		shooting: getAttr(skill),
+		finishing: getAttr(skill),
+		creation: getAttr(skill),
+		vision: getAttr(skill),
+		pressing: getAttr(skill),
+		intervention: getAttr(skill),
+		impact: getAttr(skill),
+		resistance: getAttr(skill),
+		volume: getAttr(skill),
+		explosivity: getAttr(skill),
 	};
 
 	switch (position) {
 		case "GK":
-			stats.defense = getAttr(skill + 2);
-			stats.playmaking = getAttr(skill - 1);
-			stats.scoring = getAttr(skill - 3);
-			stats.passing = stats.playmaking;
-			stats.shooting = stats.scoring;
+			stats.goalkeeping = getAttr(skill + 4);
+			stats.resistance = getAttr(skill + 2); // Good relief
+			stats.finishing = getAttr(skill - 10);
+			stats.creation = getAttr(skill - 5);
 			break;
 		case "DEF":
-			stats.defense = getAttr(skill + 1.5);
-			stats.head = getAttr(skill + 1);
-			stats.playmaking = getAttr(skill - 0.5);
-			stats.scoring = getAttr(skill - 2);
-			stats.strength = stats.head;
-			stats.passing = stats.playmaking;
-			stats.shooting = stats.scoring;
+			stats.impact = getAttr(skill + 3);
+			stats.intervention = getAttr(skill + 3);
+			stats.finishing = getAttr(skill - 6);
 			break;
 		case "MID":
-			stats.playmaking = getAttr(skill + 1.5);
-			stats.stamina = getAttr(skill + 1);
-			stats.technique = getAttr(skill + 0.5);
-			stats.defense = getAttr(skill - 0.5);
-			stats.passing = stats.playmaking;
-			stats.dribbling = stats.technique;
+			stats.vision = getAttr(skill + 3);
+			stats.creation = getAttr(skill + 2);
+			stats.resistance = getAttr(skill + 2);
 			break;
 		case "FWD":
-			stats.scoring = getAttr(skill + 2);
-			stats.speed = getAttr(skill + 1);
-			stats.technique = getAttr(skill + 0.5);
-			stats.defense = getAttr(skill - 2);
-			stats.shooting = stats.scoring;
-			stats.dribbling = stats.technique;
+			stats.finishing = getAttr(skill + 4);
+			stats.explosivity = getAttr(skill + 3);
+			stats.intervention = getAttr(skill - 8);
 			break;
 	}
 	return stats;
 }
 
 function calculateValue(skill: number, age: number): number {
-	let baseValue = Math.pow(skill, 4) * 10;
+	let baseValue = Math.pow(skill, 4.2) * 2;
 	if (age < 23) baseValue *= 1.5;
 	if (age > 32) baseValue *= 0.6;
 	return Math.floor(baseValue / 100);
 }
 
 function calculateWage(skill: number): number {
-	return Math.floor(Math.pow(skill, 3) / 2);
+	return Math.floor(Math.pow(skill, 2.5) * 2);
 }
 
 export function generatePlayer(
-	targetSkill = 5,
+	targetSkill = 10,
 	forcedPosition?: Position,
 ): Omit<Player, "id" | "saveId" | "teamId"> {
 	const firstName = getRandomElement(firstNames);
@@ -117,8 +114,19 @@ export function generatePlayer(
 		else if (sideRoll > 0.75) side = "R";
 	}
 
-	const skill = Math.max(1, Math.min(10.99, targetSkill + randomDecimal(-1, 1)));
+	const skill = Math.max(1, Math.min(20, targetSkill + randomDecimal(-2, 2)));
 	const stats = generateStats(position, skill);
+
+	// Traits generation (0-2 traits based on skill)
+	const traits: PlayerTrait[] = [];
+	const traitChance = skill / 20;
+	if (Math.random() < traitChance) {
+		traits.push(getRandomElement(traitList));
+		if (Math.random() < traitChance * 0.3) {
+			let secondTrait = getRandomElement(traitList);
+			if (secondTrait !== traits[0]) traits.push(secondTrait);
+		}
+	}
 
 	const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 3)}`;
 
@@ -131,27 +139,28 @@ export function generatePlayer(
 		dna,
 		skill,
 		stats,
+		traits,
 		form: randomInt(3, 7),
-		formBackground: randomInt(4, 6), // AJOUTÉ
+		formBackground: randomInt(4, 6),
 		experience: Math.max(1, Math.min(10, Math.floor(age / 3.5))),
 		energy: 100,
 		condition: randomInt(90, 100),
 		morale: randomInt(70, 100),
 		marketValue: calculateValue(skill, age),
 		wage: calculateWage(skill),
-		playedThisWeek: false, // AJOUTÉ
-		lastRatings: [], // AJOUTÉ
+		playedThisWeek: false,
+		lastRatings: [],
 	};
 }
 
 export function generateTeamSquad(
-	teamSkill = 5,
+	teamSkill = 10,
 ): Omit<Player, "id" | "saveId" | "teamId">[] {
 	const squad: Omit<Player, "id" | "saveId" | "teamId">[] = [];
 	squad.push(generatePlayer(teamSkill, "GK"));
-	squad.push(generatePlayer(teamSkill - 0.5, "GK"));
-	for (let i = 0; i < 5; i++) squad.push(generatePlayer(teamSkill, "DEF"));
-	for (let i = 0; i < 4; i++) squad.push(generatePlayer(teamSkill, "MID"));
+	squad.push(generatePlayer(teamSkill - 2, "GK"));
+	for (let i = 0; i < 6; i++) squad.push(generatePlayer(teamSkill, "DEF"));
+	for (let i = 0; i < 6; i++) squad.push(generatePlayer(teamSkill, "MID"));
 	for (let i = 0; i < 4; i++) squad.push(generatePlayer(teamSkill, "FWD"));
 	return squad;
 }

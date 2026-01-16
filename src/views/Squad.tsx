@@ -7,6 +7,8 @@ import {
 	Target,
 	Zap,
 	TrendingUp,
+	Activity,
+	ShieldAlert,
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -34,11 +36,27 @@ export const PlayerRow = ({
 	onSelect?: (p: Player) => void;
 	action?: preact.VNode;
 }) => (
-	<div className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-yellow-50 transition-colors bg-white">
+	<div className={`flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-yellow-50 transition-colors ${player.injuryDays > 0 ? "bg-red-50" : player.suspensionMatches > 0 ? "bg-red-100" : "bg-white"}`}>
 		<div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => onSelect?.(player)}>
-			<PlayerAvatar dna={player.dna} size={40} className="border border-gray-200" />
+			<div className="relative">
+				<PlayerAvatar dna={player.dna} size={40} className={`border ${player.injuryDays > 0 ? "border-red-500 grayscale" : player.suspensionMatches > 0 ? "border-red-700 brightness-50" : "border-gray-200"}`} />
+				{player.injuryDays > 0 && (
+					<div className="absolute -bottom-1 -right-1 bg-red-600 text-white p-0.5 rounded-full shadow-sm">
+						<Activity size={8} />
+					</div>
+				)}
+				{player.suspensionMatches > 0 && (
+					<div className="absolute -bottom-1 -right-1 bg-red-800 text-white p-0.5 rounded-full shadow-sm">
+						<ShieldAlert size={8} />
+					</div>
+				)}
+			</div>
 			<div>
-				<div className="font-bold text-ink leading-tight flex items-center gap-1">{player.lastName}</div>
+				<div className="font-bold text-ink leading-tight flex items-center gap-1">
+					{player.lastName}
+					{player.injuryDays > 0 && <span className="text-[8px] px-1 bg-red-600 text-white rounded">Inj</span>}
+					{player.suspensionMatches > 0 && <span className="text-[8px] px-1 bg-red-800 text-white rounded">Susp</span>}
+				</div>
 				<div className="flex items-center gap-2 mt-0.5">
 					<span className={`px-1 rounded-[2px] text-[9px] font-bold border ${getPositionClass(player.position)}`}>
 						{player.position}{player.position !== "GK" && ` (${player.side || "C"})`}

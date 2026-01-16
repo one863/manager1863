@@ -48,18 +48,18 @@ function generateColor(): string {
 }
 
 async function generateCoach(saveId: number, teamId: number, baseSkill: number) {
-	const skill = baseSkill + (randomInt(-10, 10) / 10);
+	const skill = baseSkill + (randomInt(-20, 20) / 10);
 	const strategy = getRandomElement(["DEFENSIVE", "BALANCED", "OFFENSIVE"]) as "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
 	const isFemale = Math.random() < 0.2;
 	const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`;
 	
 	const stats = {
-		management: skill + (randomInt(-1, 1)),
-		training: skill + (randomInt(-1, 1)),
-		tactical: skill + (randomInt(-1, 1)),
-		physical: skill + (randomInt(-1, 1)),
-		goalkeeping: skill + (randomInt(-1, 1)),
-		strategy: skill + (randomInt(-1, 1))
+		management: skill + (randomInt(-2, 2)),
+		training: skill + (randomInt(-2, 2)),
+		tactical: skill + (randomInt(-2, 2)),
+		physical: skill + (randomInt(-2, 2)),
+		goalkeeping: skill + (randomInt(-2, 2)),
+		strategy: skill + (randomInt(-2, 2))
 	};
 
 	await db.staff.add({
@@ -109,24 +109,23 @@ export const WorldGenerator = {
 			} as League);
 
 			const teamsCount = level === DIVISIONS ? TEAMS_PER_DIV - 1 : TEAMS_PER_DIV;
-			const baseSkill = 10.4 - level * 1.2; 
+			const baseSkill = 19 - level * 2; // Scaled to 20
 
 			for (let i = 0; i < teamsCount; i++) {
 				const name = generateTeamName(usedNames);
 				const stadiumName = `${name.split(" ")[0]} ${getRandomElement(STADIUM_SUFFIXES)}`;
-				const teamSkill = baseSkill + (randomInt(-3, 3) / 10);
+				const teamSkill = baseSkill + (randomInt(-10, 10) / 10);
 
 				const teamId = await db.teams.add({
-					saveId, leagueId: leagueId as number, name, managerName: "CPU Manager", primaryColor: generateColor(), secondaryColor: generateColor(), matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: teamSkill * 5000, reputation: teamSkill * 10, fanCount: Math.floor(teamSkill * 500), confidence: 50, stadiumName, stadiumCapacity: Math.floor(teamSkill * 2000), stadiumLevel: Math.ceil(teamSkill / 2), tacticType: "NORMAL", formation: "4-4-2", version: CURRENT_DATA_VERSION,
+					saveId, leagueId: leagueId as number, name, managerName: "CPU Manager", primaryColor: generateColor(), secondaryColor: generateColor(), matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: teamSkill * 5000, reputation: teamSkill * 5, fanCount: Math.floor(teamSkill * 500), confidence: 50, stadiumName, stadiumCapacity: Math.floor(teamSkill * 2000), stadiumLevel: Math.ceil(teamSkill / 2), tacticType: "NORMAL", formation: "4-4-2", version: CURRENT_DATA_VERSION,
 				} as Team);
 				
 				await generateSquad(saveId, teamId as number, teamSkill);
-				// Générer un coach pour l'IA
-				await generateCoach(saveId, teamId as number, baseSkill);
+				await generateCoach(saveId, teamId as number, teamSkill);
 			}
 
 			if (level === DIVISIONS) {
-				const playerTeamSkill = 3.5;
+				const playerTeamSkill = 8.5; // Starts at 8.5/20
 				userTeamId = (await db.teams.add({
 					saveId, leagueId: leagueId as number, name: userTeamName, managerName, primaryColor, secondaryColor, matchesPlayed: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, budget: 2500, reputation: 30, fanCount: 200, confidence: 50, stadiumName: "Community Field", stadiumCapacity: 500, stadiumLevel: 1, tacticType: "NORMAL", formation: "4-4-2", seasonGoal: "PROMOTION", seasonGoalStatus: "PENDING", version: CURRENT_DATA_VERSION,
 				} as Team)) as number;
@@ -136,14 +135,13 @@ export const WorldGenerator = {
 				const isFemale = Math.random() < 0.3;
 				const dna = `${randomInt(0, 3)}-${randomInt(0, 5)}-${randomInt(0, 4)}-${randomInt(0, 5)}-${isFemale ? 1 : 0}`;
 
-				// Initialiser les stats pour Archibald/Alice
 				const helperStats = {
-					management: 4.5,
-					training: 5.2, // Débloque GENERAL
-					tactical: 4.8,
-					physical: 3.5,
-					goalkeeping: 3.0,
-					strategy: 4.0
+					management: 8.5,
+					training: 9.2,
+					tactical: 8.8,
+					physical: 7.5,
+					goalkeeping: 6.0,
+					strategy: 8.0
 				};
 
 				await db.staff.add({
@@ -151,7 +149,7 @@ export const WorldGenerator = {
 					teamId: userTeamId, 
 					name: isFemale ? "Alice Helper" : "Archibald Helper", 
 					role: "COACH", 
-					skill: 4.2, 
+					skill: 8.2, 
 					stats: helperStats,
 					wage: 15, 
 					age: 58, 

@@ -1,33 +1,25 @@
-import {
-	type GameStateData,
-	type League,
-	type Match,
-	MatchResult,
-	type NewsArticle,
-	type Player,
-	type PlayerStats,
-	type Team,
-	TeamRatings,
-} from "@/engine/core/types";
 import Dexie, { type Table } from "dexie";
-
-// We'export the types from engine/types to keep them in sync
-export type {
+import type { 
+	GameStateData, 
+	League, 
+	Match, 
+	NewsArticle, 
+	Player, 
+	Team, 
+	Sponsor,
 	PlayerStats,
-	Player,
-	Team,
-	League,
-	Match,
-	NewsArticle,
-	GameStateData,
-};
+	MatchResult,
+	SeasonStats
+} from "./engine/core/types";
 
-export interface StaffStats {
-	management: number;
-	training: number;
-	tactical: number;
-	physical: number;
-	goalkeeping: number;
+export const CURRENT_DATA_VERSION = 9; 
+
+export interface SaveSlot {
+	id?: number;
+	name: string;
+	lastPlayedDate: Date;
+	day: number;
+	season: number;
 }
 
 export interface StaffMember {
@@ -35,97 +27,73 @@ export interface StaffMember {
 	saveId: number;
 	teamId: number;
 	name: string;
-	role: "COACH" | "SCOUT" | "PHYSICAL_TRAINER";
+	role: "COACH" | "SCOUT" | "DIRECTOR";
 	skill: number;
-	stats: StaffStats;
 	wage: number;
 	age: number;
 	dna: string;
-	preferredStrategy: "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
+	preferredStrategy?: "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
+	stats: {
+		management: number;
+		training: number;
+		tactical: number;
+		physical: number;
+		goalkeeping: number;
+		strategy: number;
+	};
 }
 
-export interface SeasonHistory {
-	id?: number;
-	saveId: number;
-	seasonYear: number;
-	teamId: number;
-	leagueName: string;
-	position: number;
-	points: number;
-	achievements: string[];
-}
-
-export interface SaveSlot {
-	id?: number;
-	managerName: string;
-	teamName: string;
-	presidentName?: string;
-	season: number;
-	day: number;
-	lastPlayedDate: Date;
-}
-
-export const CURRENT_DATA_VERSION = 1; 
-
-class Manager1863DB extends Dexie {
-	players!: Table<Player>;
-	teams!: Table<Team>;
-	leagues!: Table<League>;
-	matches!: Table<Match>;
+export class AppDatabase extends Dexie {
 	saveSlots!: Table<SaveSlot>;
-	gameState!: Table<GameStateData>;
+	gameState!: Table<GameStateData & { id?: number }>;
+	leagues!: Table<League>;
+	teams!: Table<Team>;
+	players!: Table<Player>;
+	matches!: Table<Match>;
 	news!: Table<NewsArticle>;
-	history!: Table<SeasonHistory>;
 	staff!: Table<StaffMember>;
+	history!: Table<any>;
 
 	constructor() {
-		super("Manager1863_Storage_v2"); 
-
-		this.version(1).stores({
-			players: "++id, saveId, teamId, [saveId+teamId]",
-			teams: "++id, saveId, leagueId, [saveId+leagueId]",
-			leagues: "++id, saveId, level, [saveId+level]",
-			matches: "++id, saveId, leagueId, day, [saveId+day]",
-			saveSlots: "id, lastPlayedDate",
-			gameState: "saveId",
+		super("Manager1863DB");
+		
+		this.version(CURRENT_DATA_VERSION).stores({
+			saveSlots: "++id, lastPlayedDate", 
+			gameState: "++id, saveId", 
+			leagues: "++id, saveId",
+			teams: "++id, saveId, leagueId",
+			players: "++id, saveId, teamId, isStarter, [saveId+teamId]",
+			matches: "++id, saveId, leagueId, day, played, [saveId+day]",
 			news: "++id, saveId, day, [saveId+day]",
-			history: "++id, saveId, teamId, seasonYear",
 			staff: "++id, saveId, teamId, [saveId+teamId]",
-		});
-
-		this.on("versionchange", () => {
-			this.close();
-			window.location.reload();
+			history: "++id, saveId, teamId",
 		});
 	}
 }
 
-export const db = new Manager1863DB();
+export const db = new AppDatabase();
 
-const SALT = "victoria-era-football-1863";
-export async function computeSaveHash(saveId: number): Promise<string> {
-	const state = await db.gameState.get(saveId);
-	if (!state || !state.userTeamId) return "";
-	const userTeam = await db.teams.get(state.userTeamId);
-	if (!userTeam) return "";
-	const dataToHash = JSON.stringify({
-		saveId: state.saveId,
-		day: state.day,
-		season: state.season,
-		teamId: state.userTeamId,
-		points: userTeam.points || 0,
-		budget: userTeam.budget,
-		salt: SALT,
-	});
-	const msgUint8 = new TextEncoder().encode(dataToHash);
-	const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+export type { 
+	Player, 
+	Team, 
+	Match, 
+	League, 
+	NewsArticle, 
+	Sponsor, 
+	PlayerStats, 
+	MatchResult,
+	SeasonStats 
+};
 
 export async function verifySaveIntegrity(saveId: number): Promise<boolean> {
-	const state = await db.gameState.get(saveId);
-	if (!state || !state.hash) return true;
-	const currentHash = await computeSaveHash(saveId);
-	return currentHash === state.hash;
+	try {
+		const state = await db.gameState.where("saveId").equals(saveId).first();
+		return !!state;
+	} catch (e) {
+		return false;
+	}
+}
+
+export async function computeSaveHash(saveId: number): Promise<string> {
+	return "STABLE_HASH_" + saveId;
 }

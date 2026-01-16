@@ -1,425 +1,188 @@
 import { getNarrative } from "@/data/narratives";
-import type { Player } from "@/db/db";
-import { clamp, getRandomElement, probability, randomInt } from "@/utils/math";
+import type { Player, PlayerTrait } from "@/db/db";
+import { clamp, probability, randomInt } from "@/utils/math";
 import { 
 	calculateSuccessRate, 
 	getFatiguePenalty, 
 	weightedPick, 
-	boxMullerRandom 
+	boxMullerRandom,
+	calculateRiskEvent 
 } from "./probabilities";
-import type { MatchEvent, MatchResult, TeamRatings } from "./types";
+import { type FormationKey } from "./tactics";
+import type { MatchEvent, MatchResult, TeamRatings, PlayerMatchStats } from "./types";
 
-/**
- * Calcule le skill effectif basé sur la forme avec sécurité
- */
-function getEffectiveStat(stat: number, form: number): number {
-	const safeStat = stat || 1;
-	const safeForm = form || 5;
-	const multiplier = 0.6 + safeForm / 10;
-	return safeStat * multiplier;
+export interface CoachMatchData {
+	management: number;
+	tactical: number;
+	preferredStrategy: "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
+	formation?: FormationKey;
 }
 
-/**
- * Calcule la note de performance individuelle (Rating 1-10) avec sécurité
- */
+function getEffectiveStat(stat: number, form: number): number {
+	const multiplier = 0.6 + form / 10;
+	return stat * multiplier;
+}
+
+function initPlayerStats(p: Player): PlayerMatchStats {
+	return {
+		rating: 0, goals: 0, assists: 0, shots: 0, shotsOnTarget: 0,
+		xg: 0, xa: 0, passes: 0, passesSuccess: 0, duels: 0,
+		duelsWon: 0, distance: 0, sprints: 0, interventions: 0, saves: 0,
+	};
+}
+
 function calculateMatchRating(
 	player: Player,
+	pStats: PlayerMatchStats,
 	teamScore: number,
 	opponentScore: number,
 	events: MatchEvent[],
 ): number {
-	const safeSkill = player.skill || 5;
-	const safeForm = player.form || 5;
-	const safeExp = player.experience || 1;
-	const safeEnergy = player.energy || 100;
-
-	let rating = boxMullerRandom(safeSkill, 1.0);
-
-	const formMult = 0.8 + safeForm / 20; 
-	const expBonus = (safeExp / 10) * 0.5;
-	rating = rating * formMult + expBonus;
-
-	const goals = events.filter(e => e.type === "GOAL" && e.scorerId === player.id).length;
-	rating += goals * 1.5;
-
-	const scoreDiff = teamScore - opponentScore;
-	rating += scoreDiff * 0.2;
-
-	const fatiguePenalty = getFatiguePenalty(safeEnergy);
+	let rating = boxMullerRandom(6.0, 0.8);
+	const formMult = (player.form || 5) / 5; 
+	rating *= (0.9 + formMult * 0.1);
+	rating += (pStats.goals || 0) * 1.5;
+	rating += (pStats.assists || 0) * 1.0;
+	rating += (pStats.xg || 0) * 0.5;
+	rating += (pStats.xa || 0) * 0.5;
+	const passAccuracy = pStats.passes > 0 ? pStats.passesSuccess / pStats.passes : 0.7;
+	rating += (passAccuracy - 0.7) * 2;
+	const duelWinRate = pStats.duels > 0 ? pStats.duelsWon / pStats.duels : 0.5;
+	rating += (duelWinRate - 0.5) * 2;
+	const diff = teamScore - opponentScore;
+	rating += diff * 0.1;
+	const fatiguePenalty = getFatiguePenalty(player.energy || 100);
 	rating *= (0.7 + fatiguePenalty * 0.3);
-
-	const finalRating = clamp(rating, 1, 10);
-	return isNaN(finalRating) ? 5.0 : finalRating;
+	if (events.some(e => e.type === "CARD" && e.playerId === player.id)) rating -= 3.0;
+	return clamp(isNaN(rating) ? 6.0 : Number(rating.toFixed(1)), 1, 10);
 }
 
 export async function simulateMatch(
-	home: TeamRatings,
-	away: TeamRatings,
-	homeTeamId: number,
-	awayTeamId: number,
-	homePlayers: Player[],
-	awayPlayers: Player[],
-	homeName: string,
-	awayName: string,
+	home: TeamRatings, away: TeamRatings, homeTeamId: number, awayTeamId: number,
+	homePlayers: Player[], awayPlayers: Player[], homeName: string, awayName: string,
+	homeCoach?: CoachMatchData, awayCoach?: CoachMatchData,
 ): Promise<MatchResult> {
 	const result: MatchResult = {
-		homeScore: 0,
-		awayScore: 0,
-		homePossession: 0,
-		events: [],
-		stats: { homeChances: 0, awayChances: 0 },
-		playerPerformances: {},
+		homeScore: 0, awayScore: 0, homePossession: 50, events: [],
+		stats: { 
+			homeChances: 0, awayChances: 0, homeShots: 0, awayShots: 0,
+			homeShotsOnTarget: 0, awayShotsOnTarget: 0, homeXG: 0, awayXG: 0,
+			homeXA: 0, awayXA: 0, homePPDA: 0, awayPPDA: 0, homePasses: 0, awayPasses: 0,
+			homeDefensiveActions: 0, awayDefensiveActions: 0, homeDuelsWon: 0, awayDuelsWon: 0,
+			homeDuelsTotal: 0, awayDuelsTotal: 0, homeDistance: 0, awayDistance: 0,
+		},
+		playerPerformances: {}, playerStats: {},
 	};
 
-	const HOME_BONUS = 1.03;
-	const adjustedHomeMidfield = (home.midfield || 1) * HOME_BONUS;
-	const awayMidfield = away.midfield || 1;
+	let hStarters = homePlayers.filter(p => p.isStarter).map(p => ({ ...p }));
+	let aStarters = awayPlayers.filter(p => p.isStarter).map(p => ({ ...p }));
+	[...hStarters, ...aStarters].forEach(p => { result.playerStats![p.id!.toString()] = initPlayerStats(p); });
 
-	const homeStarters = homePlayers.filter(p => p.isStarter);
-	const awayStarters = awayPlayers.filter(p => p.isStarter);
-
-	const getAvgEnergy = (starters: Player[]) => {
-		if (starters.length === 0) return 100;
-		return starters.reduce((acc, p) => acc + (p.energy || 100), 0) / starters.length;
-	};
-	const homeStartEnergy = getAvgEnergy(homeStarters);
-	const awayStartEnergy = getAvgEnergy(awayStarters);
-
-	const getAvgStamina = (starters: Player[]) => {
-		if (starters.length === 0) return 5;
-		return starters.reduce((acc, p) => acc + getEffectiveStat(p.stats?.stamina || 5, p.form), 0) / starters.length;
-	};
-	const homeStaminaAttr = getAvgStamina(homeStarters);
-	const awayStaminaAttr = getAvgStamina(awayStarters);
-
-	const homeMidPenalty = getFatiguePenalty(homeStartEnergy);
-	const awayMidPenalty = getFatiguePenalty(awayStartEnergy);
-	
-	// CORRECTION POSSESSION : Pente plus forte (2.5 au lieu de 1.5)
-	// Un milieu à 5 joueurs (Note 5) contre un milieu à 3 (Note 3) -> Ratio 1.66
-	// Avec pente 2.5, la possession sera écrasante (~85-90%)
-	const possessionChance = calculateSuccessRate(
-		adjustedHomeMidfield * homeMidPenalty, 
-		awayMidfield * awayMidPenalty, 
-		2.5 
-	);
-	result.homePossession = Math.round(possessionChance * 100);
-
-	let totalCycles = 32;
-	if (home.strategy === "OFFENSIVE") totalCycles += 2;
-	if (away.strategy === "OFFENSIVE") totalCycles += 2;
-	if (home.strategy === "DEFENSIVE") totalCycles -= 2;
-	if (away.strategy === "DEFENSIVE") totalCycles -= 2;
-	totalCycles = clamp(totalCycles, 24, 40);
-
+	const unavailablePlayers = new Set<number>();
+	let totalCycles = 40; 
 	const cycleDuration = 90 / totalCycles;
+	let hControlCycles = 0, totalControlCycles = 0;
 
 	for (let cycle = 0; cycle < totalCycles; cycle++) {
 		const minute = Math.floor(cycle * cycleDuration) + randomInt(1, 2);
-
-		const getDynamicFatigueFactor = (startEnergy: number, staminaAttr: number) => {
-			const drainPerMinute = 1.5 - (staminaAttr / 10); 
-			const currentEnergy = Math.max(0, startEnergy - (drainPerMinute * minute));
-			return getFatiguePenalty(currentEnergy);
+		const applyPhys = (starters: Player[], isHome: boolean) => {
+			starters.forEach(p => {
+				if (unavailablePlayers.has(p.id!)) return;
+				const pStat = result.playerStats![p.id!.toString()];
+				const vol = (p.stats.volume || 10) / 20;
+				const fp = getFatiguePenalty(p.energy || 100);
+				p.energy = Math.max(0, (p.energy || 100) - ((1.5 - vol) * (2 - fp) * (90/totalCycles)));
+				const dist = (0.2 + Math.random() * 0.05) * (0.8 + vol * 0.4);
+				pStat.distance += dist;
+				if (isHome) result.stats.homeDistance += dist; else result.stats.awayDistance += dist;
+				if (Math.random() < 0.1 * (p.stats.explosivity / 20) * fp) pStat.sprints++;
+			});
 		};
+		applyPhys(hStarters, true); applyPhys(aStarters, false);
 
-		const homeFatigue = getDynamicFatigueFactor(homeStartEnergy, homeStaminaAttr);
-		const awayFatigue = getDynamicFatigueFactor(awayStartEnergy, awayStaminaAttr);
+		const hR = hStarters.reduce((acc, p) => acc + (p.stats.resistance || 10) * getFatiguePenalty(p.energy), 0) / 11;
+		const aP = aStarters.reduce((acc, p) => acc + (p.stats.pressing || 10) * getFatiguePenalty(p.energy), 0) / 11;
+		const hControlChance = calculateSuccessRate(home.midfield * 1.1 * (hR / 10), away.midfield * (aP / 10), 1.2);
+		const controllingTeam = Math.random() < hControlChance ? "home" : "away";
+		if (controllingTeam === "home") hControlCycles++;
+		totalControlCycles++;
 
-		const scoreDiff = result.homeScore - result.awayScore;
-		const homeComplacency = scoreDiff >= 3 ? 0.85 : 1.0;
-		const awayComplacency = scoreDiff <= -3 ? 0.85 : 1.0;
+		if (controllingTeam === "home") result.stats.awayPPDA += 1; else result.stats.homePPDA += 1;
 
-		const currentHomeMid = adjustedHomeMidfield * homeFatigue * homeComplacency;
-		const currentAwayMid = awayMidfield * awayFatigue * awayComplacency;
-
-		// Même pente forte pour le contrôle du cycle
-		const homeControlChance = calculateSuccessRate(currentHomeMid, currentAwayMid, 2.5);
-		const controllingTeam = Math.random() < homeControlChance ? "home" : "away";
-
-		const getEffectiveRatings = (base: TeamRatings, fatigue: number, complacency: number) => {
-			const attackFactor = fatigue * complacency;
-			return {
-				...base,
-				attackLeft: base.attackLeft * attackFactor,
-				attackCenter: base.attackCenter * attackFactor,
-				attackRight: base.attackRight * attackFactor,
-				defenseLeft: base.defenseLeft * fatigue,
-				defenseCenter: base.defenseCenter * fatigue,
-				defenseRight: base.defenseRight * fatigue,
-			};
+		const attStarters = (controllingTeam === "home" ? hStarters : aStarters).filter(p => !unavailablePlayers.has(p.id!));
+		const defStarters = (controllingTeam === "home" ? aStarters : hStarters).filter(p => !unavailablePlayers.has(p.id!));
+		
+		const handleCycleStats = (attP: Player[], defP: Player[], isH: boolean) => {
+			const passes = randomInt(5, 10), duels = randomInt(2, 5);
+			if (isH) { result.stats.homePasses += passes; result.stats.awayDefensiveActions += 1; } else { result.stats.awayPasses += passes; result.stats.homeDefensiveActions += 1; }
+			for (let i = 0; i < passes; i++) {
+				const p = attP[randomInt(0, attP.length - 1)];
+				const pS = result.playerStats![p.id!.toString()];
+				pS.passes++; if (Math.random() < calculateSuccessRate(p.stats.resistance, 12, 1.3)) pS.passesSuccess++;
+			}
+			for (let i = 0; i < duels; i++) {
+				const pA = attP[randomInt(0, attP.length - 1)], pD = defP[randomInt(0, defP.length - 1)];
+				result.playerStats![pA.id!.toString()].duels++; result.playerStats![pD.id!.toString()].duels++;
+				if (Math.random() < calculateSuccessRate(pA.stats.impact, pD.stats.impact)) {
+					result.playerStats![pA.id!.toString()].duelsWon++; if (isH) result.stats.homeDuelsWon++; else result.stats.awayDuelsWon++;
+				} else {
+					result.playerStats![pD.id!.toString()].duelsWon++; if (isH) result.stats.awayDuelsWon++; else result.stats.homeDuelsWon++;
+				}
+			}
 		};
-
-		const homeCycleRatings = getEffectiveRatings(home, homeFatigue, homeComplacency);
-		const awayCycleRatings = getEffectiveRatings(away, awayFatigue, awayComplacency);
-
-		const attackingRatings = controllingTeam === "home" ? homeCycleRatings : awayCycleRatings;
-		const defendingRatings = controllingTeam === "home" ? awayCycleRatings : homeCycleRatings;
-		const attackingId = controllingTeam === "home" ? homeTeamId : awayTeamId;
-		const attackingStarters = controllingTeam === "home" ? homeStarters : awayStarters;
-		const defendingStarters = controllingTeam === "home" ? awayStarters : homeStarters;
-		const attackingName = controllingTeam === "home" ? homeName : awayName;
-
-		if (attackingStarters.length === 0) continue;
-
-		if (controllingTeam === "home") result.stats.homeChances++;
-		else result.stats.awayChances++;
+		handleCycleStats(attStarters, defStarters, controllingTeam === "home");
 
 		const actionRoll = Math.random();
-
-		if (actionRoll < 0.03) {
-			handleSetPiece(result, minute, controllingTeam, attackingRatings, defendingRatings, attackingId, attackingStarters, attackingName);
-			continue;
-		}
-
-		if (actionRoll < 0.05) {
-			handleSpecialEvent(result, minute, controllingTeam, attackingId, attackingStarters, attackingName);
-			continue;
-		}
-
-		const opponentStrategy = controllingTeam === "home" ? away.strategy : home.strategy;
-		
-		handleNormalAttack(
-			result, minute, controllingTeam, 
-			attackingRatings, defendingRatings, 
-			attackingId, attackingStarters, defendingStarters, attackingName,
-			opponentStrategy
-		);
+		if (actionRoll < 0.15) handleNormalAttack(result, minute, controllingTeam, controllingTeam === "home" ? home : away, controllingTeam === "home" ? away : home, controllingTeam === "home" ? homeTeamId : awayTeamId, attStarters, defStarters, controllingTeam === "home" ? homeName : awayName);
+		else if (actionRoll < 0.20) handleSetPiece(result, minute, controllingTeam, controllingTeam === "home" ? home : away, controllingTeam === "home" ? away : home, controllingTeam === "home" ? homeTeamId : awayTeamId, attStarters, defStarters, controllingTeam === "home" ? homeName : awayName);
 	}
 
-	if (result.homePossession > 60 && away.tacticType === "CA") {
-		handleCounterAttack(result, "away", away, home, awayTeamId, awayStarters, homeStarters, awayName);
-	} else if (result.homePossession < 40 && home.tacticType === "CA") {
-		handleCounterAttack(result, "home", home, away, homeTeamId, homeStarters, awayStarters, homeName);
-	}
+	result.homePossession = Math.round((hControlCycles / totalControlCycles) * 100);
+	result.stats.homePPDA = result.stats.homeDefensiveActions > 0 ? Number((result.stats.homePPDA / result.stats.homeDefensiveActions).toFixed(1)) : 0;
+	result.stats.awayPPDA = result.stats.awayDefensiveActions > 0 ? Number((result.stats.awayPPDA / result.stats.awayDefensiveActions).toFixed(1)) : 0;
 
-	if (probability(0.05)) {
-		const pressTeam = home.tacticType === "PRESSING" ? "home" : away.tacticType === "PRESSING" ? "away" : null;
-		if (pressTeam) {
-			const tId = pressTeam === "home" ? homeTeamId : awayTeamId;
-			const attStarters = pressTeam === "home" ? homeStarters : awayStarters;
-			const defStarters = pressTeam === "home" ? awayStarters : homeStarters;
-			const tName = pressTeam === "home" ? homeName : awayName;
-			
-			if (attStarters.length > 0) {
-				result.events.push({
-					minute: randomInt(10, 80),
-					type: "TRANSITION",
-					teamId: tId,
-					description: getUniqueNarrativeString("match", "transition", { team: pressTeam === "home" ? "Home" : "Away" }, result.events),
-				});
-				handleNormalAttack(result, randomInt(10, 80), pressTeam, pressTeam === "home" ? home : away, pressTeam === "home" ? away : home, tId, attStarters, defStarters, tName, "BALANCED");
-			}
-		}
-	}
+	[...hStarters, ...aStarters].forEach(p => {
+		const isH = hStarters.some(hp => hp.id === p.id);
+		const pS = result.playerStats![p.id!.toString()];
+		const r = calculateMatchRating(p, pS, isH ? result.homeScore : result.awayScore, isH ? result.awayScore : result.homeScore, result.events);
+		pS.rating = r; result.playerPerformances![p.id!.toString()] = r;
+	});
 
 	result.events.sort((a, b) => a.minute - b.minute);
-
-	homeStarters.forEach(p => {
-		result.playerPerformances![p.id!.toString()] = calculateMatchRating(p, result.homeScore, result.awayScore, result.events);
-	});
-	awayStarters.forEach(p => {
-		result.playerPerformances![p.id!.toString()] = calculateMatchRating(p, result.awayScore, result.homeScore, result.events);
-	});
-
 	return result;
 }
 
-function getUniqueNarrativeString(category: string, subCategory: string, params: any, existingEvents: MatchEvent[]): string {
-	let text = getNarrative(category, subCategory, params).content;
-	let attempts = 0;
-	while (existingEvents.some((e) => e.description === text) && attempts < 5) {
-		text = getNarrative(category, subCategory, params).content;
-		attempts++;
-	}
-	return text;
-}
-
-function handleNormalAttack(
-	result: MatchResult, 
-	minute: number, 
-	controllingTeam: "home" | "away", 
-	att: TeamRatings, 
-	def: TeamRatings, 
-	teamId: number, 
-	players: Player[], 
-	_defenders: Player[], 
-	teamName: string,
-	opponentStrategy: string 
-) {
-	const sectorRoll = Math.random();
-	const sector: "Left" | "Center" | "Right" = sectorRoll < 0.33 ? "Left" : sectorRoll < 0.66 ? "Right" : "Center";
-
-	const diffLeft = (att.attackLeft || 1) - (def.defenseRight || 1);
-	const diffCenter = (att.attackCenter || 1) - (def.defenseCenter || 1);
-	const diffRight = (att.attackRight || 1) - (def.defenseLeft || 1);
-
-	const options = [
-		{ id: "Left", weight: Math.max(1, 10 + diffLeft * 3) },
-		{ id: "Center", weight: Math.max(1, 10 + diffCenter * 3) },
-		{ id: "Right", weight: Math.max(1, 10 + diffRight * 3) },
-	];
-
-	const selected = weightedPick(options.map(o => ({ item: o.id, weight: o.weight })));
-	const chosenSector = selected as "Left" | "Center" | "Right";
-
-	let attackPower = (att as any)[`attack${chosenSector}`] || 1;
-	const defSector = chosenSector === "Left" ? "Right" : chosenSector === "Right" ? "Left" : "Center";
-	const defensePower = (def as any)[`defense${defSector}`] || 1;
-
-	if (players.length === 0) return;
-
-	const candidates = players.map(p => {
-		let weight = 1;
-		if (p.position === "FWD") weight = 12;
-		if (p.position === "MID") weight = 4;
-		if (p.position === "DEF") weight = 1;
-		const skill = p.stats?.scoring || p.stats?.shooting || 5;
-		weight *= (skill / 5);
-		return { item: p, weight };
-	});
-	const shooter = weightedPick(candidates);
-
-	const rawShooting = shooter.stats?.scoring || shooter.stats?.shooting || 5;
-	const shooterShooting = getEffectiveStat(rawShooting, shooter.form);
-	
-	const shootingBonus = 0.5 + shooterShooting / 10;
-	attackPower *= shootingBonus;
-
-	const dominationRatio = attackPower / (defensePower || 1);
-	
-	let scoringChance = 0.09 * Math.pow(dominationRatio, 1.5);
-	scoringChance = clamp(scoringChance, 0.005, 0.45);
-
-	if (att.strategy === "DEFENSIVE") {
-		scoringChance *= 0.8;
-	}
-
-	if (att.strategy === "DEFENSIVE" && opponentStrategy === "DEFENSIVE") {
-		scoringChance *= 0.75;
-	}
-
-	if (probability(scoringChance)) {
-		if (controllingTeam === "home") result.homeScore++;
-		else result.awayScore++;
-
-		result.events.push({
-			minute,
-			type: "GOAL",
-			teamId,
-			scorerId: shooter.id,
-			scorerName: shooter.lastName,
-			description: getUniqueNarrativeString("match", "goal", { player: shooter.lastName, team: teamName }, result.events),
-		});
-	} else {
-		if (scoringChance > 0.1 || probability(0.3)) {
-			result.events.push({
-				minute,
-				type: "MISS",
-				teamId,
-				description: getUniqueNarrativeString("match", "miss", { player: shooter.lastName }, result.events),
-			});
-		}
+function handleNormalAttack(result: MatchResult, min: number, side: "home" | "away", attR: TeamRatings, defR: TeamRatings, teamId: number, attP: Player[], defP: Player[], teamName: string) {
+	const sector = Math.random() < 0.33 ? "Left" : Math.random() < 0.5 ? "Right" : "Center";
+	if (!probability(calculateSuccessRate((attR as any)[`attack${sector}`], (defR as any)[`defense${sector === "Left" ? "Right" : sector === "Right" ? "Left" : "Center"}`], 1.2) * 0.8)) return;
+	const shooter = weightedPick(attP.map(p => ({ item: p, weight: p.position === "FWD" ? 15 : p.position === "MID" ? 5 : 1 })));
+	const assister = weightedPick(attP.filter(p => p.id !== shooter.id).map(p => ({ item: p, weight: p.position === "MID" ? 15 : 2 })));
+	const gk = defP.find(p => p.position === "GK");
+	const sS = getEffectiveStat(shooter.stats.finishing, shooter.form) * getFatiguePenalty(shooter.energy);
+	const gS = gk ? getEffectiveStat(gk.stats.goalkeeping || 10, gk.form) * getFatiguePenalty(gk.energy) : 1;
+	let xG = calculateSuccessRate(sS, gS, 1.5) * 0.7;
+	if (shooter.traits?.includes("CLUTCH_FINISHER")) xG *= 1.3;
+	xG = clamp(xG, 0.05, 0.9);
+	if (side === "home") { result.stats.homeXG += xG; result.stats.homeShots++; } else { result.stats.awayXG += xG; result.stats.awayShots++; }
+	const pS = result.playerStats![shooter.id!.toString()]; pS.shots++; pS.xg += xG;
+	result.playerStats![assister.id!.toString()].xa += xG * 0.7;
+	if (probability(xG)) {
+		if (side === "home") result.homeScore++; else result.awayScore++;
+		pS.goals++; result.playerStats![assister.id!.toString()].assists++;
+		result.events.push({ minute: min, type: "GOAL", teamId, scorerId: shooter.id, scorerName: shooter.lastName, description: getNarrative("match", "goal", { player: shooter.lastName, team: teamName }).content, xg: xG });
+	} else if (xG > 0.15) {
+		result.events.push({ minute: min, type: "MISS", teamId, description: gk && probability(0.5) ? `${gk.lastName} réalise un arrêt décisif !` : getNarrative("match", "miss", { player: shooter.lastName }).content, xg: xG });
 	}
 }
 
-function handleSetPiece(result: MatchResult, minute: number, controllingTeam: "home" | "away", att: TeamRatings, def: TeamRatings, teamId: number, players: Player[], teamName: string) {
-	let chance = calculateSuccessRate(att.setPieces || 1, def.defenseCenter || 1, 1.8) * 0.20;
-
-	if (att.strategy === "DEFENSIVE") {
-		chance *= 0.8;
-	}
-
-	if (players.length === 0) return;
-
-	if (probability(chance)) {
-		if (controllingTeam === "home") result.homeScore++;
-		else result.awayScore++;
-
-		const taker = players.reduce((prev, curr) => {
-			const prevRaw = prev.stats?.setPieces || prev.stats?.shooting || 0;
-			const currRaw = curr.stats?.setPieces || curr.stats?.shooting || 0;
-			const prevVal = getEffectiveStat(prevRaw, prev.form);
-			const currVal = getEffectiveStat(currRaw, curr.form);
-			return prevVal > currVal ? prev : curr;
-		});
-		result.events.push({
-			minute,
-			type: "GOAL",
-			teamId,
-			scorerId: taker.id,
-			scorerName: taker.lastName,
-			description: `But sur coup de pied arrêté magnifique pour ${teamName} !`,
-		});
-	} else {
-		if (probability(0.5)) {
-			result.events.push({
-				minute,
-				type: "SET_PIECE",
-				teamId,
-				description: "Coup franc dangereux mais repoussé par la défense.",
-			});
-		}
-	}
-}
-
-function handleSpecialEvent(result: MatchResult, minute: number, controllingTeam: "home" | "away", teamId: number, players: Player[], teamName: string) {
-	if (players.length === 0) return;
-	const speedster = players.find((p) => {
-		const effectiveSpeed = getEffectiveStat(p.stats?.speed || 5, p.form);
-		const currentEnergy = (p.energy || 100) - (minute * 0.8);
-		return effectiveSpeed > 8 && currentEnergy > 40;
-	});
-
-	if (speedster && probability(0.15)) {
-		result.events.push({
-			minute,
-			type: "SPECIAL",
-			teamId,
-			scorerId: speedster.id,
-			scorerName: speedster.lastName,
-			description: `${speedster.lastName} prend tout le monde de vitesse !`,
-		});
-
-		if (probability(0.20)) {
-			if (controllingTeam === "home") result.homeScore++;
-			else result.awayScore++;
-
-			result.events.push({
-				minute,
-				type: "GOAL",
-				teamId,
-				scorerId: speedster.id,
-				scorerName: speedster.lastName,
-				description: `Et c'est au fond ! Quel raid solitaire pour ${teamName} !`,
-			});
-		}
-	}
-}
-
-function handleCounterAttack(result: MatchResult, teamName: "home" | "away", att: TeamRatings, def: TeamRatings, teamId: number, players: Player[], defenders: Player[], realTeamName: string) {
-	// CORRECTION CA : Plus sensible à la défense
-	const caChance = calculateSuccessRate(att.tacticSkill || 1, def.defenseCenter || 1, 1.8);
-
-	if (probability(caChance)) {
-		const minute = randomInt(10, 85);
-		result.events.push({
-			minute,
-			type: "TRANSITION",
-			teamId,
-			description: "Contre-attaque fulgurante lancée !",
-		});
-		
-		// CORRECTION OVER-EXTENSION : Si la défense est faible (ex: 2 défenseurs), on booste le xG
-		// On détecte la faiblesse via la note défensive moyenne
-		const avgDef = (def.defenseCenter + def.defenseLeft + def.defenseRight) / 3;
-		// Si défense très faible (2-3-5), le xG de la CA est multiplié
-		const extensionMalus = avgDef < 2.5 ? 2.5 : 1.0; 
-		
-		// On appelle handleNormalAttack mais on ne peut pas passer de paramètre custom xG facilement
-		// Donc on va "tricher" en boostant temporairement l'attaque pour ce cycle
-		const boostedAtt = { ...att, attackCenter: att.attackCenter * 1.5 * extensionMalus };
-		
-		handleNormalAttack(result, minute, teamName, boostedAtt, def, teamId, players, defenders, realTeamName, "BALANCED");
+function handleSetPiece(result: MatchResult, min: number, side: "home" | "away", attR: TeamRatings, defR: TeamRatings, teamId: number, attP: Player[], defP: Player[], teamName: string) {
+	const xG = clamp(calculateSuccessRate(attR.setPieces, defR.defenseCenter, 1.5) * 0.4, 0.1, 0.6);
+	if (side === "home") { result.stats.homeXG += xG; result.stats.homeShots++; } else { result.stats.awayXG += xG; result.stats.awayShots++; }
+	const shooter = [...attP].sort((a,b) => (b.stats.impact || 0) - (a.stats.impact || 0))[0];
+	const pS = result.playerStats![shooter.id!.toString()]; pS.shots++; pS.xg += xG;
+	if (probability(xG)) {
+		if (side === "home") result.homeScore++; else result.awayScore++;
+		pS.goals++;
+		result.events.push({ minute: min, type: "GOAL", teamId, scorerId: shooter.id, scorerName: shooter.lastName, description: `But de ${shooter.lastName} sur CPA !`, xg: xG });
 	}
 }

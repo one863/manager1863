@@ -11,7 +11,9 @@ export async function exportSaveToJSON(saveId: number): Promise<string> {
 	const leagues = await db.leagues.where("saveId").equals(saveId).toArray();
 	const news = await db.news.where("saveId").equals(saveId).toArray();
 	const history = await db.history.where("saveId").equals(saveId).toArray();
-	const gameState = await db.gameState.get(saveId);
+	
+	// FIXED: Search for gameState by saveId properly since it's no longer the primary key
+	const gameState = await db.gameState.where("saveId").equals(saveId).first();
 
 	if (!gameState) throw new Error("Sauvegarde introuvable");
 
@@ -55,7 +57,7 @@ export async function importSaveFromJSON(
 		async () => {
 			// 2. Nettoyage du slot cible
 			await Promise.all([
-				db.gameState.delete(targetSlotId),
+				db.gameState.where("saveId").equals(targetSlotId).delete(),
 				db.players.where("saveId").equals(targetSlotId).delete(),
 				db.teams.where("saveId").equals(targetSlotId).delete(),
 				db.matches.where("saveId").equals(targetSlotId).delete(),
@@ -65,7 +67,7 @@ export async function importSaveFromJSON(
 			]);
 
 			// 3. Ré-insertion des données validées
-			await db.gameState.put({
+			await db.gameState.add({
 				...validatedData.gameState,
 				saveId: targetSlotId,
 			});
@@ -76,10 +78,7 @@ export async function importSaveFromJSON(
 			);
 			await db.saveSlots.put({
 				id: targetSlotId,
-				managerName: validatedData.gameState.userTeamId
-					? "Manager"
-					: "Sans Club",
-				teamName: userTeam ? userTeam.name : "Sans Club",
+				name: userTeam ? userTeam.name : "Sans Club",
 				season: validatedData.gameState.season,
 				day: validatedData.gameState.day,
 				lastPlayedDate: new Date(),

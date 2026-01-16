@@ -76,7 +76,7 @@ export default function StaffCard({
 
 	return (
 		<div
-			className="fixed inset-x-0 bottom-0 z-[200] bg-white flex flex-col max-w-md mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up h-[90vh]"
+			className="fixed inset-x-0 bottom-0 z-[300] bg-white flex flex-col max-w-md mx-auto rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up h-[90vh]"
 			onClick={(e) => e.stopPropagation()}
 		>
 			<div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3 shrink-0" />
@@ -165,7 +165,7 @@ export default function StaffCard({
 			)}
 
 			{showConfirmFire && (
-				<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-8 text-center animate-fade-in z-[210]">
+				<div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-8 text-center animate-fade-in z-[310]">
 					<div className="p-4 bg-red-100 rounded-full text-red-500 mb-4">
 						<AlertCircle size={48} />
 					</div>

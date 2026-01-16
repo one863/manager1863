@@ -30,14 +30,15 @@
 *   `matches`: Fixtures, historical results, detailed events.
 *   `news`: Inbox messages and narrative events.
 
-## 3. Match Engine Detail (v2.1 - GOLD)
+## 3. Match Engine Detail (v2.1 - PLATINUM)
 
 ### Engine Logic
-The engine is a **probabilistic cycle-based simulator** (28 to 36 cycles per match). It uses a "Layered Tactical" approach where the result is the product of three distinct tiers:
+The engine is a **probabilistic cycle-based simulator** (24 to 40 cycles per match). It uses a "Layered Tactical" approach where the result is the product of three distinct tiers:
 
 1.  **Structural Tier (The Formation):** 
     *   Determines base ratings for each sector (Left, Center, Right). 
     *   Directly influenced by player position weights.
+    *   **Confusion Malus:** Exotic formations (e.g., 2-3-5) suffer -15% midfield rating during the first 20 minutes if the coach's Tactical skill is < 7.0.
 2.  **Strategic Tier (The Coach Identity):** 
     *   Defensive, Balanced, or Offensive preference.
     *   Applies ±10% bonuses/maluses to Attack/Defense ratings.
@@ -48,10 +49,13 @@ The engine is a **probabilistic cycle-based simulator** (28 to 36 cycles per mat
     *   **Conflict Penalty:** -5% malus if the instruction contradicts the identity, unless the coach has >7.0 Tactical Skill.
 
 ### Key Simulation Mechanics
-*   **Possession:** Calculated via Midfield ratings using a **Sigmoid Curve** (Logistic function) to handle domination organically.
-*   **xG Model (Expected Goals):** Uses an Attack vs Defense comparison. The domination ratio follows a power curve (0.7) to calculate the quality of the chance, capped at 40% per action.
-*   **Fatigue & Condition:** Players' energy decays linearly, but the penalty on performance is **Non-Linear** (Quadratic). A tired player (<30% energy) becomes almost useless (18% efficiency).
-*   **Coach Management:** The selection of starters is automated for AI (and optionally for the user) based on the staff's **Management Skill**, weighting talent, energy, and condition.
+*   **Possession:** Calculated via Midfield ratings using a **Sigmoid Curve** (Logistic function) with a smooth slope (1.3) to allow tactical diversity.
+*   **Scoring Model (Sigmoid xG):** Uses a Success Rate formula (Sigmoid) between Attack and Defense. Capped at 45% per action, with a baseline scoring factor of 0.16.
+*   **The "Save" Duel:** Every shot triggers a direct duel between the shooter's Scoring and the goalkeeper's Goalkeeping, which can reduce attack power by up to 40%.
+*   **Fatigue & Energy:** Non-linear penalty (Cubic Curve under 60% energy). A player at 40% energy retains only ~5% of their initial Skill.
+*   **Coach Active Management:** 
+    *   **Substitutions:** Coaches make up to 3 changes (60'-80') based on Management skill, targeting tired players (<65% energy).
+    *   **Late-Game Coaching:** Coaches with high Tactical skill can force Strategy changes (Offensive All-In or Defensive Lock) after the 75th minute depending on the score.
 
 ## 4. UI/UX Structure
 
@@ -96,90 +100,35 @@ The engine is a **probabilistic cycle-based simulator** (28 to 36 cycles per mat
 
 ## 1. Vision & Concept de Base
 **"1863"** est un jeu de gestion de football à la fois minimaliste et profond. Il combine la boucle addictive "encore un tour" des jeux de gestion classiques avec une expérience utilisateur moderne, pensée pour le mobile.
-*Note : "1863" est le nom de marque faisant référence à la naissance des règles du football moderne, mais la simulation se déroule dans une chronologie générique, permettant des tactiques et des structures de ligue modernes.*
-
-### Piliers
-1.  **Immédiateté :** Chargement rapide, simulation rapide des journées, retours instantanés.
-2.  **Clarté :** L'information est présentée clairement sans surcharge de tableaux. "Facile à apprendre, difficile à maîtriser".
-3.  **Atmosphère :** Une identité visuelle distincte (papier, encre, typographie) qui se démarque de l'aspect brillant générique des concurrents.
 
 ## 2. Architecture Technique
+(Idem version EN)
 
-### Stack
-*   **Framework :** Preact (plus léger que React, idéal pour le mobile).
-*   **Langage :** TypeScript (mode strict).
-*   **Outil de Build :** Vite.
-*   **Stockage :** IndexedDB via Dexie.js (Crucial pour stocker localement de gros fichiers de sauvegarde).
-*   **État :** Zustand (État global de l'interface).
-*   **Style :** Tailwind CSS.
-*   **Wrapper :** Capacitor (pour les builds iOS/Android).
-
-### Modèle de Données (Dexie/IndexedDB)
-*   `saves`: Métadonnées sur les emplacements de sauvegarde.
-*   `gameState`: Date actuelle, ID de l'utilisateur, suivi des jours/saisons.
-*   `leagues`: Structure des niveaux, règles de promotion/relégation.
-*   `teams`: Données des clubs, drapeaux stratégiques, budget, réputation.
-*   `players`: Attributs des joueurs, contrats, historique, forme physique.
-*   `staff`: Personnel spécialisé (Coach, Scout, Préparateur physique).
-*   `matches`: Calendriers, résultats historiques, événements détaillés.
-*   `news`: Messages de la boîte de réception et événements narratifs.
-
-## 3. Détail du Moteur de Match (v2.1 - GOLD)
+## 3. Détail du Moteur de Match (v2.1 - PLATINUM)
 
 ### Logique du Moteur
-Le moteur est un **simulateur probabiliste basé sur des cycles** (28 à 36 cycles par match). Il utilise une approche "Tactique par couches" où le résultat est le produit de trois niveaux distincts :
+Le moteur est un **simulateur probabiliste basé sur des cycles** (24 à 40 cycles par match). Il utilise une approche "Tactique par couches" où le résultat est le produit de trois niveaux :
 
 1.  **Niveau Structurel (La Formation) :**
-    *   Détermine les notes de base pour chaque secteur (Gauche, Centre, Droite).
-    *   Directement influencé par le poids des positions des joueurs.
+    *   Détermine les notes de base par secteur.
+    *   **Malus de Confusion :** Les formations exotiques (ex: 2-3-5) subissent -15% de milieu les 20 premières minutes si le coach a < 7.0 en Tactique.
 2.  **Niveau Stratégique (L'Identité du Coach) :**
-    *   Préférence Défensive, Équilibrée ou Offensive.
-    *   Applique des bonus/malus de ±10% aux notes d'Attaque/Défense.
-    *   **Modificateur de Compétence Tactique :** Un coach de haut niveau réduit la vulnérabilité défensive des stratégies offensives.
+    *   Préférence Défensive, Équilibrée ou Offensive (±10% aux notes).
 3.  **Niveau Opérationnel (La Tactique) :**
-    *   Instructions directes (Pressing, Contre-Attaque, Attaque sur les ailes).
-    *   **Bonus de Cohésion :** Boost de +5% si l'instruction correspond à l'identité du coach (ex: Offensif + Pressing).
-    *   **Pénalité de Conflit :** Malus de -5% si l'instruction contredit l'identité, sauf si le coach a une compétence tactique > 7.0.
+    *   Instructions directes (Pressing, CA, AOW).
+    *   **Bonus de Cohésion (+5%)** ou **Pénalité de Conflit (-5%)** selon l'alignement avec l'identité du coach.
 
 ### Mécaniques Clés de Simulation
-*   **Possession :** Calculée via les notes du Milieu de terrain en utilisant une **Courbe Sigmoïde** (Fonction logistique) pour gérer la domination de manière organique.
-*   **Modèle xG (Expected Goals) :** Utilise une comparaison Attaque vs Défense. Le ratio de domination suit une courbe de puissance (0.7) pour calculer la qualité de l'occasion, plafonnée à 40% par action.
-*   **Fatigue & Condition :** L'énergie des joueurs baisse linéairement, mais la pénalité de performance est **Non-Linéaire** (Quadratique). Un joueur épuisé (<30% d'énergie) devient quasi inutile (18% d'efficacité).
-*   **Gestion du Coach :** La sélection des titulaires est automatisée pour l'IA (et optionnellement pour l'utilisateur) en fonction de la **Compétence de Management** du staff, pondérant talent, énergie et condition.
+*   **Possession :** Courbe sigmoïde douce (1.3) pour favoriser la diversité tactique.
+*   **Modèle de But (Sigmoïde xG) :** Calculé sur le rapport Attaque/Défense, facteur de base 0.16.
+*   **Le Duel du "Save" :** Duel direct Buteur vs Gardien (réduction possible de 40% de la puissance d'attaque).
+*   **Fatigue & Énergie :** Pénalité cubique sous 60% d'énergie. Un joueur à 40% d'énergie perd 95% de son efficacité.
+*   **Coaching Actif :** 
+    *   **Remplacements :** Jusqu'à 3 changements (60'-80') basés sur le Management.
+    *   **Coaching de Fin de Match :** Changements de stratégie automatiques (All-In ou Verrou) selon le score et la stat Tactique du coach.
 
 ## 4. Structure UI/UX
-
-### Vues
-*   **Tableau de bord (Hub) :** Identité du club, prochain match, résumé de la ligue, salle du conseil.
-*   **Effectif :** Liste des joueurs, sélecteur de composition, philosophie tactique.
-*   **Tactiques :** Choix de la formation et instructions d'équipe.
-*   **Profil du Staff :** Statistiques détaillées, stratégie préférée et rôles spécialisés.
-*   **Ligue :** Classement complet, résultats, meilleurs buteurs.
-*   **Transferts :** Recherche sur le marché et recrutement.
-*   **Club :** Développement du stade, finances, sponsors.
+(Idem version EN)
 
 ## 5. Phases de Développement
-
-### Phase 1 : Fondation (Terminé)
-*   Configuration du projet et schéma de la base de données.
-*   Générateurs de données de base.
-
-### Phase 2 : Gameplay de Base (Terminé)
-*   Gestion de l'effectif et logique de sélection automatisée.
-*   Simulation de match avancée avec l'identité du coach (xG, Fatigue, Tactiques).
-*   Tableau de la ligue et progression.
-
-### Phase 3 : Profondeur (En cours)
-*   Gestion du staff et impact des compétences spécialisées.
-*   Développement des infrastructures du stade.
-*   Marché des transferts et équilibre économique.
-
-### Phase 4 : Finitions & Mobile
-*   Intégrité du système de Sauvegarde/Chargement.
-*   Polissage visuel (animations, visualiseur de match).
-*   Déploiement Capacitor.
-
-## 6. Considérations Futures
-*   Narrations dynamiques (conférences de presse, drames entre joueurs).
-*   Suivi des records historiques (meilleurs buteurs de tous les temps).
-*   Centre de formation multi-niveaux.
+(Idem version EN)

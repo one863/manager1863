@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // --- Constantes de Simulation ---
 export const ENGINE_LIMITS = {
-	MAX_SKILL: 10.99,
+	MAX_SKILL: 20.99, // Notation sur 20
 	MIN_SKILL: 1.0,
 	MAX_MATCH_MINUTES: 120,
 };
@@ -24,20 +24,70 @@ export const MatchEventTypeSchema = z.enum([
 	"SPECIAL",
 ]);
 
+export const PlayerTraitSchema = z.enum([
+	"COUNTER_ATTACKER",
+	"SHORT_PASSER",
+	"CLUTCH_FINISHER",
+	"WING_WIZARD",
+	"IRON_DEFENDER",
+	"MARATHON_MAN",
+	"BOX_TO_BOX",
+	"FREE_KICK_EXPERT",
+	"SWEEPER_GK"
+]);
+
 // --- Schémas de base ---
 
 export const TeamRatingsSchema = z.object({
-	midfield: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	attackLeft: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	attackCenter: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	attackRight: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	defenseLeft: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	defenseCenter: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	defenseRight: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	setPieces: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
-	tacticSkill: z.number().min(ENGINE_LIMITS.MIN_SKILL).max(ENGINE_LIMITS.MAX_SKILL),
+	// Volume & Control
+	midfield: z.number(),      // Global control/possession
+	pressing: z.number(),      // Team PPDA capacity
+	resistance: z.number(),    // Team OPPDA capacity
+	
+	// Offensive
+	attackLeft: z.number(),
+	attackCenter: z.number(),
+	attackRight: z.number(),
+	
+	// Defensive
+	defenseLeft: z.number(),
+	defenseCenter: z.number(),
+	defenseRight: z.number(),
+	
+	setPieces: z.number(),
+	tacticSkill: z.number(),
 	tacticType: TacticTypeSchema,
 	strategy: StrategyTypeSchema,
+});
+
+export const PlayerMatchStatsSchema = z.object({
+	rating: z.number(),
+	goals: z.number().default(0),
+	assists: z.number().default(0),
+	shots: z.number().default(0),
+	shotsOnTarget: z.number().default(0),
+	xg: z.number().default(0),
+	xa: z.number().default(0),
+	passes: z.number().default(0),
+	passesSuccess: z.number().default(0),
+	duels: z.number().default(0),
+	duelsWon: z.number().default(0),
+	distance: z.number().default(0),
+	sprints: z.number().default(0),
+	interventions: z.number().default(0),
+	saves: z.number().default(0),
+});
+
+export const SeasonStatsSchema = z.object({
+	matches: z.number().default(0),
+	goals: z.number().default(0),
+	assists: z.number().default(0),
+	avgRating: z.number().default(0),
+	xg: z.number().default(0),
+	xa: z.number().default(0),
+	distance: z.number().default(0),
+	duelsWinRate: z.number().default(0),
+	passAccuracy: z.number().default(0),
 });
 
 export const MatchEventSchema = z.object({
@@ -47,6 +97,9 @@ export const MatchEventSchema = z.object({
 	scorerId: z.number().optional(),
 	scorerName: z.string().optional(),
 	description: z.string(),
+	playerId: z.number().optional(), 
+	duration: z.number().optional(),
+	xg: z.number().optional(), 
 });
 
 export const MatchResultSchema = z.object({
@@ -57,26 +110,44 @@ export const MatchResultSchema = z.object({
 	stats: z.object({
 		homeChances: z.number().int(),
 		awayChances: z.number().int(),
+		homeShots: z.number().int().default(0),
+		awayShots: z.number().int().default(0),
+		homeShotsOnTarget: z.number().int().default(0),
+		awayShotsOnTarget: z.number().int().default(0),
+		homeXG: z.number().default(0), 
+		awayXG: z.number().default(0),
+		homeXA: z.number().default(0),
+		awayXA: z.number().default(0),
+		homePPDA: z.number().default(0),
+		awayPPDA: z.number().default(0),
+		homePasses: z.number().default(0),
+		awayPasses: z.number().default(0),
+		homeDefensiveActions: z.number().default(0),
+		awayDefensiveActions: z.number().default(0),
+		homeDuelsWon: z.number().default(0),
+		awayDuelsWon: z.number().default(0),
+		homeDuelsTotal: z.number().default(0),
+		awayDuelsTotal: z.number().default(0),
+		homeDistance: z.number().default(0),
+		awayDistance: z.number().default(0),
 	}),
-	playerPerformances: z.record(z.string(), z.number()).optional(), // playerId -> rating
+	playerPerformances: z.record(z.string(), z.number()).optional(), 
+	playerStats: z.record(z.string(), PlayerMatchStatsSchema).optional(),
 });
 
 // --- Schémas de la Base de Données (Persistance) ---
 
 export const PlayerStatsSchema = z.object({
-	stamina: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	playmaking: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	defense: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	speed: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	head: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	technique: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	scoring: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	setPieces: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
-	// Legacy
-	strength: z.number().optional(),
-	dribbling: z.number().optional(),
-	passing: z.number().optional(),
-	shooting: z.number().optional(),
+	finishing: z.number().min(1).max(20),
+	creation: z.number().min(1).max(20),
+	vision: z.number().min(1).max(20),
+	pressing: z.number().min(1).max(20),
+	intervention: z.number().min(1).max(20),
+	impact: z.number().min(1).max(20),
+	resistance: z.number().min(1).max(20),
+	volume: z.number().min(1).max(20),
+	explosivity: z.number().min(1).max(20),
+	goalkeeping: z.number().min(1).max(20).optional(),
 });
 
 export const PlayerSchema = z.object({
@@ -91,6 +162,7 @@ export const PlayerSchema = z.object({
 	dna: z.string(),
 	skill: z.number().min(1).max(ENGINE_LIMITS.MAX_SKILL),
 	stats: PlayerStatsSchema,
+	traits: z.array(PlayerTraitSchema).default([]),
 	form: z.number().min(1).max(8).default(5),
 	formBackground: z.number().min(1).max(8).default(5),
 	experience: z.number().min(1).max(10).default(1),
@@ -103,6 +175,9 @@ export const PlayerSchema = z.object({
 	lastTrainingSkillChange: z.number().optional(),
 	playedThisWeek: z.boolean().default(false),
 	lastRatings: z.array(z.number()).default([]),
+	seasonStats: SeasonStatsSchema.optional(),
+	injuryDays: z.number().int().default(0),
+	suspensionMatches: z.number().int().default(0),
 });
 
 export const SponsorSchema = z.object({
@@ -206,6 +281,7 @@ export type PlayerPosition = z.infer<typeof PlayerPositionSchema>;
 export type TacticType = z.infer<typeof TacticTypeSchema>;
 export type StrategyType = z.infer<typeof StrategyTypeSchema>;
 export type MatchEventType = z.infer<typeof MatchEventTypeSchema>;
+export type PlayerTrait = z.infer<typeof PlayerTraitSchema>;
 
 export type Sponsor = z.infer<typeof SponsorSchema>;
 export type TeamRatings = z.infer<typeof TeamRatingsSchema>;
@@ -219,3 +295,5 @@ export type Match = z.infer<typeof MatchSchema>;
 export type NewsArticle = z.infer<typeof NewsArticleSchema>;
 export type GameStateData = z.infer<typeof GameStateSchema>;
 export type ExportData = z.infer<typeof ExportDataSchema>;
+export type PlayerMatchStats = z.infer<typeof PlayerMatchStatsSchema>;
+export type SeasonStats = z.infer<typeof SeasonStatsSchema>;

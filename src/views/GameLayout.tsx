@@ -166,6 +166,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 				<ClubDetails 
 					teamId={selectedTeamId} 
 					onClose={() => setSelectedTeamId(null)} 
+					onSelectPlayer={setSelectedPlayer}
 				/>
 			)}
 		</div>

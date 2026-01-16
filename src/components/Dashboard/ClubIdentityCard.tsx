@@ -1,5 +1,5 @@
 import type { League, Team, StaffMember } from "@/db/db";
-import { Shield, Trophy, Users, Wallet, Star, MapPin, Zap, Target, Shield as DefenseIcon } from "lucide-preact";
+import { Shield, Trophy, Users, Wallet, Star, MapPin } from "lucide-preact";
 import { useTranslation } from "react-i18next";
 import CreditAmount from "../Common/CreditAmount";
 
@@ -14,7 +14,6 @@ export default function ClubIdentityCard({
 	team,
 	league,
 	position,
-	coach,
 }: ClubIdentityCardProps) {
 	const { t } = useTranslation();
 
@@ -23,26 +22,20 @@ export default function ClubIdentityCard({
 		return n + (n === 1 ? "er" : "e");
 	};
 
-	// Sécurité sur la stratégie
-	const strategy = coach?.preferredStrategy || "BALANCED";
-	const StrategyIcon = strategy === "OFFENSIVE" ? Zap : strategy === "DEFENSIVE" ? DefenseIcon : Target;
-	const strategyColor = strategy === "OFFENSIVE" ? "text-red-500 bg-red-50" : strategy === "DEFENSIVE" ? "text-blue-500 bg-blue-50" : "text-accent bg-accent/5";
-	const strategyLabel = strategy === "OFFENSIVE" ? "Offensif" : strategy === "DEFENSIVE" ? "Défensif" : "Équilibré";
-
 	return (
-		<div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
+		<div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden">
 			{/* Fond décoratif */}
 			<div
-				className="absolute top-0 right-0 w-32 h-32 opacity-[0.03] pointer-events-none -mr-8 -mt-8"
+				className="absolute top-0 right-0 w-40 h-40 opacity-[0.04] pointer-events-none -mr-10 -mt-10"
 				style={{
 					backgroundColor: team?.primaryColor || "#991b1b",
 					borderRadius: "100%",
 				}}
 			/>
 
-			<div className="flex items-center gap-4 mb-4 relative z-10">
+			<div className="flex items-center gap-5 mb-6 relative z-10">
 				{/* ÉCUSSON */}
-				<div className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col shrink-0">
+				<div className="relative w-16 h-16 rounded-[1.25rem] overflow-hidden shadow-md border border-gray-100 flex flex-col shrink-0">
 					<div
 						className="flex-1"
 						style={{ backgroundColor: team?.primaryColor || "#991b1b" }}
@@ -52,58 +45,53 @@ export default function ClubIdentityCard({
 						style={{ backgroundColor: team?.secondaryColor || "#ffffff" }}
 					/>
 					<div className="absolute inset-0 flex items-center justify-center">
-						<Shield size={24} className="text-white/30" strokeWidth={2} />
+						<Shield size={28} className="text-white/30" strokeWidth={2} />
 					</div>
 				</div>
 
 				<div className="flex-1 min-w-0">
-					<div className="flex items-center justify-between gap-2">
-						<h2 className="text-lg font-serif font-black text-ink leading-tight truncate">
+					<div className="flex items-center justify-between gap-2 mb-1">
+						<h2 className="text-xl font-serif font-black text-ink leading-tight truncate">
 							{team?.name || "Club inconnu"}
 						</h2>
-						{/* LE BADGE TACTIQUE DOIT S'AFFICHER ICI */}
-						<div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border border-current ${strategyColor} shrink-0`}>
-							<StrategyIcon size={10} strokeWidth={3} />
-							<span className="text-[8px] font-black uppercase tracking-tighter">{strategyLabel}</span>
-						</div>
 					</div>
-					<p className="text-[10px] text-accent font-black uppercase tracking-wider truncate">
+					<p className="text-[11px] text-accent font-black uppercase tracking-[0.15em] truncate mb-1.5">
 						{league?.name || "Ligue"}
 					</p>
-					<div className="flex items-center gap-2 mt-0.5">
-						<div className="flex items-center gap-1 text-[9px] text-ink-light font-bold">
-							<MapPin size={10} />
-							<span className="truncate max-w-[120px]">{team?.stadiumName}</span>
+					<div className="flex items-center gap-2">
+						<div className="flex items-center gap-1.5 text-[10px] text-ink-light font-bold">
+							<MapPin size={12} className="text-accent/60" />
+							<span className="truncate max-w-[150px]">{team?.stadiumName}</span>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			<div className="grid grid-cols-4 gap-2 relative z-10 border-t border-paper-dark/30 pt-3">
+			<div className="grid grid-cols-4 gap-3 relative z-10 border-t border-paper-dark/30 pt-5">
 				<div className="flex flex-col items-center text-center">
-					<Trophy size={14} className="text-accent mb-0.5" />
-					<div className="text-[11px] font-black text-ink">{getOrdinal(position)}</div>
-					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Rang</div>
+					<Trophy size={18} className="text-accent mb-1.5" />
+					<div className="text-base font-black text-ink leading-none mb-1">{getOrdinal(position)}</div>
+					<div className="text-[8px] text-ink-light uppercase font-black tracking-widest opacity-60">Rang</div>
 				</div>
 
 				<div className="flex flex-col items-center text-center border-l border-paper-dark/10">
-					<Star size={14} className="text-amber-500 mb-0.5" />
-					<div className="text-[11px] font-black text-ink">{team?.reputation || 0}</div>
-					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Prestige</div>
+					<Star size={18} className="text-amber-500 mb-1.5" />
+					<div className="text-base font-black text-ink leading-none mb-1">{team?.reputation || 0}</div>
+					<div className="text-[8px] text-ink-light uppercase font-black tracking-widest opacity-60">Prestige</div>
 				</div>
 
 				<div className="flex flex-col items-center text-center border-l border-paper-dark/10">
-					<Users size={14} className="text-ink-light mb-0.5" />
-					<div className="text-[11px] font-black text-ink">{team?.fanCount ? (team.fanCount >= 1000 ? (team.fanCount / 1000).toFixed(1) + 'k' : team.fanCount) : 0}</div>
-					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Fans</div>
+					<Users size={18} className="text-ink-light mb-1.5" />
+					<div className="text-base font-black text-ink leading-none mb-1">{team?.fanCount ? (team.fanCount >= 1000 ? (team.fanCount / 1000).toFixed(1) + 'k' : team.fanCount) : 0}</div>
+					<div className="text-[8px] text-ink-light uppercase font-black tracking-widest opacity-60">Fans</div>
 				</div>
 
 				<div className="flex flex-col items-center text-center border-l border-paper-dark/10">
-					<Wallet size={14} className="text-accent mb-0.5" />
-					<div className="text-[11px] font-black text-ink">
-						<CreditAmount amount={team?.budget || 0} size="xs" color="text-accent" />
+					<Wallet size={18} className="text-accent mb-1.5" />
+					<div className="text-base font-black text-ink leading-none mb-1">
+						<CreditAmount amount={team?.budget || 0} size="sm" color="text-accent" />
 					</div>
-					<div className="text-[7px] text-ink-light uppercase font-bold tracking-tighter opacity-60">Budget</div>
+					<div className="text-[8px] text-ink-light uppercase font-black tracking-widest opacity-60">Budget</div>
 				</div>
 			</div>
 		</div>
