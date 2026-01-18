@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 :root {
-	/* Thème Minimalist Monochrome */
+	/* Thème 1863 - High Contrast & Modern Heritage */
 	--color-paper: 255 255 255; /* #ffffff */
-	--color-paper-dark: 247 247 247; /* #f7f7f7 (Gray-50/100) */
-	--color-ink: 17 17 17; /* #111111 (Almost Black) */
-	--color-ink-light: 115 115 115; /* #737373 (Neutral Gray) */
-	--color-accent: 0 0 0; /* #000000 (Black) */
-	--color-grass: 64 64 64; /* #404040 (Dark Gray) */
+	--color-paper-dark: 248 250 252; /* #f8fafc (Slate-50) */
+	--color-ink: 15 23 42; /* #0f172a (Slate-900) - Very deep navy/black */
+	--color-ink-light: 51 65 85; /* #334155 (Slate-700) - Even darker for better contrast */
+	--color-accent: 15 23 42; /* #0f172a - Switched accent to deep ink by default */
+	--color-grass: 22 163 74; /* #16a34a (Green-600) */
 }
 
 body {
-	@apply bg-paper text-ink font-sans transition-colors duration-300;
+	@apply bg-paper text-ink font-sans transition-colors duration-300 antialiased;
 	overscroll-behavior-y: none;
 	-webkit-tap-highlight-color: transparent;
 }
@@ -37,4 +37,14 @@ select {
 .no-scrollbar {
 	-ms-overflow-style: none;
 	scrollbar-width: none;
+}
+
+@layer components {
+	.text-label {
+		@apply text-[10px] font-black uppercase tracking-[0.15em] text-ink;
+	}
+	
+	.card-1863 {
+		@apply bg-white border border-slate-200 rounded-2xl shadow-sm;
+	}
 }

@@ -1,12 +1,13 @@
-import { db } from "@/db/db";
-import { useGameStore } from "@/store/gameSlice";
+import { db, persistStorage } from "@/core/db/db";
+import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { Suspense } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
 
-import MainMenu from "@/views/MainMenu";
-import GameLayout from "@/views/GameLayout";
-import CreateTeam from "@/views/CreateTeam";
-import LoadGame from "@/views/LoadGame";
+import MainMenu from "@/ui/screens/MainMenu";
+import GameLayout from "@/ui/layouts/GameLayout";
+import CreateTeam from "@/ui/screens/CreateTeam";
+import LoadGame from "@/ui/screens/LoadGame";
+import { BackupService } from "@/core/services/backup-service";
 
 type AppState = "menu" | "create" | "load" | "game" | "initializing";
 
@@ -24,6 +25,16 @@ export function App() {
 	// Tentative de restauration de la session au démarrage
 	useEffect(() => {
 		const restoreSession = async () => {
+            // Tentative de persistance du stockage pour éviter les pertes de données
+            try {
+                await persistStorage();
+            } catch (e) {
+                console.warn("Storage persistence failed:", e);
+            }
+
+            // Nettoyage des anciens backups du localStorage (migration)
+            BackupService.clearOldLocalStorageBackups();
+
 			try {
 				const lastSave = await db.saveSlots.orderBy("lastPlayedDate").last();
 				if (lastSave && lastSave.id !== undefined) {
