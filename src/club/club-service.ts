@@ -48,8 +48,8 @@ export const ClubService = {
 			});
 		}
 
-		// FINANCES HEBDOMADAIRES (Jour 7, 14, 21...)
-		if (currentDay > 0 && currentDay % 7 === 0) {
+		// FINANCES HEBDOMADAIRES (Jour 1, 8, 15... LUNDI)
+		if (currentDay > 0 && currentDay % 7 === 1) {
 			await this.processWeeklyFinances(saveId, teamId, currentDay, currentDate);
 		}
 
@@ -118,7 +118,7 @@ export const ClubService = {
 			day,
 			date,
 			title: "BILAN FINANCIER",
-			content: `Bilan de la semaine : \n- Recettes : M ${totalSponsorIncome + ticketIncome} \n- Salaires Staff : M ${totalStaffWage} \n- Salaires Joueurs : M ${totalPlayerWage} \n\nSolde : **M ${weeklyBalance}**`,
+			content: `[[badge:budget|BILAN HEBDOMADAIRE]]\n\nBilan de la semaine : \n- Recettes : M ${totalSponsorIncome + ticketIncome} \n- Salaires Staff : M ${totalStaffWage} \n- Salaires Joueurs : M ${totalPlayerWage} \n\nSolde : **M ${weeklyBalance}**`,
 			type: "CLUB",
 			importance: 2,
 		});

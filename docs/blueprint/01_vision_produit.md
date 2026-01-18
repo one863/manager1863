@@ -1,7 +1,7 @@
 # 01. Vision du Produit
 
 ## Concept Central
-Le projet est une simulation de gestion de football "One Club Man". Contrairement aux jeux de gestion classiques, le joueur ne peut pas changer de club. Il est le fondateur ou le bâtisseur d'une institution unique.
+Le projet est une simulation et de gestion de football en mode solo. Contrairement aux jeux de gestion classiques, le joueur ne peut pas changer de club. Il est le fondateur ou le bâtisseur d'une institution unique. Le début du jeu n'a pas de date précise.
 
 ## Piliers du Gameplay
 1. **L'Identité Immuable :** Le joueur crée son club (Nom, Couleurs de base). Toute la progression est verticale (faire grandir ce club spécifique).

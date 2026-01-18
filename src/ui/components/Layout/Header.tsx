@@ -61,9 +61,14 @@ export function Header({
 			<div className="flex items-center">
 				<button 
 					onClick={onGoToDashboard}
-					className="text-lg font-black italic tracking-tighter text-ink leading-none hover:opacity-70 transition-opacity active:scale-95"
+					className="flex flex-col items-start hover:opacity-70 transition-opacity active:scale-95"
 				>
-					FOOTBALL 1863
+					<span className="text-3xl font-black italic tracking-tighter text-ink leading-[0.75] uppercase">
+						1863
+					</span>
+					<span className="text-[11px] font-black italic tracking-tighter text-ink uppercase leading-none">
+						Football
+					</span>
 				</button>
 			</div>
 

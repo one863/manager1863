@@ -1,9 +1,10 @@
 import { db, type Team, type Player, type StaffMember } from "@/core/db/db";
-import { ArrowLeft, MapPin, Trophy, Users, Wallet, ArrowUpDown } from "lucide-preact";
+import { ArrowLeft, MapPin, Trophy, Users, Wallet, ArrowUpDown, History } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "@/squad/components/PlayerAvatar";
 import { TeamCrest, getTeamColors } from "@/ui/components/Common/TeamCrest";
+import CareerHistoryView from "@/ui/components/Common/CareerHistoryView";
 
 interface ClubDetailsProps {
 	teamId: number;
@@ -16,7 +17,7 @@ export default function ClubDetails({ teamId, onClose, onSelectPlayer }: ClubDet
 	const [team, setTeam] = useState<Team | null>(null);
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [coach, setCoach] = useState<StaffMember | null>(null);
-	const [activeTab, setActiveTab] = useState<"info" | "squad">("info");
+	const [activeTab, setActiveTab] = useState<"info" | "squad" | "history">("info");
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -77,19 +78,25 @@ export default function ClubDetails({ teamId, onClose, onSelectPlayer }: ClubDet
                 </div>
 			</div>
 
-			{/* TABS - Swapped order */}
+			{/* TABS */}
 			<div className="flex bg-white px-2">
 				<button 
 					onClick={() => setActiveTab("info")}
 					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "info" ? "text-accent border-b-2 border-accent" : "text-gray-300 hover:text-gray-500"}`}
 				>
-					Informations
+					Infos
 				</button>
 				<button 
 					onClick={() => setActiveTab("squad")}
 					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "squad" ? "text-accent border-b-2 border-accent" : "text-gray-300 hover:text-gray-500"}`}
 				>
 					Effectif
+				</button>
+                <button 
+					onClick={() => setActiveTab("history")}
+					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "history" ? "text-accent border-b-2 border-accent" : "text-gray-300 hover:text-gray-500"}`}
+				>
+					Histoire
 				</button>
 			</div>
 
@@ -143,7 +150,9 @@ export default function ClubDetails({ teamId, onClose, onSelectPlayer }: ClubDet
                             ))}
                         </div>
                     </div>
-				) : (
+				) : activeTab === "history" ? (
+                    <CareerHistoryView teamId={teamId} />
+                ) : (
 					<div className="space-y-4">
 						<div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
 							<h3 className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] mb-4">Direction Sportive</h3>

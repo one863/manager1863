@@ -13,10 +13,12 @@ import {
 	Users, 
 	Brain, 
 	TrendingUp,
-	Calendar
+	Calendar,
+    History
 } from "lucide-preact";
 import { useState } from "preact/hooks";
 import PlayerAvatar from "@/squad/components/PlayerAvatar";
+import CareerHistoryView from "@/ui/components/Common/CareerHistoryView";
 
 interface StaffCardProps {
 	staff: StaffMember | null;
@@ -61,7 +63,7 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 	const userTeamId = useGameStore((state) => state.userTeamId);
 	const gameState = useGameStore((state) => state.gameState);
 	const triggerRefresh = useGameStore((state) => state.triggerRefresh);
-	const [activeTab, setActiveTab] = useState<"stats" | "traits" | "contract">("stats");
+	const [activeTab, setActiveTab] = useState<"stats" | "traits" | "contract" | "history">("stats");
 	const [showConfirmHire, setShowConfirmHire] = useState(false);
 	const [showConfirmFire, setShowConfirmFire] = useState(false);
 
@@ -152,24 +154,20 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 
 			{/* Tabs */}
 			<div className="flex border-b bg-white">
-				<button 
-					onClick={() => setActiveTab("stats")}
-					className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === "stats" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
-				>
-					Profil
-				</button>
-				<button 
-					onClick={() => setActiveTab("traits")}
-					className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === "traits" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
-				>
-					Traits
-				</button>
-				<button 
-					onClick={() => setActiveTab("contract")}
-					className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === "contract" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
-				>
-					Contrat
-				</button>
+                {[
+                    { id: "stats", label: "Profil" },
+                    { id: "traits", label: "Traits" },
+                    { id: "history", label: "Carrière" },
+                    { id: "contract", label: "Contrat" }
+                ].map((tab) => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
 			</div>
 
 			{/* Body */}
@@ -252,6 +250,10 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 						)}
 					</div>
 				)}
+
+                {activeTab === "history" && (
+                    <CareerHistoryView teamId={staff.teamId} />
+                )}
 
 				{activeTab === "contract" && (
 					<div className="space-y-4">

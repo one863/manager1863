@@ -12,10 +12,10 @@ export default {
 				grass: "rgb(var(--color-grass) / <alpha-value>)",
 			},
 			fontFamily: {
-				// Optimisation : Utilisation exclusive de polices système pour une performance maximale (0ms latency)
-				// Look "Journal du 19ème siècle" assuré par Georgia/Times
 				serif: ["Georgia", "Cambria", '"Times New Roman"', "Times", "serif"],
 				sans: [
+					'"Instrument Sans"',
+					'"Product Sans"',
 					"system-ui",
 					"-apple-system",
 					"BlinkMacSystemFont",

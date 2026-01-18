@@ -1,6 +1,6 @@
-import { db, type Match, type Player } from "@/core/db/db";
-import type { MatchResult } from "@/core/engine/core/types";
-import { ArrowLeft, BarChart2, Shield, User, Award, TrendingUp, Users } from "lucide-preact";
+import { db, type Player, type MatchResult } from "@/core/db/db";
+import type { MatchResult as MatchResultType, MatchEvent } from "@/core/engine/core/types";
+import { ArrowLeft, BarChart2, Shield, User, Award, TrendingUp, Users, Goal } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import Button from "@/ui/components/Common/Button";
@@ -14,7 +14,7 @@ interface MatchReportProps {
 	directData?: {
 		homeScore: number;
 		awayScore: number;
-		result: MatchResult;
+		result: MatchResultType;
 		homeTeam: any;
 		awayTeam: any;
 	};
@@ -25,7 +25,7 @@ export default function MatchReport({ matchId, onClose, directData }: MatchRepor
 	const [match, setMatch] = useState<Partial<Match> | null>(null);
 	const [homeTeam, setHomeTeam] = useState<any>(directData?.homeTeam || null);
 	const [awayTeam, setAwayTeam] = useState<any>(directData?.awayTeam || null);
-	const [details, setDetails] = useState<MatchResult | null>(directData?.result || null);
+	const [details, setDetails] = useState<MatchResultType | null>(directData?.result || null);
 	const [mom, setMom] = useState<Player | null>(null);
 	const [ratings, setRatings] = useState<Record<string, number>>({});
     const [homePlayers, setHomePlayers] = useState<Player[]>([]);
@@ -62,7 +62,7 @@ export default function MatchReport({ matchId, onClose, directData }: MatchRepor
 				setHomeTeam(h);
 				setAwayTeam(a);
 				if (m.details) {
-					const det = m.details as MatchResult;
+					const det = m.details as MatchResultType;
 					setDetails(det);
                     setRatings(det.playerPerformances || {});
 				}
@@ -153,6 +153,18 @@ export default function MatchReport({ matchId, onClose, directData }: MatchRepor
         </div>
     );
 
+    const goals = details?.events?.filter(e => e.type === "GOAL") || [];
+    const homeGoals = goals.filter(e => e.teamId === match.homeTeamId);
+    const awayGoals = goals.filter(e => e.teamId === match.awayTeamId);
+
+    const formatScorerName = (event: MatchEvent) => {
+        if (event.scorerName) return event.scorerName;
+        // Si pas de scorerName, on essaie d'extraire de la description
+        const desc = event.description || "";
+        const parts = desc.split('!');
+        return parts[0] || "Buteur inconnu";
+    };
+
 	return (
 		<div className="flex flex-col h-full bg-gray-50 animate-fade-in relative overflow-hidden">
 			{/* Header */}
@@ -175,7 +187,7 @@ export default function MatchReport({ matchId, onClose, directData }: MatchRepor
                     <>
                         {/* Score Card */}
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center">
-                            <div className="flex justify-between w-full items-center mb-2">
+                            <div className="flex justify-between w-full items-center mb-6">
                                 <div className="flex flex-col items-center w-1/3">
                                     <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mb-2 border border-gray-100 shadow-sm overflow-hidden">
                                         <Shield size={28} style={{ color: homeTeam.colors?.[0] || '#3b82f6' }} />
@@ -194,6 +206,28 @@ export default function MatchReport({ matchId, onClose, directData }: MatchRepor
                                         <Shield size={28} style={{ color: awayTeam.colors?.[0] || '#ef4444' }} />
                                     </div>
                                     <span className="text-[10px] font-bold text-center leading-tight uppercase text-gray-900">{awayTeam.name}</span>
+                                </div>
+                            </div>
+
+                            {/* Scorers List */}
+                            <div className="w-full flex justify-between gap-8 pt-4 border-t border-gray-50">
+                                <div className="flex-1 space-y-1">
+                                    {homeGoals.map((g, i) => (
+                                        <div key={i} className="flex items-center gap-2 text-[10px] text-gray-500 font-medium">
+                                            <Goal size={10} className="text-green-600" />
+                                            <span className="truncate">{formatScorerName(g)}</span>
+                                            <span className="text-[8px] opacity-50">{g.minute}'</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex-1 space-y-1 text-right">
+                                    {awayGoals.map((g, i) => (
+                                        <div key={i} className="flex items-center gap-2 justify-end text-[10px] text-gray-500 font-medium">
+                                            <span className="text-[8px] opacity-50">{g.minute}'</span>
+                                            <span className="truncate">{formatScorerName(g)}</span>
+                                            <Goal size={10} className="text-green-600" />
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>

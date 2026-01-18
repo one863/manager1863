@@ -59,26 +59,26 @@ export const NewsService = {
 		// Rapport d'entraînement du mercredi (Impact : boost sur un joueur)
 		if (day % 7 === 3) await this.generateWednesdayTrainingReport(saveId, date, teamId, day);
 
-		// News de veille de match (Impact : petit boost de moral d'équipe)
-		await this.generatePreMatchNews(saveId, day, date, teamId);
+		// News de jour de match (Impact : petit boost de moral d'équipe)
+		await this.generateMatchDayNews(saveId, day, date, teamId);
 
 		// Événements aléatoires hebdomadaires (Impact : Argent, Forme, Réputation)
 		if (day % 7 === 5 && probability(0.4)) await this.generateRandomEvent(saveId, day, date, teamId);
 	},
 
-	async generatePreMatchNews(saveId: number, day: number, date: Date, teamId: number) {
-		const nextMatch = await db.matches.where("[saveId+day]").equals([saveId, day + 1])
+	async generateMatchDayNews(saveId: number, day: number, date: Date, teamId: number) {
+		const match = await db.matches.where("[saveId+day]").equals([saveId, day])
 			.and(m => m.homeTeamId === teamId || m.awayTeamId === teamId).first();
 		
-		if (nextMatch) {
-			const isHome = nextMatch.homeTeamId === teamId;
-			const oppId = isHome ? nextMatch.awayTeamId : nextMatch.homeTeamId;
+		if (match) {
+			const isHome = match.homeTeamId === teamId;
+			const oppId = isHome ? match.awayTeamId : match.homeTeamId;
 			const [team, opp] = await Promise.all([db.teams.get(teamId), db.teams.get(oppId)]);
 			
 			if (team && opp) {
 				const narrative = getNarrative("news", "matchDay", {
-					team: team.name,
-					opponent: opp.name,
+					team: `[[team:${teamId}|${team.name}]]`,
+					opponent: `[[team:${oppId}|${opp.name}]]`,
 					stadium: team.stadiumName || "le stade"
 				});
 
@@ -91,7 +91,7 @@ export const NewsService = {
 				await this.addNews(saveId, {
 					day, date,
 					title: narrative.title || "Jour de Match",
-					content: narrative.content + "\n\n*(L'équipe est sur-motivée : Moral +2%)*",
+					content: narrative.content + "\n\n[[badge:positive|+2% Moral d'équipe]]",
 					type: "PRESS",
 					importance: 2
 				});
@@ -105,7 +105,7 @@ export const NewsService = {
 		const bestPlayer = players.sort((a, b) => b.skill - a.skill)[0];
 
 		const narrative = getNarrative("training", "wednesdayReport", {
-			player: `${bestPlayer.firstName} ${bestPlayer.lastName}`
+			player: `[[player:${bestPlayer.id}|${bestPlayer.firstName} ${bestPlayer.lastName}]]`
 		});
 
         // IMPACT : Le joueur vedette gagne en forme et en moral
@@ -117,7 +117,7 @@ export const NewsService = {
 		await this.addNews(saveId, {
 			day, date,
 			title: narrative.title || "Point Entraînement",
-			content: narrative.content + `\n\n*(${bestPlayer.lastName} gagne en confiance : Forme +0.5, Moral +10)*`,
+			content: narrative.content + `\n\n[[badge:positive|+0.5 Forme]] [[badge:positive|+10 Moral]] pour **${bestPlayer.lastName}**`,
 			type: "CLUB",
 			importance: 1
 		});
@@ -141,13 +141,13 @@ export const NewsService = {
                 title = "Investisseur Mystère";
                 content = "Un mécène local a fait un don pour soutenir le projet du club. Le budget grimpe !";
                 await db.teams.update(teamId, { budget: team.budget + 100 });
-                content += "\n\n*(Budget : +M 100)*";
+                content += "\n\n[[badge:budget|+M 100 Budget]]";
             } else if (roll < 0.66) {
                 // TikTok
                 title = "Buzz sur les Réseaux";
                 content = "Une vidéo des coulisses du club est devenue virale. La réputation du club explose !";
                 await db.teams.update(teamId, { reputation: clamp(team.reputation + 5, 0, 100) });
-                content += "\n\n*(Réputation : +5%)*";
+                content += "\n\n[[badge:positive|+5% Réputation]]";
             } else {
                 // Centre d'entrainement
                 title = "Ambiance au Top";
@@ -155,7 +155,7 @@ export const NewsService = {
                 for (const p of players) {
                     await db.players.update(p.id!, { morale: clamp(p.morale + 15, 0, 100) });
                 }
-                content += "\n\n*(Moral de l'équipe : +15%)*";
+                content += "\n\n[[badge:positive|+15% Moral d'équipe]]";
             }
         } else {
             const roll = Math.random();
@@ -166,20 +166,20 @@ export const NewsService = {
                 for (const p of players) {
                     await db.players.update(p.id!, { energy: clamp(p.energy - 20, 0, 100) });
                 }
-                content += "\n\n*(Énergie de l'équipe : -20%)*";
+                content += "\n\n[[badge:negative|-20% Énergie d'équipe]]";
                 importance = 3;
             } else if (roll < 0.66) {
                 // Matériel
                 title = "Incident Technique";
                 content = "La chaudière du stade a lâché. Les réparations imprévues pèsent sur les finances.";
                 await db.teams.update(teamId, { budget: Math.max(0, team.budget - 50) });
-                content += "\n\n*(Budget : -M 50)*";
+                content += "\n\n[[badge:budget|-M 50 Budget]]";
             } else {
                 // Bad Buzz
                 title = "Crise de Communication";
                 content = "Une polémique médiatique touche le club. Le Conseil d'Administration n'apprécie pas du tout.";
                 await db.teams.update(teamId, { confidence: clamp(team.confidence - 10, 0, 100) });
-                content += "\n\n*(Confiance du Board : -10%)*";
+                content += "\n\n[[badge:negative|-10% Confiance du Board]]";
                 importance = 3;
             }
         }
@@ -239,7 +239,7 @@ export const NewsService = {
 		teams.sort((a, b) => (b.points || 0) - (a.points || 0));
 		const pos = teams.findIndex((t) => t.id === teamId) + 1;
 		const state = await db.gameState.where("saveId").equals(saveId).first();
-		const narrative = getNarrative("board", "sundayReport", { position: pos, budget: team.budget, confidence: team.confidence, team: team.name, goal: team.seasonGoal || "Non défini" });
-		await this.addNews(saveId, { day: forcedDay || state?.day || 0, date, title: narrative.title || "Bilan du Conseil d'Administration", content: narrative.content, type: "BOARD", importance: 2 });
+		const narrative = getNarrative("board", "sundayReport", { position: pos, budget: team.budget, confidence: team.confidence, team: `[[team:${teamId}|${team.name}]]`, goal: team.seasonGoal || "Non défini" });
+		await this.addNews(saveId, { day: forcedDay || state?.day || 0, date, title: narrative.title || "Bilan du Conseil d'Administration", content: narrative.content + `\n\n[[badge:budget|M ${team.budget} Budget]] [[badge:positive|${team.confidence}% Confiance]]`, type: "BOARD", importance: 2 });
 	},
 };

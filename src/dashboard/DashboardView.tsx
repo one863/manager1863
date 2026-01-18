@@ -161,7 +161,7 @@ export default function Dashboard({
 					<BoardView />
 				) : (
 					<div className="animate-fade-in">
-						<NewsList onNavigate={onNavigate} onSelectPlayer={onSelectPlayer} />
+						<NewsList onNavigate={onNavigate} onSelectPlayer={onSelectPlayer} onSelectTeam={onShowClub} />
 					</div>
 				)}
 			</div>

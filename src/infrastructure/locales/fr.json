@@ -8,7 +8,7 @@
 	},
 	"create": {
 		"title": "Fondation du Club",
-		"subtitle": "Devenez une légende",
+		"subtitle": "Édition Fondatrice 1863",
 		"choose_slot": "Emplacement de sauvegarde",
 		"slot_desc": "Où souhaitez-vous enregistrer cette partie ?",
 		"slot_free": "Nouvelle Partie",
@@ -16,13 +16,18 @@
 		"slot_new": "Nouvelle Partie",
 		"manager_label": "Identité du Manager",
 		"manager_placeholder": "Ex: Pep Guardiola",
+        "manager_first_name": "Prénom",
+        "manager_last_name": "Nom",
 		"club_label": "Nom du Club",
 		"club_placeholder": "Ex: Manchester City",
-		"charter_text": "En signant ce contrat, vous acceptez de respecter les règles de la FIFA et de l'UEFA. Vous prenez la tête de ce club pour tenter de le mener vers les sommets de l'Europe.",
-		"sign_button": "Signer le Contrat",
+		"charter_text": "En fondant ce club, vous posez la première pierre d'une institution éternelle. Vous en serez le bâtisseur unique.",
+		"sign_button": "Fonder le Club",
 		"creating": "Création du club...",
 		"cancel": "Annuler",
-		"change_slot": "Changer d'emplacement"
+		"change_slot": "Changer d'emplacement",
+        "primary_color": "Couleur Principale",
+        "secondary_color": "Couleur Secondaire",
+        "identity": "Identité"
 	},
 	"load": {
 		"title": "Charger une partie",

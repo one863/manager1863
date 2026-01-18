@@ -1,10 +1,11 @@
 import type { Player, PlayerTrait } from "@/core/db/db";
 import { TransferService } from "@/market/transfers/transfer-service";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
-import { AlertCircle, ArrowLeft, Trash2, TrendingUp, User, Award, Activity, ShieldAlert, BarChart3, Info, Zap, Shield, Repeat, Clock, CircleDollarSign, Handshake, Heart } from "lucide-preact";
+import { AlertCircle, ArrowLeft, Trash2, TrendingUp, User, Award, Activity, ShieldAlert, BarChart3, Info, Zap, Shield, Repeat, Clock, CircleDollarSign, Handshake, Heart, History } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "./PlayerAvatar";
+import CareerHistoryView from "@/ui/components/Common/CareerHistoryView";
 
 interface PlayerCardProps {
 	player: Player | null;
@@ -24,7 +25,7 @@ export default function PlayerCard({
 	const triggerRefresh = useGameStore((state) => state.triggerRefresh);
 	const [showConfirmSell, setShowConfirmSell] = useState(false);
 	const [showConfirmBuy, setShowConfirmBuy] = useState(false);
-	const [activeTab, setActiveTab] = useState<"stats" | "data" | "transfer">("stats");
+	const [activeTab, setActiveTab] = useState<"stats" | "data" | "transfer" | "history">("stats");
 
 	if (!player) return null;
 
@@ -177,13 +178,18 @@ export default function PlayerCard({
 
 			{/* Tabs Navigation */}
 			<div className="flex border-b bg-white">
-				{["stats", "data", "transfer"].map((tab) => (
+                {[
+                    { id: "stats", label: "Profil" },
+                    { id: "data", label: "Stats" },
+                    { id: "history", label: "Carrière" },
+                    { id: "transfer", label: "Contrat" }
+                ].map((tab) => (
 					<button 
-						key={tab}
-						onClick={() => setActiveTab(tab as any)}
-						className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
+						key={tab.id}
+						onClick={() => setActiveTab(tab.id as any)}
+						className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
 					>
-						{tab === "stats" ? "Profil" : tab === "data" ? "Stats" : "Contrat"}
+						{tab.label}
 					</button>
 				))}
 			</div>
@@ -277,6 +283,10 @@ export default function PlayerCard({
 						)}
 					</div>
 				)}
+
+                {activeTab === "history" && (
+                    <CareerHistoryView playerName={`${player.firstName} ${player.lastName}`} />
+                )}
 
 				{activeTab === "transfer" && (
 					<div className="space-y-6">

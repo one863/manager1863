@@ -1,7 +1,8 @@
 import type { Team } from "@/core/db/db";
-import { Clock, Shield } from "lucide-preact";
+import { Clock } from "lucide-preact";
 import { type Signal, useSignalEffect } from "@preact/signals";
 import { useSignal } from "@preact/signals";
+import { TeamCrest, getTeamColors } from "@/ui/components/Common/TeamCrest";
 
 interface Scorer {
 	name: string;
@@ -25,6 +26,7 @@ interface ScoreboardProps {
 	possession: Signal<number>;
 	isFinished: boolean;
 	stoppageTime: Signal<number>;
+	onFinalize?: () => void;
 }
 
 export default function Scoreboard({
@@ -43,12 +45,16 @@ export default function Scoreboard({
 	awayXG,
 	possession,
 	isFinished,
-	stoppageTime
+	stoppageTime,
+	onFinalize
 }: ScoreboardProps) {
 
 	const isGoalHighlight = useSignal(false);
 	const prevHomeScore = useSignal(homeScore.value);
 	const prevAwayScore = useSignal(awayScore.value);
+
+	const homeColors = getTeamColors(homeTeam);
+	const awayColors = getTeamColors(awayTeam);
 
 	useSignalEffect(() => {
 		if (homeScore.value > prevHomeScore.value || awayScore.value > prevAwayScore.value) {
@@ -66,15 +72,26 @@ export default function Scoreboard({
 			<div className="relative z-10 p-4 pb-6">
 				{/* Top Bar: Time */}
 				<div className="flex justify-center mb-6">
-					<div className="bg-gray-50 px-4 py-1.5 rounded-full flex items-center gap-2 border border-gray-100">
-						<Clock size={14} className={!isFinished ? "animate-pulse text-blue-600" : "text-gray-400"} />
-						<span className="font-bold text-sm tracking-tight text-gray-900">
-							{isFinished ? "TERMINE" : `${minute.value}'`}
-							{!isFinished && minute.value >= 90 && stoppageTime.value > 0 && (
-								<span className="text-red-500 ml-1">+{stoppageTime.value}</span>
-							)}
-						</span>
-					</div>
+					{isFinished ? (
+						<button
+							onClick={onFinalize}
+							className="bg-emerald-600 px-6 py-1.5 rounded-full flex items-center gap-2 border border-emerald-700 shadow-lg active:scale-95 transition-all"
+						>
+							<span className="font-black text-xs tracking-widest text-white uppercase">
+								TERMINÉ
+							</span>
+						</button>
+					) : (
+						<div className="bg-gray-50 px-4 py-1.5 rounded-full flex items-center gap-2 border border-gray-100">
+							<Clock size={14} className="animate-pulse text-blue-600" />
+							<span className="font-bold text-sm tracking-tight text-gray-900">
+								{minute.value}'
+								{minute.value >= 90 && stoppageTime.value > 0 && (
+									<span className="text-red-500 ml-1">+{stoppageTime.value}</span>
+								)}
+							</span>
+						</div>
+					)}
 				</div>
 
 				{/* Score Display */}
@@ -82,11 +99,13 @@ export default function Scoreboard({
 					{/* Home */}
 					<div className="flex flex-col items-center w-28">
 						<div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 mb-2 shadow-sm overflow-hidden">
-							{homeTeam.logo ? (
-                                <img src={homeTeam.logo} alt={homeTeam.name} className="w-12 h-12 object-contain" />
-                            ) : (
-                                <Shield size={32} style={{ color: homeTeam.colors?.[0] || '#3b82f6' }} />
-                            )}
+							<TeamCrest 
+								primary={homeColors.primary} 
+								secondary={homeColors.secondary} 
+								name={homeTeam.name}
+								type={homeTeam.logoType}
+								size="md"
+							/>
 						</div>
 						<span className="text-[11px] font-bold text-center leading-tight text-gray-900 truncate w-full uppercase">
 							{homeTeam.name}
@@ -105,11 +124,13 @@ export default function Scoreboard({
 					{/* Away */}
 					<div className="flex flex-col items-center w-28">
 						<div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 mb-2 shadow-sm overflow-hidden">
-							{awayTeam.logo ? (
-                                <img src={awayTeam.logo} alt={awayTeam.name} className="w-12 h-12 object-contain" />
-                            ) : (
-                                <Shield size={32} style={{ color: awayTeam.colors?.[0] || '#ef4444' }} />
-                            )}
+							<TeamCrest 
+								primary={awayColors.primary} 
+								secondary={awayColors.secondary} 
+								name={awayTeam.name}
+								type={awayTeam.logoType}
+								size="md"
+							/>
 						</div>
 						<span className="text-[11px] font-bold text-center leading-tight text-gray-900 truncate w-full uppercase">
 							{awayTeam.name}
@@ -118,15 +139,15 @@ export default function Scoreboard({
 				</div>
 
 				{/* Scorers List */}
-				<div className="grid grid-cols-2 gap-8 text-[10px] mb-6 px-4">
-					<div className="text-right flex flex-col gap-1 text-gray-500 font-medium">
+				<div className="grid grid-cols-2 gap-8 text-[11px] mb-6 px-4">
+					<div className="text-right flex flex-col gap-1 text-gray-800 font-bold">
 						{homeScorers.value.map((s, i) => (
-							<div key={i}>{s.name} <span className="text-gray-300 ml-1">{s.minute}'</span></div>
+							<div key={i}>{s.name} <span className="text-gray-500 ml-1 font-medium">{s.minute}'</span></div>
 						))}
 					</div>
-					<div className="text-left flex flex-col gap-1 text-gray-500 font-medium">
+					<div className="text-left flex flex-col gap-1 text-gray-800 font-bold">
 						{awayScorers.value.map((s, i) => (
-							<div key={i}><span className="text-gray-300 mr-1">{s.minute}'</span> {s.name}</div>
+							<div key={i}><span className="text-gray-500 mr-1 font-medium">{s.minute}'</span> {s.name}</div>
 						))}
 					</div>
 				</div>

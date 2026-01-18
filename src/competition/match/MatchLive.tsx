@@ -1,19 +1,22 @@
 import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
 import { useSignal } from "@preact/signals";
-import { Check, Copy, Download, FastForward, ArrowRight } from "lucide-preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { Check, Copy, Download, FastForward } from "lucide-preact";
+import { useEffect, useRef } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import EventItem from "./components/EventItem";
 import Scoreboard from "./components/Scoreboard";
-import MatchReport from "./MatchReport";
 
 interface Scorer {
 	name: string;
 	minute: number;
 }
 
-export default function MatchLive() {
+interface MatchLiveProps {
+    onShowReport?: (matchId: number) => void;
+}
+
+export default function MatchLive({ onShowReport }: MatchLiveProps) {
 	const { t } = useTranslation();
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const finalizeLiveMatch = useGameStore((state) => state.finalizeLiveMatch);
@@ -30,7 +33,6 @@ export default function MatchLive() {
 	const isFinished = useSignal(false);
 	const isStarted = useSignal(false);
 	const copyFeedback = useSignal(false);
-	const [showReport, setShowReport] = useState(false);
 
 	const homeScorers = useSignal<Scorer[]>([]);
 	const awayScorers = useSignal<Scorer[]>([]);
@@ -134,7 +136,6 @@ export default function MatchLive() {
 		const tickRate = 200;
 		let timer: NodeJS.Timeout;
 
-		// Delay start by 2 seconds if just starting
 		const startDelay = currentMinute.value === 0 ? 2000 : 0;
 		
 		const startTimeout = setTimeout(() => {
@@ -162,7 +163,6 @@ export default function MatchLive() {
 				}
 
 				currentMinute.value += 1;
-				// Only update possession up to 90 min, or keep it stable
 				if (currentMinute.value <= 90) {
 					currentPossession.value = calculatePossessionAtMinute(currentMinute.value, liveMatch.result.homePossession || 50);
 				}
@@ -171,18 +171,7 @@ export default function MatchLive() {
 					updateLiveMatchMinute(currentMinute.value, currentSaveId);
 				}
 
-				// If we are in stoppage time, we might want to check for events that happened at 90+
-				// But typically simulator puts them at 90.
-				// If the simulator supports > 90, we would check for them.
-				// Assuming standard simulator: events are up to 90.
-				// If we want events in stoppage time, we'd need to shift some 90m events to 90+
-				// For now, let's just let the clock run without events in stoppage time unless they exist.
-				
 				const events = liveMatch.result.events || [];
-				// Simple logic: if in stoppage time, maybe show some events that were marked as 90+?
-				// But current data structure might not support it.
-				// We just filter events normally.
-				
 				const eventsNow = events.filter(
 					(e: any) => e.minute === currentMinute.value,
 				);
@@ -190,7 +179,6 @@ export default function MatchLive() {
 				if (eventsNow.length > 0) {
 					const displayableEvents = eventsNow.filter((e: any) => e.type !== "SHOT");
 					
-					// Add regular events immediately
 					const nonGoalEvents = displayableEvents.filter((e: any) => e.type !== "GOAL");
 					if (nonGoalEvents.length > 0) {
 						displayedEvents.value = [...displayedEvents.value, ...nonGoalEvents];
@@ -213,27 +201,21 @@ export default function MatchLive() {
 					const goals = eventsNow.filter((e: any) => e.type === "GOAL");
 
 					if (goals.length > 0) {
-						// Filter out duplicates if we have multiple goals in the same minute (rare but possible)
-						// But more importantly, ensure we process one goal sequence at a time if needed.
-						// For now, let's just take the first goal to trigger the suspense sequence.
-						// If there are multiple goals in the same minute, they will all be added at the end.
-						
 						isPausedRef.current = true;
 						
 						const primaryGoal = goals[0];
+						const isPenalty = primaryGoal.description.includes("penalty");
 
-						// Add a suspense message before the goal
 						const suspenseMessage = {
 							minute: currentMinute.value,
 							type: "SUSPENSE",
 							teamId: primaryGoal.teamId,
-							description: "🔥 Grosse occasion...",
+							description: isPenalty ? "L'arbitre siffle un penalty..." : "🔥 Grosse occasion...",
 							xg: null
 						};
 						
 						displayedEvents.value = [...displayedEvents.value, suspenseMessage];
 						
-						// Scroll to suspense message
 						setTimeout(() => {
 							if (scrollRef.current) {
 								scrollRef.current.scrollTo({
@@ -243,13 +225,9 @@ export default function MatchLive() {
 							}
 						}, 50);
 
-						// Reveal goal after delay
 						setTimeout(() => {
-							// Remove suspense message and add ALL goals for this minute
-							// Use functional update to ensure we have the latest state and filter correctly
 							const currentEventsWithoutSuspense = displayedEvents.value.filter((e: any) => e.type !== "SUSPENSE");
 							
-							// Check if goal is already present to avoid duplicates (defensive programming)
 							const newGoals = goals.filter(g => !currentEventsWithoutSuspense.some(e => e.minute === g.minute && e.type === "GOAL" && e.scorerName === g.scorerName));
 							
 							displayedEvents.value = [
@@ -273,7 +251,6 @@ export default function MatchLive() {
 								}
 							});
 							
-							// Scroll to goal
 							setTimeout(() => {
 								if (scrollRef.current) {
 									scrollRef.current.scrollTo({
@@ -283,13 +260,11 @@ export default function MatchLive() {
 								}
 							}, 50);
 
-							// Resume match after celebrating
 							setTimeout(() => {
 								isPausedRef.current = false;
 							}, 2000);
-						}, 1500); // 1.5s suspense duration
+						}, 1500); 
 					} else {
-						// Scroll for non-goal events
 						if (displayableEvents.length > 0 && scrollRef.current) {
 							setTimeout(() => {
 								if (scrollRef.current) {
@@ -315,7 +290,6 @@ export default function MatchLive() {
 		if (!liveMatch || !liveMatch.result || !currentSaveId) return;
 		isPausedRef.current = false;
 		
-		// Determine stoppage time if not already set (recalc here to be safe)
 		const events = liveMatch.result.events || [];
 		if (stoppageTime.value === 0) {
 			let totalStoppage = 0;
@@ -429,19 +403,24 @@ export default function MatchLive() {
 
 	if (!liveMatch) return null;
 
+	const handleFinalize = async () => {
+        if (liveMatch) {
+            const matchId = liveMatch.matchId;
+            // ON FINALISE VRAIMENT EN DB ICI
+            await finalizeLiveMatch();
+            // On demande l'affichage du rapport
+            if (onShowReport) {
+                onShowReport(matchId);
+            }
+        }
+    };
+
 	return (
-		<div className="flex flex-col h-full bg-white animate-fade-in relative z-[100]">
+		<div className="absolute inset-0 z-[200] flex flex-col bg-white animate-fade-in">
 			{/* HEADER CONTROLS */}
 			<div className="absolute top-0 left-0 w-full p-4 z-50 flex justify-between pointer-events-none">
 				<div className="pointer-events-auto flex items-center gap-3">
-					{isFinished.value ? (
-						<button
-							onClick={() => finalizeLiveMatch()}
-							className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-full shadow-2xl text-[11px] font-black uppercase tracking-widest active:scale-95 transition-all animate-bounce"
-						>
-							Fin du match <ArrowRight size={16} />
-						</button>
-					) : (
+					{!isFinished.value && (
 						<button
 							onClick={handleSkip}
 							className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 rounded-full shadow-lg text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-all active:scale-95 border border-gray-100 backdrop-blur-sm"
@@ -487,6 +466,7 @@ export default function MatchLive() {
 				possession={currentPossession}
 				isFinished={isFinished.value}
 				stoppageTime={stoppageTime}
+				onFinalize={handleFinalize}
 			/>
 
 			<div

@@ -129,7 +129,7 @@ export const MatchService = {
 					awayCoach: awayCoach ? { management: awayCoach.stats.management, tactical: awayCoach.stats.tactical, preferredStrategy: awayCoach.preferredStrategy } : undefined
 				});
 			}
-			this.runBatchSimulation(matchesToSimulate, saveId, date);
+			this.runBatchSimulation(matchesToSimulate, saveId, date, userTeamId);
 		}
 
 		// User Match Simulation
@@ -157,7 +157,7 @@ export const MatchService = {
 		return null;
 	},
 
-	runBatchSimulation(matches: any[], saveId: number, date: Date) {
+	runBatchSimulation(matches: any[], saveId: number, date: Date, userTeamId: number) {
 		const language = i18next.language;
 		simulationWorker.postMessage({ type: "SIMULATE_BATCH", payload: { matches, saveId, language } });
 		const handler = async (e: MessageEvent) => {
@@ -166,19 +166,24 @@ export const MatchService = {
 				simulationWorker.removeEventListener("message", handler);
 				for (const res of payload.results) {
 					const match = await db.matches.get(res.matchId);
-					if (match) await this.saveMatchResult(match, res.result, saveId, date, false);
+					if (match) {
+                        const isUserMatch = match.homeTeamId === userTeamId || match.awayTeamId === userTeamId;
+                        await this.saveMatchResult(match, res.result, saveId, date, false, isUserMatch);
+                    }
 				}
 			}
 		};
 		simulationWorker.addEventListener("message", handler);
 	},
 
-	async saveMatchResult(match: Match, result: MatchResult, saveId: number, date: Date, generateNews = true) {
+	async saveMatchResult(match: Match, result: MatchResult, saveId: number, date: Date, generateNews = true, keepDetails = true) {
+        const resultToSave = keepDetails ? result : { ...result, events: [] };
+
 		await db.matches.where("id").equals(match.id!).modify({
 			homeScore: result.homeScore,
 			awayScore: result.awayScore,
 			played: true,
-			details: JSON.parse(JSON.stringify(result))
+			details: JSON.parse(JSON.stringify(resultToSave))
 		});
 
 		await Promise.all([
@@ -303,19 +308,30 @@ export const MatchService = {
 		const team = await db.teams.get(teamId);
 		if (!team) return;
 		let pts = team.points || 0;
+        let wins = team.wins || 0;
+        let draws = team.draws || 0;
+        let losses = team.losses || 0;
 		let resultValue = 0.5; // Draw
+
 		if (goalsFor > goalsAgainst) {
 			pts += 3;
+            wins += 1;
 			resultValue = 1; // Win
 		} else if (goalsFor < goalsAgainst) {
+            losses += 1;
 			resultValue = 0; // Loss
-		}
+		} else {
+            draws += 1;
+        }
 
 		const lastResults = [resultValue, ...(team.lastResults || [])].slice(0, 5);
 
 		await db.teams.update(teamId, {
 			matchesPlayed: (team.matchesPlayed || 0) + 1,
 			points: pts,
+            wins,
+            draws,
+            losses,
 			goalsFor: (team.goalsFor || 0) + goalsFor,
 			goalsAgainst: (team.goalsAgainst || 0) + goalsAgainst,
 			goalDifference: ((team.goalsFor || 0) + goalsFor) - ((team.goalsAgainst || 0) + goalsAgainst),
@@ -423,10 +439,11 @@ export const MatchService = {
 				}
 			}
 		}
-		for (const [level, teams] of relegations) {
+
+		for (const [level, teamsToRelegate] of relegations) {
 			const targetLeagueId = leaguesByLevel.get(level);
 			if (targetLeagueId) {
-				for (const team of teams) {
+				for (const team of teamsToRelegate) {
 					await db.teams.update(team.id!, { leagueId: targetLeagueId });
 					if (team.id === state.userTeamId) {
 						await NewsService.addNews(saveId, { day: state.day, date: state.currentDate, title: "RELÉGATION", content: "Une saison cauchemardesque qui nous envoie à l'étage inférieur.", type: "BOARD", importance: 3 });
@@ -439,7 +456,7 @@ export const MatchService = {
 			const currentTeams = await db.teams.where("leagueId").equals(league.id!).toArray();
 			const teamIds = currentTeams.map((t) => t.id!);
 			for (const t of currentTeams) {
-				await db.teams.update(t.id!, { points: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0 });
+				await db.teams.update(t.id!, { points: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, wins: 0, draws: 0, losses: 0 });
 			}
 			await generateSeasonFixtures(saveId, league.id!, teamIds);
 		}

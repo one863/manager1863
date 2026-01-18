@@ -43,7 +43,7 @@ export function SubTabs({ tabs, activeTab, onChange, sticky = true }: SubTabsPro
 		>
 			<div
 				ref={scrollRef}
-				className="flex overflow-x-auto no-scrollbar scroll-smooth px-2 items-center"
+				className="flex overflow-x-auto no-scrollbar scroll-smooth px-1 items-center"
 			>
 				{tabs.map((tab) => {
 					const isActive = activeTab === tab.id;
@@ -53,18 +53,18 @@ export function SubTabs({ tabs, activeTab, onChange, sticky = true }: SubTabsPro
 							data-tab-id={tab.id}
 							onClick={() => onChange(tab.id)}
 							className={`
-								flex-shrink-0 flex items-center gap-2 px-6 py-4 text-[10px] uppercase tracking-[0.15em] font-black transition-all relative
+								flex-shrink-0 flex items-center gap-2 px-3.5 py-3.5 text-[10px] uppercase tracking-[0.1em] font-black transition-all relative
 								${isActive ? "text-ink" : "text-slate-500 hover:text-ink"}
 							`}
 						>
 							<span>{tab.label}</span>
 							{tab.badge !== undefined && tab.badge > 0 && (
-								<span className="bg-red-600 text-white text-[10px] px-2 rounded-full min-w-[20px] h-5 flex items-center justify-center font-black shadow-md border border-white/20">
+								<span className="bg-red-600 text-white text-[10px] px-1.5 rounded-full min-w-[18px] h-4.5 flex items-center justify-center font-black shadow-md border border-white/20">
 									{tab.badge}
 								</span>
 							)}
 							{isActive && (
-								<div className="absolute bottom-0 left-6 right-6 h-[3px] bg-accent rounded-t-full" />
+								<div className="absolute bottom-0 left-3 right-3 h-[3px] bg-accent rounded-t-full" />
 							)}
 						</button>
 					);

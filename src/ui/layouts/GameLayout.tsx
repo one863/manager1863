@@ -14,6 +14,7 @@ import StaffCard from "@/squad/components/StaffCard";
 import ClubDetails from "@/club/components/ClubDetails";
 import ManagerView from "@/ui/components/Layout/ManagerView";
 import MatchLive from "@/competition/match/MatchLive";
+import NewsView from "@/news/feed/NewsList";
 
 import Dashboard from "@/dashboard/DashboardView";
 import SquadView from "@/squad/SquadView";
@@ -33,7 +34,8 @@ type View =
 	| "staff-details"
 	| "team-details"
 	| "manager"
-	| "live-match";
+	| "live-match"
+    | "news-details";
 
 export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const { t } = useTranslation();
@@ -54,34 +56,27 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const isProcessing = useGameStore((state) => state.isProcessing);
 	const isGameOver = useGameStore((state) => state.isGameOver);
 	const advanceDate = useGameStore((state) => state.advanceDate);
-	const finalizeLiveMatch = useGameStore((state) => state.finalizeLiveMatch);
     
     const pushView = useGameStore((state) => state.pushView);
     const popView = useGameStore((state) => state.popView);
-    const setUIContext = useGameStore((state) => state.setUIContext);
 
 	const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 
 	// Effect to switch to live-match view when a match starts
 	useEffect(() => {
-		if (liveMatch && currentView !== "live-match") {
+		if (liveMatch && currentView !== "live-match" && currentView !== "match-report") {
 			setCurrentView("live-match");
-		} else if (!liveMatch && currentView === "live-match") {
-			// When match ends (liveMatch becomes null), redirect to league view
-			setCurrentView("league");
 		}
 	}, [liveMatch]);
 
 	const handleContinueClick = async () => {
-		const liveState = useLiveMatchStore.getState();
-		if (liveState.liveMatch) {
-			if (liveState.liveMatch.currentMinute >= 90) {
-				await finalizeLiveMatch();
-			}
-			return;
-		}
-
 		if (isGameOver || isProcessing) return;
+
+        // Si on est dans le rapport de match après un live, on redirige juste
+        if (currentView === "match-report") {
+            setCurrentView("dashboard");
+            return;
+        }
 
 		executeContinue();
 	};
@@ -124,9 +119,6 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 
 	const handleSelectStaff = (staff: StaffMember) => {
 		setSelectedStaff(staff);
-        // Si on vient d'une vue qui a des onglets, on s'assure que le contexte est bon
-        if (currentView === "squad") setUIContext("squad", "staff");
-        if (currentView === "transfers") setUIContext("transfers", "staff");
 		navigateToView("staff-details");
 	};
 
@@ -140,9 +132,14 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 		navigateToView("match-report");
 	};
 
+    const handleShowReportAfterLive = (matchId: number) => {
+        setSelectedMatchId(matchId);
+        setCurrentView("match-report");
+    };
+
 	const handleCloseDetailView = () => {
         const last = popView();
-		if (last && last.view !== "live-match") {
+		if (last) {
 			setCurrentView(last.view as View);
 		} else {
 			setCurrentView("dashboard");
@@ -181,7 +178,8 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 							handleCloseDetailView,
 							selectedPlayer,
 							selectedStaff,
-							selectedTeamId
+							selectedTeamId,
+                            handleShowReportAfterLive
 						)}
 					</Suspense>
 				</ErrorBoundary>
@@ -231,11 +229,12 @@ function renderView(
 	onCloseDetail: () => void,
 	selectedPlayer: Player | null,
 	selectedStaff: StaffMember | null,
-	selectedTeamId: number | null
+	selectedTeamId: number | null,
+    onShowReportAfterLive: (id: number) => void
 ) {
 	switch (view) {
 		case "dashboard":
-			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} onSelectPlayer={onSelectPlayer} />;
+			return <Dashboard onNavigate={(v) => v === 'news' ? setView('news-details') : setView(v as View)} onShowClub={onSelectTeam} onSelectPlayer={onSelectPlayer} />;
 		case "squad":
 			return <SquadView onSelectPlayer={onSelectPlayer} onSelectStaff={onSelectStaff} />;
 		case "league":
@@ -260,8 +259,10 @@ function renderView(
 		case "manager":
 			return <ManagerView onClose={onCloseDetail} onQuit={onQuit} />;
 		case "live-match":
-			return <MatchLive />;
+			return <MatchLive onShowReport={onShowReportAfterLive} />;
+        case "news-details":
+            return <NewsView onNavigate={setView} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} onClose={onCloseDetail} />;
 		default:
-			return <Dashboard onNavigate={setView} onShowClub={onSelectTeam} onSelectPlayer={onSelectPlayer} />;
+			return <Dashboard onNavigate={(v) => v === 'news' ? setView('news-details') : setView(v as View)} onShowClub={onSelectTeam} onSelectPlayer={onSelectPlayer} />;
 	}
 }

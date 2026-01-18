@@ -13,7 +13,9 @@ export const TrainingService = {
 		const team = await db.teams.get(teamId);
 		if (!team) return { success: false };
 		
-		const nextStartDay = Math.ceil(currentDay / 7) * 7 + 1;
+		// Align with Tuesday (day % 7 === 2)
+		let nextStartDay = Math.ceil(currentDay / 7) * 7 + 2;
+        if (nextStartDay <= currentDay) nextStartDay += 7;
 
 		await db.teams.update(teamId, {
 			trainingStartDay: currentDay,
@@ -42,7 +44,7 @@ export const TrainingService = {
 		const team = await db.teams.get(teamId);
 		if (!team) return;
 
-		// --- MISE À JOUR HEBDOMADAIRE (FORME) ---
+		// --- MISE À JOUR HEBDOMADAIRE (FORME) - LUNDI ---
 		if (currentDay % 7 === 1) {
 			const teamPlayers = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
 			for (const p of teamPlayers) {
@@ -55,7 +57,7 @@ export const TrainingService = {
 			}
 		}
 
-		// --- LOGIQUE D'ENTRAÎNEMENT ---
+		// --- LOGIQUE D'ENTRAÎNEMENT - MARDI ---
 		if (!team.trainingEndDay || !team.trainingFocus || currentDay !== team.trainingEndDay) return;
 
 		const focus = team.trainingFocus as TrainingFocus;

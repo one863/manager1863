@@ -1,6 +1,6 @@
 import { db } from "@/core/db/db";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
-import { ArrowLeft, ArrowRight, Trophy, Star } from "lucide-preact";
+import { ArrowLeft, ArrowRight, Star } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 
@@ -75,9 +75,9 @@ export default function LeagueTable({
     };
 
 	return (
-		<div className="flex flex-col h-full bg-white animate-fade-in">
-			{/* Navigation entre les ligues (sans titre de page fixe) */}
-			<div className="px-4 py-2 border-b border-gray-50 flex items-center justify-between sticky top-0 bg-white z-10">
+		<div className="flex flex-col h-full bg-white overflow-hidden">
+			{/* Navigation entre les ligues */}
+			<div className="px-4 py-2 border-b border-gray-50 flex items-center justify-between sticky top-0 bg-white z-30">
 				<button onClick={handlePrevLeague} className="p-2 text-ink-light hover:text-accent transition-colors">
 					<ArrowLeft size={16} />
 				</button>
@@ -89,49 +89,61 @@ export default function LeagueTable({
 				</button>
 			</div>
 
-			<div className="flex-1 overflow-y-auto">
-				<table className="w-full text-left border-collapse">
-					<thead className="bg-gray-50 sticky top-0 z-10 text-[9px] font-black uppercase tracking-widest text-gray-400">
+			<div className="flex-1 overflow-auto">
+				<table className="w-full text-left border-collapse min-w-[380px]">
+					<thead className="bg-gray-50 sticky top-0 z-20 text-[10px] font-black uppercase tracking-tight text-gray-400">
 						<tr>
-							<th className="p-3 w-8 text-center">#</th>
-							<th className="p-3">Club</th>
-							<th className="p-3 text-center w-8">MJ</th>
-							<th className="p-3 text-center w-8">Diff</th>
-							<th className="p-3 text-center w-10 font-bold text-ink">Pts</th>
+							<th className="px-1 py-3 w-8 text-center bg-gray-50">#</th>
+							<th className="px-1 py-3 w-28 sticky left-0 bg-gray-50 z-20 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Club</th>
+							<th className="px-1 py-3 text-center w-8">J</th>
+							<th className="px-1 py-3 text-center w-6">G</th>
+							<th className="px-1 py-3 text-center w-6">N</th>
+							<th className="px-1 py-3 text-center w-6">P</th>
+							<th className="px-1 py-3 text-center w-12 text-[8px]">Bp/Bc</th>
+							<th className="px-1 py-3 text-center w-8">Diff</th>
+							<th className="px-1 py-3 text-center w-10 font-bold text-ink">Pts</th>
 						</tr>
 					</thead>
-					<tbody className="text-sm">
+					<tbody className="text-xs font-sans">
 						{teams.map((team, index) => {
                             const isUserTeam = team.id === userTeamId;
+                            const rowBg = isUserTeam ? "bg-accent/5" : "bg-white";
                             return (
                                 <tr 
                                     key={team.id} 
-                                    className={`
-                                        border-b border-gray-50 last:border-0 transition-colors
-                                        ${isUserTeam ? "bg-accent/5" : ""}
-                                        ${!isUserTeam && index < 3 ? "bg-green-50/20" : ""}
-                                        ${!isUserTeam && index >= teams.length - 3 ? "bg-red-50/20" : ""}
-                                    `}
+                                    className={`border-b border-gray-50 last:border-0 ${rowBg}`}
                                 >
-                                    <td className={`p-3 text-center font-bold ${isUserTeam ? "text-accent" : (index === 0 ? "text-amber-500" : "text-gray-400")}`}>
+                                    <td className={`px-1 py-3 text-center font-bold ${isUserTeam ? "text-accent" : (index === 0 ? "text-amber-500" : "text-gray-400")}`}>
                                         {index + 1}
                                     </td>
-                                    <td className={`p-3 font-bold truncate max-w-[120px] ${isUserTeam ? "text-accent" : "text-ink"}`}>
+                                    <td className={`px-1 py-3 font-bold truncate sticky left-0 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] ${rowBg}`}>
                                         <button 
                                             onClick={() => onSelectTeam?.(team.id)}
-                                            className="hover:text-accent text-left transition-colors flex items-center gap-2"
+                                            className={`hover:text-accent text-left transition-colors flex items-center gap-1 w-full ${isUserTeam ? "text-accent" : "text-ink"}`}
                                         >
-                                            {team.name}
-                                            {isUserTeam && <Star size={10} fill="currentColor" />}
+                                            <span className="truncate">{team.name}</span>
+                                            {isUserTeam && <Star size={10} fill="currentColor" className="shrink-0" />}
                                         </button>
                                     </td>
-                                    <td className={`p-3 text-center font-mono text-[10px] ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
                                         {team.matchesPlayed || 0}
                                     </td>
-                                    <td className={`p-3 text-center font-mono text-[10px] ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                        {team.wins || 0}
+                                    </td>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                        {team.draws || 0}
+                                    </td>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                        {team.losses || 0}
+                                    </td>
+                                    <td className={`px-1 py-3 text-center font-mono text-[10px] ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                        {team.goalsFor || 0}-{team.goalsAgainst || 0}
+                                    </td>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
                                         {team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference || 0}
                                     </td>
-                                    <td className={`p-3 text-center font-black font-mono ${isUserTeam ? "text-accent bg-accent/10" : "text-ink bg-gray-50/30"}`}>
+                                    <td className={`px-1 py-3 text-center font-black font-mono text-sm ${isUserTeam ? "text-accent bg-accent/10" : "text-ink bg-gray-50/30"}`}>
                                         {team.points || 0}
                                     </td>
                                 </tr>

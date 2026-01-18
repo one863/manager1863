@@ -6,7 +6,8 @@ import {
 	Building2,
 	Clock,
 	Construction,
-	Hammer
+	Hammer,
+	X
 } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
@@ -158,20 +159,55 @@ export default function InfrastructureView() {
 				</div>
 			</div>
 
-			{/* MODAL CONFIRMATION */}
+			{/* MODAL CONFIRMATION (STYLE PLAYER CARD) */}
 			{showProjectConfirm && (
-				<div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
-					<div className="bg-white rounded-[2.5rem] p-8 shadow-2xl max-w-sm w-full animate-slide-up text-center border-4 border-paper-dark">
-						<div className="bg-accent/10 p-5 rounded-full text-accent inline-block mb-4">
-							{showProjectConfirm === "UPGRADE" ? <Construction size={40} /> : <Hammer size={40} />}
-						</div>
-						<h3 className="text-xl font-serif font-bold text-ink mb-2">Lancer les travaux ?</h3>
-						<p className="text-xs text-ink-light mb-6 px-2 leading-relaxed">
-							Ce projet coûtera <span className="font-black text-accent">M{showProjectConfirm === "UPGRADE" ? upgradeCost : newStadiumCost}</span> et mobilisera vos équipes pendant <span className="font-black text-ink">{showProjectConfirm === "UPGRADE" ? "30" : "60"} jours</span>.
-						</p>
-						<div className="flex gap-3">
-							<button onClick={() => setShowProjectConfirm(null)} className="flex-1 py-4 bg-paper-dark rounded-2xl font-black text-[10px] uppercase tracking-widest text-ink-light">Annuler</button>
-							<button onClick={handleStartProject(showProjectConfirm)} className="flex-1 py-4 bg-accent text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg">Confirmer</button>
+				<div className="fixed inset-0 z-[250] bg-black/40 backdrop-blur-sm flex items-end justify-center animate-fade-in">
+					<div className="bg-white rounded-t-[2rem] w-full max-w-lg animate-slide-up overflow-hidden">
+						<div className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold text-gray-900">Confirmation de projet</h3>
+                                <button onClick={() => setShowProjectConfirm(null)} className="text-gray-400">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 mb-6 flex flex-col items-center text-center">
+                                <div className="bg-white p-4 rounded-full shadow-sm border border-blue-100 mb-4">
+                                    {showProjectConfirm === "UPGRADE" ? <Construction size={32} className="text-blue-600" /> : <Hammer size={32} className="text-blue-600" />}
+                                </div>
+                                <h4 className="font-bold text-blue-900 mb-1">
+                                    {showProjectConfirm === "UPGRADE" ? "Agrandissement de la tribune" : "Nouveau Complexe Sportif"}
+                                </h4>
+                                <p className="text-xs text-blue-700/70 font-medium">
+                                    {showProjectConfirm === "UPGRADE" ? "Ajout de 1000 places assises" : "Modernisation complète des infrastructures"}
+                                </p>
+                            </div>
+
+                            <div className="space-y-3 mb-8">
+                                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Coût du projet</span>
+                                    <CreditAmount amount={showProjectConfirm === "UPGRADE" ? upgradeCost : newStadiumCost} size="md" color="text-gray-900 font-black" />
+                                </div>
+                                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Durée des travaux</span>
+                                    <span className="text-sm font-bold text-gray-900">{showProjectConfirm === "UPGRADE" ? "30" : "60"} jours</span>
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setShowProjectConfirm(null)} 
+                                    className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl text-[11px] font-bold uppercase tracking-widest"
+                                >
+                                    Annuler
+                                </button>
+                                <button 
+                                    onClick={() => handleStartProject(showProjectConfirm)} 
+                                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+                                >
+                                    Confirmer les travaux
+                                </button>
+                            </div>
 						</div>
 					</div>
 				</div>

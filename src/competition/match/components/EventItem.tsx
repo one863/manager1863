@@ -19,12 +19,12 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
 
 	if (isSuspense) {
 		return (
-			<div className="flex gap-3 animate-fade-in py-3 border-b border-gray-100 last:border-0 items-start group bg-yellow-50/50 -mx-4 px-4">
-				<div className="font-mono text-[10px] text-yellow-600 w-10 shrink-0 pt-0.5 text-center font-black bg-yellow-100 rounded h-fit animate-pulse">
+			<div className="flex gap-4 animate-fade-in py-4 border-b border-gray-100 last:border-0 items-start group bg-yellow-50 -mx-4 px-6">
+				<div className="font-mono text-xs text-yellow-700 w-12 shrink-0 pt-1 text-center font-black bg-yellow-200 rounded h-fit animate-pulse border border-yellow-300">
 					{displayMinute}'
 				</div>
 				<div className="flex-1 text-left">
-					<div className="text-[11px] leading-snug font-serif font-bold text-yellow-800 animate-pulse italic">
+					<div className="text-[13px] leading-relaxed font-bold text-yellow-900 animate-pulse">
 						{event.description}
 					</div>
 				</div>
@@ -33,17 +33,17 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
 	}
 
 	return (
-		<div className={`flex gap-3 animate-fade-in py-3 border-b border-gray-100 last:border-0 items-start group ${isGoal ? 'bg-green-50/30 -mx-4 px-4' : ''}`}>
-			<div className={`font-mono text-[10px] w-10 shrink-0 pt-0.5 text-center font-black rounded h-fit ${isGoal ? 'bg-black text-white' : 'bg-gray-50 text-ink'}`}>
+		<div className={`flex gap-4 animate-fade-in py-4 border-b border-gray-100 last:border-0 items-start group ${isGoal ? 'bg-emerald-50/50 -mx-4 px-6 shadow-sm relative z-10' : 'bg-white/40 hover:bg-white transition-colors px-2 rounded-xl my-1'}`}>
+			<div className={`font-mono text-xs w-12 shrink-0 pt-1 text-center font-black rounded h-fit border ${isGoal ? 'bg-black text-white border-black shadow-md' : 'bg-paper text-ink border-ink/5'}`}>
 				{displayMinute}'
 			</div>
 
-			<div className={`flex-1 text-left ${isGoal ? "text-black font-extrabold" : "text-gray-600"}`}>
-				<div className={`text-[11px] leading-snug font-serif ${isAmbient ? "italic" : ""}`}>
-					{isGoal && <span className="mr-1 animate-bounce inline-block">⚽</span>}
+			<div className={`flex-1 text-left ${isGoal ? "text-ink font-black" : "text-ink"}`}>
+				<div className={`text-[13px] leading-relaxed ${isAmbient ? "italic text-ink-light" : "font-medium"}`}>
+					{isGoal && <span className="mr-2 animate-bounce inline-block">⚽</span>}
 					{event.description}
 					{event.xg && (
-						<span className="ml-2 text-[9px] font-black text-accent opacity-0 group-hover:opacity-100 transition-opacity italic">
+						<span className="ml-2 text-[10px] font-black text-accent opacity-0 group-hover:opacity-100 transition-opacity italic">
 							({event.xg.toFixed(2)} xG)
 						</span>
 					)}

@@ -29,3 +29,26 @@ export function clamp(val: number, min: number, max: number): number {
 export function probability(chance: number): boolean {
 	return Math.random() < chance;
 }
+
+/**
+ * Sélectionne un élément dans une liste pondérée
+ */
+export function weightedPick<T>(items: { item: T; weight: number }[]): T {
+    const totalWeight = items.reduce((acc, i) => acc + i.weight, 0);
+    let random = Math.random() * totalWeight;
+    for (const item of items) {
+        if (random < item.weight) return item.item;
+        random -= item.weight;
+    }
+    return items[0].item;
+}
+
+/**
+ * Génère un nombre aléatoire selon une distribution normale (Box-Muller)
+ */
+export function boxMullerRandom(mean: number, std: number): number {
+    const u1 = Math.random();
+    const u2 = Math.random();
+    const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    return z0 * std + mean;
+}

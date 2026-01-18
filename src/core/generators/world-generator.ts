@@ -95,9 +95,11 @@ export async function generateWorld(saveId: number, userTeamName: string) {
 			await generateFullSquad(saveId, teamId, avgSkill);
 
             // 4. Génération d'un staff de base pour le club
-            const coach = generateStaffMember(saveId, teamId, avgSkill);
+			// Plus la division est basse, plus le staff est faible
+			const staffSkill = avgSkill * 0.8; 
+            const coach = generateStaffMember(saveId, teamId, staffSkill);
             coach.role = "COACH";
-            const scout = generateStaffMember(saveId, teamId, avgSkill);
+            const scout = generateStaffMember(saveId, teamId, staffSkill);
             scout.role = "SCOUT";
             
             await db.staff.add(coach as any);

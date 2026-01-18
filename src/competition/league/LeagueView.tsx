@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import { SubTabs } from "@/ui/components/Common/SubTabs";
 import LeagueTable from "./components/LeagueTable";
+import { TeamCrest, getTeamColors } from "@/ui/components/Common/TeamCrest";
 
 interface LeagueViewProps {
 	onSelectMatch: (id: number) => void;
@@ -21,7 +22,7 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 	
 	const [leagueId, setLeagueId] = useState<number | null>(null);
 	const [matchesByRound, setMatchesByRound] = useState<Record<number, any[]>>({});
-	const [teamNames, setTeamNames] = useState<Record<number, string>>({});
+	const [teamsData, setTeamsData] = useState<Record<number, any>>({});
 	const [selectedRound, setSelectedRound] = useState<number>(1);
 	const [maxRound, setMaxRound] = useState<number>(1);
 
@@ -47,11 +48,11 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 					.equals(Number(team.leagueId))
 					.toArray();
 				
-				const namesMap: Record<number, string> = {};
+				const teamsMap: Record<number, any> = {};
 				leagueTeams.forEach(t => {
-					namesMap[t.id!] = t.name;
+					teamsMap[t.id!] = t;
 				});
-				setTeamNames(namesMap);
+				setTeamsData(teamsMap);
 				
 				// Grouper par journée
 				const rounds: Record<number, any[]> = {};
@@ -92,14 +93,14 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 	const currentRoundMatches = matchesByRound[selectedRound] || [];
 
 	return (
-		<div className="flex flex-col min-h-full bg-white animate-fade-in">
+		<div className="flex flex-col h-full bg-white animate-fade-in overflow-hidden">
 			<SubTabs
 				tabs={tabs}
 				activeTab={activeTab}
 				onChange={(id) => setUIContext("league", id)}
 			/>
 
-			<div className="flex-1 pb-24">
+			<div className="flex-1 overflow-hidden font-sans">
 				{activeTab === "table" && leagueId ? (
 					<LeagueTable 
 						initialLeagueId={leagueId} 
@@ -129,45 +130,56 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 							</button>
 						</div>
 
-						<div className="p-4">
+						<div className="flex-1 overflow-y-auto p-4 pb-12">
 							{currentRoundMatches.length === 0 ? (
 								<div className="py-20 text-center flex flex-col items-center opacity-30">
 									<CalendarIcon size={48} className="mb-2" />
 									<p className="text-xs font-serif italic">Aucun match trouvé</p>
 								</div>
 							) : (
-								<div className="space-y-2">
+								<div className="space-y-3">
 									{currentRoundMatches.map((match) => {
+                                        const homeTeam = teamsData[match.homeTeamId];
+                                        const awayTeam = teamsData[match.awayTeamId];
                                         const isHomeUser = Number(match.homeTeamId) === Number(userTeamId);
                                         const isAwayUser = Number(match.awayTeamId) === Number(userTeamId);
                                         const isUserMatch = isHomeUser || isAwayUser;
+
+                                        const homeColors = getTeamColors(homeTeam);
+                                        const awayColors = getTeamColors(awayTeam);
 
                                         return (
                                             <div
                                                 key={match.id}
                                                 onClick={() => match.played && onSelectMatch(match.id)}
                                                 className={`
-                                                    p-3 rounded-2xl border flex items-center justify-center gap-3 transition-all
+                                                    p-4 rounded-2xl border flex items-center justify-center gap-2 transition-all
                                                     ${isUserMatch ? 'bg-accent/5 border-accent/20' : 'bg-white border-gray-100'}
                                                     ${match.played ? 'cursor-pointer hover:border-accent/30 hover:shadow-sm' : ''}
                                                 `}
                                             >
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onSelectTeam(match.homeTeamId); }}
-                                                    className={`text-sm font-bold truncate flex-1 text-right hover:text-accent transition-colors ${isHomeUser ? 'text-accent underline decoration-2 underline-offset-4' : 'text-ink'}`}
+                                                    className={`text-xs font-bold truncate flex-1 flex flex-col items-center gap-2 hover:text-accent transition-colors ${isHomeUser ? 'text-accent' : 'text-ink'}`}
                                                 >
-                                                    {teamNames[match.homeTeamId] || "Dom."}
+                                                    <div className="shrink-0 scale-75">
+                                                        <TeamCrest primary={homeColors.primary} secondary={homeColors.secondary} size="sm" name={homeTeam?.name} type={homeTeam?.logoType} />
+                                                    </div>
+                                                    <span className="max-w-[80px] text-center leading-tight">{homeTeam?.name || "Dom."}</span>
                                                 </button>
                                                 
-                                                <div className={`w-16 text-center font-mono font-black py-1.5 rounded-lg text-xs shrink-0 ${match.played ? (isUserMatch ? 'bg-accent/10 text-accent' : 'bg-gray-100 text-ink') : 'bg-accent/5 text-accent border border-accent/10'}`}>
+                                                <div className={`w-14 text-center font-mono font-black py-2 rounded-xl text-xs shrink-0 ${match.played ? (isUserMatch ? 'bg-accent text-white shadow-sm' : 'bg-gray-100 text-ink') : 'bg-white text-slate-300 border border-slate-100 italic'}`}>
                                                     {match.played ? `${match.homeScore} - ${match.awayScore}` : "vs"}
                                                 </div>
                                                 
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onSelectTeam(match.awayTeamId); }}
-                                                    className={`text-sm font-bold truncate flex-1 text-left hover:text-accent transition-colors ${isAwayUser ? 'text-accent underline decoration-2 underline-offset-4' : 'text-ink'}`}
+                                                    className={`text-xs font-bold truncate flex-1 flex flex-col items-center gap-2 hover:text-accent transition-colors ${isAwayUser ? 'text-accent' : 'text-ink'}`}
                                                 >
-                                                    {teamNames[match.awayTeamId] || "Ext."}
+                                                    <div className="shrink-0 scale-75">
+                                                        <TeamCrest primary={awayColors.primary} secondary={awayColors.secondary} size="sm" name={awayTeam?.name} type={awayTeam?.logoType} />
+                                                    </div>
+                                                    <span className="max-w-[80px] text-center leading-tight">{awayTeam?.name || "Ext."}</span>
                                                 </button>
                                             </div>
                                         );
