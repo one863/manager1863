@@ -8,7 +8,6 @@ interface EventItemProps {
 
 export default function EventItem({ event, homeTeamId }: EventItemProps) {
 	const isGoal = event.type === "GOAL";
-	const isAmbient = event.type === "SE" || event.teamId === 0;
 	// @ts-ignore
 	const isSuspense = event.type === "SUSPENSE";
 
@@ -16,6 +15,24 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
 	const displayMinute = event.minute > 90 
 		? `90+${event.minute - 90}` 
 		: `${event.minute}`;
+
+    const getIcon = () => {
+        switch (event.type) {
+            case "GOAL": return "⚽";
+            case "CORNER": return "⛳";
+            case "FREE_KICK": return "🎯";
+            case "SPECIAL": return "🥅"; // Penalty
+            case "CARD": return "🟨"; // Par défaut jaune, le texte précisera
+            case "INJURY": return "🚑";
+            case "COUNTER_PRESS": return "⚡";
+            case "LONG_THROW": return "🚀";
+            case "SUBSTITUTION": return "🔄";
+            case "COUNTER_ATTACK": return "💨";
+            default: return null;
+        }
+    };
+
+    const icon = getIcon();
 
 	if (isSuspense) {
 		return (
@@ -39,8 +56,8 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
 			</div>
 
 			<div className={`flex-1 text-left ${isGoal ? "text-ink font-black" : "text-ink"}`}>
-				<div className={`text-[13px] leading-relaxed ${isAmbient ? "italic text-ink-light" : "font-medium"}`}>
-					{isGoal && <span className="mr-2 animate-bounce inline-block">⚽</span>}
+				<div className={`text-[13px] leading-relaxed ${!icon && !isGoal ? "text-ink-light" : "font-medium"}`}>
+					{icon && <span className="mr-2 inline-block">{icon}</span>}
 					{event.description}
 					{event.xg && (
 						<span className="ml-2 text-[10px] font-black text-accent opacity-0 group-hover:opacity-100 transition-opacity italic">

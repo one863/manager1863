@@ -21,8 +21,13 @@ export const MatchEventTypeSchema = z.enum([
 	"INJURY",
 	"TRANSITION",
 	"SET_PIECE",
+	"CORNER",
+	"FREE_KICK",
+    "LONG_THROW", // Nouveau
 	"SPECIAL",
 	"SHOT",
+    "COUNTER_ATTACK",
+    "COUNTER_PRESS",
 ]);
 
 export const PlayerTraitSchema = z.enum([
@@ -34,6 +39,9 @@ export const PlayerTraitSchema = z.enum([
 	"MARATHON_MAN",
 	"BOX_TO_BOX",
 	"FREE_KICK_EXPERT",
+	"PENALTY_SPECIALIST", // Nouveau
+	"CORNER_SPECIALIST",  // Nouveau
+    "LONG_THROW_SPECIALIST", // Nouveau
 	"SWEEPER_GK",
 	"BIG_MATCH_PLAYER",
 	"GHOST_PLAYER",
@@ -44,16 +52,18 @@ export const StaffTraitSchema = z.enum([
     "TACTICIAN",
     "YOUTH_SPECIALIST",
     "STRATEGIST",
-    "HARD_DRILLER", // Boost physique mais fatigue plus les joueurs
+    "HARD_DRILLER",
 ]);
+
+export const StaffRoleSchema = z.enum(["COACH", "PHYSICAL_TRAINER", "SCOUT", "VIDEO_ANALYST"]);
 
 // --- Schémas de base ---
 
 export const TeamRatingsSchema = z.object({
 	// Volume & Control
-	midfield: z.number(),      // Global control/possession
-	pressing: z.number(),      // Team PPDA capacity
-	resistance: z.number(),    // Team OPPDA capacity
+	midfield: z.number(),      
+	pressing: z.number(),      
+	resistance: z.number(),    
 	
 	// Offensive
 	attackLeft: z.number(),
@@ -86,8 +96,9 @@ export const PlayerMatchStatsSchema = z.object({
 	duelsWon: z.number().default(0),
 	distance: z.number().default(0),
 	sprints: z.number().default(0),
-	interventions: z.number().default(0),
+	interventions: z.number().default(0), 
 	saves: z.number().default(0),
+    ballsLost: z.number().default(0),
 });
 
 export const SeasonStatsSchema = z.object({
@@ -112,6 +123,11 @@ export const MatchEventSchema = z.object({
 	playerId: z.number().optional(), 
 	duration: z.number().optional(),
 	xg: z.number().optional(), 
+});
+
+export const PlayerUpdateSchema = z.object({
+    energy: z.number(),
+    confidence: z.number(),
 });
 
 export const MatchResultSchema = z.object({
@@ -145,21 +161,34 @@ export const MatchResultSchema = z.object({
 	}),
 	playerPerformances: z.record(z.string(), z.number()).optional(), 
 	playerStats: z.record(z.string(), PlayerMatchStatsSchema).optional(),
+    playerUpdates: z.record(z.string(), PlayerUpdateSchema).optional(), 
 });
 
 // --- Schémas de la Base de Données (Persistance) ---
 
 export const PlayerStatsSchema = z.object({
-	finishing: z.number().min(1).max(20),
-	creation: z.number().min(1).max(20),
-	vision: z.number().min(1).max(20),
-	pressing: z.number().min(1).max(20),
-	intervention: z.number().min(1).max(20),
-	impact: z.number().min(1).max(20),
-	resistance: z.number().min(1).max(20),
-	volume: z.number().min(1).max(20),
-	explosivity: z.number().min(1).max(20),
-	goalkeeping: z.number().min(1).max(20).optional(),
+    // Q - Technique
+    passing: z.number().min(1).max(20),
+    shooting: z.number().min(1).max(20),
+    dribbling: z.number().min(1).max(20),
+    tackling: z.number().min(1).max(20),
+    ballControl: z.number().min(1).max(20).default(10), // Q - Nouveau
+    crossing: z.number().min(1).max(20).default(10), // Q - Nouveau
+    // V - Physique
+    speed: z.number().min(1).max(20),
+    strength: z.number().min(1).max(20),
+    stamina: z.number().min(1).max(20),
+    jumping: z.number().min(1).max(20).default(10), // V - Nouveau (Détente)
+    agility: z.number().min(1).max(20).default(10), // V - Nouveau
+    // N - Mental
+    vision: z.number().min(1).max(20),
+    positioning: z.number().min(1).max(20),
+    composure: z.number().min(1).max(20),
+    aggression: z.number().min(1).max(20).default(10), // N - Nouveau
+    leadership: z.number().min(1).max(20).default(10), // N - Nouveau
+    anticipation: z.number().min(1).max(20).default(10), // N - Nouveau
+    // Special
+    goalkeeping: z.number().min(1).max(20).optional(),
 });
 
 export const PlayerSchema = z.object({
@@ -181,7 +210,7 @@ export const PlayerSchema = z.object({
 	form: z.number().min(1).max(8).default(5),
 	formBackground: z.number().min(1).max(8).default(5),
 	experience: z.number().min(1).max(10).default(1),
-	energy: z.number().min(0).max(100),
+	energy: z.number().min(0).max(100), // Ce sera notre "Volume (V) Actuel"
 	condition: z.number().min(0).max(100),
 	morale: z.number().min(0).max(100),
 	confidence: z.number().min(0).max(100).default(50),
@@ -202,6 +231,12 @@ export const SponsorSchema = z.object({
 	income: z.number().nonnegative(),
 	expiryDay: z.number(),
 	expirySeason: z.number(),
+});
+
+export const StaffAttributesSchema = z.object({
+    tactics: z.number().min(1).max(20).default(10),
+    psychology: z.number().min(1).max(20).default(10),
+    medicine: z.number().min(1).max(20).default(10),
 });
 
 export const TeamSchema = z.object({
@@ -238,6 +273,12 @@ export const TeamSchema = z.object({
 	tacticType: TacticTypeSchema.default("NORMAL"),
 	formation: z.enum(["4-4-2", "4-3-3", "3-5-2", "3-4-3", "4-2-4", "5-4-1", "2-3-5"]).default("4-4-2"),
 	version: z.number(),
+    
+    // Nouvelles variables collectives
+    teamCohesion: z.number().min(0).max(100).default(50),
+    
+    // Attributs du staff
+    staffAttributes: StaffAttributesSchema.optional(),
 });
 
 export const LeagueSchema = z.object({
@@ -314,13 +355,16 @@ export type StrategyType = z.infer<typeof StrategyTypeSchema>;
 export type MatchEventType = z.infer<typeof MatchEventTypeSchema>;
 export type PlayerTrait = z.infer<typeof PlayerTraitSchema>;
 export type StaffTrait = z.infer<typeof StaffTraitSchema>;
+export type StaffRole = z.infer<typeof StaffRoleSchema>;
 
 export type Sponsor = z.infer<typeof SponsorSchema>;
 export type TeamRatings = z.infer<typeof TeamRatingsSchema>;
 export type MatchEvent = z.infer<typeof MatchEventSchema>;
 export type MatchResult = z.infer<typeof MatchResultSchema>;
+export type PlayerUpdate = z.infer<typeof PlayerUpdateSchema>;
 export type PlayerStats = z.infer<typeof PlayerStatsSchema>;
 export type Player = z.infer<typeof PlayerSchema>;
+export type StaffAttributes = z.infer<typeof StaffAttributesSchema>;
 export type Team = z.infer<typeof TeamSchema>;
 export type League = z.infer<typeof LeagueSchema>;
 export type Match = z.infer<typeof MatchSchema>;

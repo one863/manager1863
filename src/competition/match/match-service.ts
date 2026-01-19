@@ -69,7 +69,6 @@ export const MatchService = {
 				const pickIndex = randomInt(0, maxIndex);
 				const picked = candidates[pickIndex];
 				newStartersIds.push(picked.id!);
-				// UPDATE IN-MEMORY ARRAY
 				picked.isStarter = true;
 				available = available.filter((p) => p.id !== picked.id);
 				candidates.splice(pickIndex, 1);
@@ -109,7 +108,6 @@ export const MatchService = {
 				const homePlayers = playersByTeam[match.homeTeamId] || [];
 				const awayPlayers = playersByTeam[match.awayTeamId] || [];
 				
-				// CRITICAL: autoSelectStarters now updates homePlayers/awayPlayers arrays directly
 				await this.autoSelectStarters(saveId, match.homeTeamId, homePlayers);
 				await this.autoSelectStarters(saveId, match.awayTeamId, awayPlayers);
 				
@@ -192,7 +190,6 @@ export const MatchService = {
 			this.applyMatchStatsAndFatigue(match.homeTeamId, saveId, result),
 			this.applyMatchStatsAndFatigue(match.awayTeamId, saveId, result),
 			this.processMatchIncidents(result, saveId),
-			// Force suspension purge for both teams (since they just played)
 			ClubService.processSuspensions(saveId, match.homeTeamId),
 			ClubService.processSuspensions(saveId, match.awayTeamId),
 		]);
@@ -204,42 +201,30 @@ export const MatchService = {
 
 	async applyMatchStatsAndFatigue(teamId: number, saveId: number, result: MatchResult) {
 		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
-		const starters = players.filter((p) => !!p.isStarter);
-		const team = await db.teams.get(teamId);
-		let baseFatigue = randomInt(20, 30);
-		if (team?.tacticType === "PRESSING") baseFatigue += 10;
-
-		// Team form bonus/malus calculation (based on last 5 results)
-		const teamForm = team?.lastResults?.length ? team.lastResults.reduce((a, b) => a + b, 0) / team.lastResults.length : 0.5;
-		const teamConfidenceImpact = (teamForm - 0.5) * 10; // -5 to +5 per match
-
-		// Update Coach Confidence
 		const coach = await db.staff.where("[saveId+teamId]").equals([saveId, teamId]).and(s => s.role === "COACH").first();
-		if (coach) {
+        
+        // Coach Confidence Logic
+        const team = await db.teams.get(teamId);
+        if (team && coach) {
+            const teamForm = team.lastResults?.length ? team.lastResults.reduce((a, b) => a + b, 0) / team.lastResults.length : 0.5;
 			let coachConfidenceChange = (teamForm - 0.5) * 15;
-            
-            // Trait Motivator: réduit les pertes de confiance après défaite
             if (coachConfidenceChange < 0 && coach.traits.includes("MOTIVATOR")) {
                 coachConfidenceChange *= 0.5;
             }
-
 			await db.staff.update(coach.id!, {
 				confidence: clamp((coach.confidence || 50) + coachConfidenceChange, 0, 100)
 			});
-		}
+        }
 
 		for (const player of players) {
-			let playerConfidenceChange = teamConfidenceImpact;
-
-            // Trait Motivator du Coach: aide les joueurs à garder le moral
-            if (playerConfidenceChange < 0 && coach?.traits.includes("MOTIVATOR")) {
-                playerConfidenceChange *= 0.7;
-            }
-			
 			if (player.isStarter) {
-				const matchRating = result.playerPerformances?.[player.id!.toString()] || 6.0;
+                // Utilise les mises à jour VQN calculées par le moteur, si disponibles
+                const playerUpdate = result.playerUpdates?.[player.id!.toString()];
+                
+				const matchRating = result.playerStats?.[player.id!.toString()]?.rating || 6.0;
 				const newRatings = [matchRating, ...(player.lastRatings || [])].slice(0, 5);
-				const mStats: PlayerMatchStats | undefined = result.playerStats?.[player.id!.toString()];
+				
+                const mStats = result.playerStats?.[player.id!.toString()];
 				const sStats = player.seasonStats || { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 };
 				
 				if (mStats) {
@@ -251,28 +236,44 @@ export const MatchService = {
 					sStats.xa += (mStats.xa || 0);
 					sStats.distance += (mStats.distance || 0);
 					sStats.avgRating = (sStats.avgRating * n + matchRating) / sStats.matches;
+					
+                    // Calcul précis des taux
 					const mPassAcc = mStats.passes > 0 ? (mStats.passesSuccess || 0) / (mStats.passes || 1) : 0.8;
 					sStats.passAccuracy = (sStats.passAccuracy * n + mPassAcc) / sStats.matches;
-					const mDuelWin = mStats.duels > 0 ? (mStats.duelsWon || 0) / (mStats.duels || 1) : 0.5;
+					
+                    const mDuelWin = mStats.duels > 0 ? (mStats.duelsWon || 0) / (mStats.duels || 1) : 0.5;
 					sStats.duelsWinRate = (sStats.duelsWinRate * n + mDuelWin) / sStats.matches;
 				}
 
-				// Player performance impact on confidence
-				playerConfidenceChange += (matchRating - 6.5) * 2;
+                // Application des mises à jour VQN
+                // Si playerUpdate est fourni par le moteur, on l'utilise
+                // Sinon on utilise une formule fallback simplifiée
+                let newEnergy = player.energy || 100;
+                let newConfidence = player.confidence || 50;
+                
+                if (playerUpdate) {
+                    newEnergy = playerUpdate.energy;
+                    newConfidence = playerUpdate.confidence;
+                } else {
+                    // Fallback (ex: simulation rapide ou vieille version du moteur)
+                    newEnergy = Math.max(0, newEnergy - randomInt(20, 30));
+                    newConfidence = clamp(newConfidence + (matchRating - 6.0) * 2, 0, 100);
+                }
 
+                // Condition (Usure à long terme)
 				await db.players.update(player.id!, {
-					energy: Math.max(0, (player.energy || 100) - baseFatigue),
+					energy: newEnergy,
 					condition: Math.max(10, (player.condition || 100) - randomInt(1, 4)),
 					playedThisWeek: true,
 					lastRatings: newRatings,
 					seasonStats: sStats,
-					confidence: clamp((player.confidence || 50) + playerConfidenceChange, 0, 100)
+					confidence: newConfidence
 				});
 			} else {
-				// Players who didn't play lose a bit of confidence if the team is doing bad, or stay stable
-				playerConfidenceChange = Math.min(0, playerConfidenceChange - 1);
+                // Remplaçants (si pas joué)
+                // Légère baisse de confiance si l'équipe perd (non géré ici pour simplifier, on baisse juste de 1)
 				await db.players.update(player.id!, {
-					confidence: clamp((player.confidence || 50) + playerConfidenceChange, 0, 100)
+					confidence: clamp((player.confidence || 50) - 1, 0, 100)
 				});
 			}
 		}
@@ -285,20 +286,19 @@ export const MatchService = {
 			const player = await db.players.get(event.playerId);
 			if (!player) continue;
 			if (event.type === "INJURY") {
-				// Baisse drastique de condition lors d'une blessure
 				const conditionDrop = randomInt(10, 30);
 				await db.players.update(player.id!, { 
 					injuryDays: (player.injuryDays || 0) + (event.duration || 1), 
 					condition: Math.max(5, (player.condition || 100) - conditionDrop),
 					isStarter: false,
-					confidence: Math.max(0, (player.confidence || 50) - 10) // Injury hurts confidence
+					confidence: Math.max(0, (player.confidence || 50) - 10) 
 				});
 			}
 			else if (event.type === "CARD" && (event.duration || 0) > 0) {
 				await db.players.update(player.id!, { 
 					suspensionMatches: (player.suspensionMatches || 0) + (event.duration || 1), 
 					isStarter: false,
-					confidence: Math.max(0, (player.confidence || 50) - 5) // Suspension hurts confidence
+					confidence: Math.max(0, (player.confidence || 50) - 5) 
 				});
 			}
 		}
@@ -311,15 +311,15 @@ export const MatchService = {
         let wins = team.wins || 0;
         let draws = team.draws || 0;
         let losses = team.losses || 0;
-		let resultValue = 0.5; // Draw
+		let resultValue = 0.5; 
 
 		if (goalsFor > goalsAgainst) {
 			pts += 3;
             wins += 1;
-			resultValue = 1; // Win
+			resultValue = 1; 
 		} else if (goalsFor < goalsAgainst) {
             losses += 1;
-			resultValue = 0; // Loss
+			resultValue = 0; 
 		} else {
             draws += 1;
         }
@@ -359,7 +359,6 @@ export const MatchService = {
 			for (let i = 0; i < teams.length; i++) {
 				const t = teams[i];
 				
-				// Trouver le meilleur buteur de l'équipe
 				const players = await db.players.where("[saveId+teamId]").equals([saveId, t.id!]).toArray();
 				let topScorer = players[0];
 				for (const p of players) {
@@ -383,7 +382,6 @@ export const MatchService = {
 					achievements: i === 0 ? ["Champion"] : [] 
 				});
 				
-				// Reset season stats for players
 				for (const p of players) {
 					await db.players.update(p.id!, {
 						seasonStats: { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 }
@@ -423,7 +421,6 @@ export const MatchService = {
 			}
 		}
 
-		// PURGE News and Matches after archiving history
 		await db.news.where("saveId").equals(saveId).delete();
 		await db.matches.where("saveId").equals(saveId).delete();
 

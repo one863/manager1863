@@ -11,10 +11,11 @@ import type {
 	MatchResult,
 	SeasonStats,
 	PlayerTrait,
-    StaffTrait
+    StaffTrait,
+    StaffRole
 } from "../engine/core/types";
 
-export const CURRENT_DATA_VERSION = 15; 
+export const CURRENT_DATA_VERSION = 16; // Increment version due to schema change
 
 export interface SaveSlot {
 	id?: number;
@@ -29,15 +30,21 @@ export interface BackupSlot {
     id?: number;
     saveId: number;
     timestamp: number;
-    data: string; // JSON string of the backup
+    data: string; 
 }
 
 export interface StaffStats {
-	management: number;
-	training: number;
-	tactical: number;
-	physical: number;
-	goalkeeping: number;
+    // Coach Principal Modifiers
+	coaching: number;    // Augmente le Placement (N)
+	tactical: number;    // Définit le Seuil de Risque / Style
+	discipline: number;  // Réduit les incidents (Cartons)
+    
+    // Physical Trainer Modifiers
+    conditioning: number; // Volume de départ (V)
+    recovery: number;     // Récupération / Moins de perte de V
+    
+    // Analyst Modifiers
+    reading: number;      // Bonus Initiative
 }
 
 export interface StaffMember {
@@ -46,7 +53,7 @@ export interface StaffMember {
 	teamId?: number;
 	firstName: string;
 	lastName: string;
-	role: "COACH" | "SCOUT" | "PHYSICAL_TRAINER";
+	role: StaffRole;
 	skill: number;
 	wage: number;
 	age: number;
@@ -91,16 +98,11 @@ export class AppDatabase extends Dexie {
 
 export const db = new AppDatabase();
 
-/**
- * Persist storage to prevent browser from deleting it
- */
 export async function persistStorage() {
   if (navigator.storage && navigator.storage.persist) {
     const isPersisted = await navigator.storage.persisted();
-    console.log(`Storage persisted: ${isPersisted}`);
     if (!isPersisted) {
-      const persisted = await navigator.storage.persist();
-      console.log(`Storage persisted after request: ${persisted}`);
+      await navigator.storage.persist();
     }
   }
 }

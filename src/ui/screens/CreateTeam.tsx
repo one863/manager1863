@@ -124,7 +124,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 							{t("create.title", "Nouveau Club")}
 						</h1>
 						<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-							Création de votre institution unique
+							Création de votre club
 						</p>
 					</div>
 				</div>
@@ -185,13 +185,13 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
                     </div>
 
                     <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nom de l'institution</label>
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nom du club</label>
                         <input
                             type="text"
                             value={teamName}
                             onInput={(e) => setTeamName((e.target as HTMLInputElement).value)}
                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-base font-black italic tracking-tight focus:bg-white focus:border-accent outline-none transition-all"
-                            placeholder="Paris Football Club"
+                            placeholder="Toulouse Football Club"
                         />
                     </div>
 

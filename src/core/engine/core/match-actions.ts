@@ -1,137 +1,128 @@
 import { getNarrative } from "@/core/generators/narratives";
-import type { Player } from "@/core/db/db";
-import { clamp, probability, weightedPick } from "@/core/utils/math";
-import { 
-	calculateSuccessRate, 
-	getFatiguePenalty
-} from "./probabilities";
-import type { MatchResult, TeamRatings, PlayerMatchStats } from "./types";
+import { clamp } from "@/core/utils/math";
+import { D20, D10, weightedPick } from "./probabilities"; 
+import { TACTIC_DEFINITIONS } from "./tactics"; 
+import type { MatchResult, PlayerPosition, TacticType, PlayerSideSchema } from "./types";
+import { ENGINE_TUNING } from "./config";
 
-/**
- * Calcule la stat effective d'un joueur selon sa forme
- */
-export function getEffectiveStat(stat: number, form: number): number {
-    const safeForm = (form !== undefined && !isNaN(form)) ? form : 5;
-	const multiplier = 0.6 + safeForm / 10;
-	return stat * multiplier;
+export interface PlayerState {
+    id: number; lastName: string; pos: PlayerPosition; 
+    side: "L" | "C" | "R"; 
+    traits: string[]; 
+    v_dyn: number; confidence: number;
+    stats: { [key: string]: number };
+    perf: { [key: string]: number };
+}
+
+export interface TeamState {
+    id: number;
+    name: string;
+    starters: PlayerState[];
+    subs: any[];
+    intensity: number;
+    cohesion: number;
+    tactic: TacticType; 
+    sectorStats: { 
+        midfield: number;
+        attackLeft: number;
+        attackCenter: number;
+        attackRight: number;
+        defense: number;
+    };
+    staff: { tactical: number; coaching: number; reading: number; recovery: number; conditioning: number; medicine?: number; };
+    subsUsed: number;
+    subsSlots: number;
 }
 
 /**
- * Gère une phase d'attaque placée
+ * MOTEUR 90-S V4.6.7 (POLISSAGE FINAL)
  */
-export function handleNormalAttack(
-    result: MatchResult, 
+export function handleResolution(
     min: number, 
-    side: "home" | "away", 
-    attR: TeamRatings, 
-    defR: TeamRatings, 
-    teamId: number, 
-    attP: Player[], 
-    defP: Player[], 
-    teamName: string
+    att: TeamState, 
+    def: TeamState, 
+    res: MatchResult, 
+    isCounter: boolean, 
+    homeId: number, 
+    baseOverride?: number
 ) {
-	if (!attP || attP.length === 0) return;
-	const sector = Math.random() < 0.33 ? "Left" : Math.random() < 0.5 ? "Right" : "Center";
-	
-    // Vérification de la réussite de la transition vers le dernier tiers
-    const successRate = calculateSuccessRate(
-        (attR as any)[`attack${sector}`], 
-        (defR as any)[`defense${sector === "Left" ? "Right" : sector === "Right" ? "Left" : "Center"}`], 
-        1.2
-    );
+    const shooters = att.starters.filter(p => p.pos !== "GK");
+    const shooter = weightedPick(shooters.map(p => ({ 
+        item: p, 
+        weight: p.perf.q_shoot + (p.pos === "FWD" ? 15 : 0) 
+    })));
+    const gk = def.starters.find(p => p.pos === "GK") || def.starters[0];
+    if (!shooter) return;
 
-	if (!probability(successRate)) return;
-	
-	const shooter = weightedPick(attP.map(p => ({ item: p, weight: p.position === "FWD" ? 15 : p.position === "MID" ? 5 : 1 })));
-	const assister = attP.length > 1 ? weightedPick(attP.filter(p => p.id !== shooter.id).map(p => ({ item: p, weight: p.position === "MID" ? 15 : 2 }))) : null;
-	const gk = defP.find(p => p.position === "GK");
-	
-	const sS = getEffectiveStat(shooter.stats.finishing, shooter.form) * getFatiguePenalty(shooter.energy || 100);
-	const gS = gk ? getEffectiveStat(gk.stats.goalkeeping || 10, gk.form) * getFatiguePenalty(gk.energy || 100) : 1;
-	
-    let xG = calculateSuccessRate(sS, gS, 1.5) * 0.75;
-	if (shooter.traits?.includes("CLUTCH_FINISHER")) xG *= 1.3;
-	xG = clamp(xG, 0.05, 0.9);
-	
-	if (side === "home") { result.stats.homeXG += xG; result.stats.homeShots++; } else { result.stats.awayXG += xG; result.stats.awayShots++; }
-	const pS = result.playerStats![shooter.id!.toString()]; 
-	if (pS) { pS.shots++; pS.xg += xG; }
-	
-	if (probability(xG)) {
-		if (side === "home") result.homeScore++; else result.awayScore++;
-		if (pS) pS.goals++;
-		if (assister) {
-			const aS = result.playerStats![assister.id!.toString()];
-			if (aS) aS.assists++;
-		}
-		const narrative = getNarrative("match", "goal", { player: shooter.lastName, team: teamName });
-		result.events.push({ minute: min, type: "GOAL", teamId, scorerId: shooter.id, scorerName: shooter.lastName, description: narrative.content || "But !", xg: xG });
-	} else if (xG > 0.15) {
-		const narrative = getNarrative("match", "miss", { player: shooter.lastName });
-		result.events.push({ minute: min, type: "MISS", teamId, description: gk && probability(0.5) ? `${gk.lastName} réalise un arrêt décisif !` : (narrative.content || "Occasion manquée"), xg: xG });
-	} else {
-		result.events.push({ minute: min, type: "SHOT", teamId, description: "Tir non cadré", xg: xG });
-	}
+    // --- 1. CALCUL DE L'xG ---
+    const baseTheo = baseOverride || (isCounter ? 0.30 : 0.15);
+    const xG = Math.max(ENGINE_TUNING.XG_VARIANCE_FLOOR, baseTheo * (D10() / 10));
+
+    // --- 2. ENREGISTREMENT xG (Dashboard) ---
+    const pS = res.playerStats![shooter.id.toString()];
+    if (att.id === homeId) { res.stats.homeShots++; res.stats.homeXG += xG; } 
+    else { res.stats.awayShots++; res.stats.awayXG += xG; }
+    if (pS) pS.shots++;
+
+    // --- 3. TEST DU CADRE (PRÉCISION V4.6.7 : SEUIL 19.5) ---
+    const accuracyThreshold = 19.5 - (xG * 20); 
+    const nBonus = (shooter.perf.n_com || 10) * 0.4;
+    const accuracyRoll = D20() + nBonus;
+    
+    // Estimation dynamique de l'ancre
+    const targetDiff = accuracyThreshold - nBonus;
+    const estimatedAccuracy = clamp((21 - targetDiff) / 20, 0.1, 0.9);
+
+    if (accuracyRoll < accuracyThreshold) {
+        if (pS) pS.ballsLost++;
+        res.events.push({ minute: min, type: "MISS", teamId: att.id, description: `Tir non cadré de ${shooter.lastName}.`, xg: xG });
+        return;
+    }
+
+    // --- 4. DUEL PROBABILISTE (LOGARITHMIQUE) ---
+    if (att.id === homeId) res.stats.homeShotsOnTarget++; else res.stats.awayShotsOnTarget++;
+    if (pS) pS.shotsOnTarget++;
+
+    const attForce = Math.max(1, (shooter.perf.q_shoot + shooter.confidence + D20()));
+    const scoreDiff = att.id === homeId ? (res.homeScore - res.awayScore) : (res.awayScore - res.homeScore);
+    const saturationBonus = scoreDiff > 1 ? (scoreDiff * ENGINE_TUNING.DENSITY_IMPACT) : 0;
+    const defForce = Math.max(1, ((gk.stats.goalkeeping || 10) * (1 + saturationBonus) + D20()));
+
+    const talentRatio = 1 + Math.log10(attForce / defForce);
+    
+    // Probabilité de But GIVEN On-Target
+    const goalProb = clamp((xG / estimatedAccuracy) * talentRatio, 0.01, 0.95);
+    
+    if (Math.random() < goalProb) {
+        // BUT
+        if (att.id === homeId) res.homeScore++; else res.awayScore++;
+        if (pS) { pS.goals++; pS.duelsWon++; }
+        res.events.push({ minute: min, type: "GOAL", teamId: att.id, scorerName: shooter.lastName, description: `But de ${shooter.lastName} !`, xg: xG });
+    } else {
+        // ARRÊT DU GARDIEN
+        if (res.playerStats![gk.id.toString()]) res.playerStats![gk.id.toString()].saves++;
+        res.events.push({ minute: min, type: "SHOT", teamId: att.id, description: `Parade du gardien face à ${shooter.lastName}.`, xg: xG });
+    }
 }
 
-/**
- * Gère une phase de coup de pied arrêté
- */
-export function handleSetPiece(
-    result: MatchResult, 
-    min: number, 
-    side: "home" | "away", 
-    attR: TeamRatings, 
-    defR: TeamRatings, 
-    teamId: number, 
-    attP: Player[], 
-    defP: Player[], 
-    teamName: string, 
-    oppP: Player[]
-) {
-	if (!attP || attP.length === 0) return;
-
-	const typeRoll = Math.random();
-	let description = "", xG = 0;
-	let type: "CORNER" | "FREE_KICK" | "THROW_IN" | "PENALTY" = "CORNER";
-
-	if (typeRoll < 0.5) { 
-        type = "CORNER"; description = "sur corner"; 
-        xG = clamp(calculateSuccessRate(attR.setPieces, defR.defenseCenter, 1.3) * 0.35, 0.1, 0.5); 
+export function handleSetPiece(min: number, att: TeamState, def: TeamState, res: MatchResult, homeId: number) {
+    const roll = Math.random() * 100;
+    if (roll < 10) { 
+        const shooter = att.starters.sort((a,b) => b.stats.shooting - a.stats.shooting)[0];
+        const gk = def.starters.find(p => p.pos === "GK") || def.starters[0];
+        if (att.id === homeId) { res.stats.homeShots++; res.stats.homeXG += 0.76; } 
+        else { res.stats.awayShots++; res.stats.awayXG += 0.76; }
+        
+        const prob = (shooter.stats.shooting + 10) / (shooter.stats.shooting + (gk.stats.goalkeeping || 10) + 20);
+        if (Math.random() < prob) {
+            if (att.id === homeId) { res.homeScore++; res.stats.homeShotsOnTarget++; } 
+            else { res.awayScore++; res.stats.awayShotsOnTarget++; }
+            res.events.push({ minute: min, type: "GOAL", teamId: att.id, description: `Penalty transformé par ${shooter.lastName}.`, xg: 0.76 });
+        } else {
+            if (att.id === homeId) res.stats.homeShotsOnTarget++; else res.stats.awayShotsOnTarget++;
+            res.events.push({ minute: min, type: "MISS", teamId: att.id, description: `Penalty arrêté !`, xg: 0.76 });
+        }
+    } else {
+        handleResolution(min, att, def, res, false, homeId, 0.12);
     }
-    else if (typeRoll < 0.8) { 
-        type = "FREE_KICK"; description = "sur coup franc indirect"; 
-        xG = clamp(calculateSuccessRate(attR.setPieces, defR.defenseCenter, 1.4) * 0.3, 0.1, 0.45); 
-    }
-    else if (typeRoll < 0.85) { 
-        type = "THROW_IN"; description = "sur une touche longue"; 
-        xG = clamp(calculateSuccessRate(attR.setPieces, defR.defenseCenter, 1.2) * 0.2, 0.05, 0.35); 
-    }
-    else { 
-        type = "PENALTY"; description = "sur penalty"; 
-        xG = 0.75; 
-    }
-
-	if (side === "home") { result.stats.homeXG += xG; result.stats.homeShots++; } else { result.stats.awayXG += xG; result.stats.awayShots++; }
-	
-	const sorted = [...attP].sort((a,b) => (b.stats.impact || 0) - (a.stats.impact || 0));
-	const shooter = type === "PENALTY" ? sorted[0] : weightedPick(attP.map(p => ({ item: p, weight: p.position === "FWD" ? 10 : p.position === "DEF" ? 5 : 2 })));
-	
-	const pS = result.playerStats![shooter.id!.toString()]; 
-	if (pS) { pS.shots++; pS.xg += xG; }
-
-	if (probability(xG)) {
-		if (side === "home") result.homeScore++; else result.awayScore++;
-		if (pS) pS.goals++;
-		result.events.push({ minute: min, type: "GOAL", teamId, scorerId: shooter.id, scorerName: shooter.lastName, description: `But de ${shooter.lastName} ${description} !`, xg: xG });
-	} else {
-		if (type === "PENALTY") {
-			const gk = oppP.find(p => p.position === "GK");
-			result.events.push({ minute: min, type: "MISS", teamId, description: gk && probability(0.5) ? `Arrêt du gardien sur le penalty de ${shooter.lastName} !` : `Penalty manqué par ${shooter.lastName} !`, xg: xG });
-		} else if (xG > 0.15) {
-			result.events.push({ minute: min, type: "MISS", teamId, description: `Grosse occasion manquée ${description} !`, xg: xG });
-		} else {
-			result.events.push({ minute: min, type: "SHOT", teamId, description: `Tir ${description}`, xg: xG });
-		}
-	}
 }

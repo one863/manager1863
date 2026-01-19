@@ -1,7 +1,7 @@
 import type { Player, PlayerTrait } from "@/core/db/db";
 import { TransferService } from "@/market/transfers/transfer-service";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
-import { AlertCircle, ArrowLeft, Trash2, TrendingUp, User, Award, Activity, ShieldAlert, BarChart3, Info, Zap, Shield, Repeat, Clock, CircleDollarSign, Handshake, Heart, History } from "lucide-preact";
+import { ArrowLeft, Trash2, Zap, Shield, Repeat, Handshake, Heart, Activity, ShieldAlert, Footprints, Target, Brain, PersonStanding, Star, Info } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "./PlayerAvatar";
@@ -12,6 +12,23 @@ interface PlayerCardProps {
 	onClose: () => void;
 	onPlayerAction?: () => void;
 }
+
+const PLAYER_TRAIT_DATA: Record<PlayerTrait, { label: string; desc: string }> = {
+    COUNTER_ATTACKER: { label: "Contre-Attaquant", desc: "Bonus de vitesse lors des transitions offensives rapides." },
+    SHORT_PASSER: { label: "Relanceur Court", desc: "Précision accrue sur les passes courtes et le jeu de possession." },
+    CLUTCH_FINISHER: { label: "Buteur Décisif", desc: "Bonus important à la finition dans les 10 dernières minutes." },
+    WING_WIZARD: { label: "Magicien des Ailes", desc: "Bonus de dribble et de centre lorsqu'il joue sur un côté." },
+    IRON_DEFENDER: { label: "Défenseur de Fer", desc: "Bonus aux tacles et à l'intimidation physique." },
+    MARATHON_MAN: { label: "Marathonien", desc: "Perd moins d'énergie (Volume) au fil du match." },
+    BOX_TO_BOX: { label: "Box-to-Box", desc: "Contribution égale en attaque et en défense (Milieu)." },
+    FREE_KICK_EXPERT: { label: "Expert Coups Francs", desc: "Bonus significatif sur les coups francs directs et indirects." },
+    SWEEPER_GK: { label: "Gardien Libéro", desc: "Participe au jeu et coupe les ballons en profondeur." },
+    PENALTY_SPECIALIST: { label: "Spécialiste Penalty", desc: "Sang-froid maximal lors des séances de tirs au but." },
+    CORNER_SPECIALIST: { label: "Spécialiste Corner", desc: "Précision accrue sur les corners (qualité de centre)." },
+    LONG_THROW_SPECIALIST: { label: "Touches Longues", desc: "Peut transformer une touche en occasion de but." },
+    BIG_MATCH_PLAYER: { label: "Homme des Grands Matchs", desc: "Bonus de performance contre les équipes plus fortes." },
+    GHOST_PLAYER: { label: "Joueur Fantôme", desc: "Difficile à marquer, se fait oublier des défenseurs." },
+};
 
 export default function PlayerCard({
 	player,
@@ -73,51 +90,20 @@ export default function PlayerCard({
 		}
 	};
 
-	const getTraitLabel = (trait: PlayerTrait) => {
-		const labels: Record<PlayerTrait, string> = {
-			COUNTER_ATTACKER: "Expert Contre-Attaque",
-			SHORT_PASSER: "Relanceur Court",
-			CLUTCH_FINISHER: "Buteur Décisif",
-			WING_WIZARD: "Magicien des Ailes",
-			IRON_DEFENDER: "Défenseur de Fer",
-			MARATHON_MAN: "Marathonien",
-			BOX_TO_BOX: "Box-to-Box",
-			FREE_KICK_EXPERT: "Expert Coups Francs",
-			SWEEPER_GK: "Gardien Libéro"
-		};
-		return labels[trait] || trait;
-	};
-
-	const RatingBadge = ({ rating }: { rating: number }) => {
-		const getColor = (r: number) => {
-			if (r >= 18) return "bg-lime-500 text-white";
-			if (r >= 15) return "bg-green-500 text-white";
-			if (r >= 12) return "bg-yellow-500 text-white";
-			if (r >= 8) return "bg-orange-500 text-white";
-			return "bg-red-600 text-white";
-		};
-
-		return (
-			<span className={`px-2 py-0.5 rounded text-[11px] font-bold ${getColor(rating)}`}>
-				{rating.toFixed(1)}
-			</span>
-		);
-	};
-
 	const StatBar = ({ label, value, max=20 }: { label: string; value: number, max?: number }) => {
 		const progressPercentage = (value / max) * 100;
 		return (
-			<div className="flex items-center mb-2">
-				<span className="w-24 text-gray-500 truncate font-bold uppercase tracking-tight text-[10px]">
+			<div className="flex items-center mb-1.5">
+				<span className="w-28 text-gray-500 truncate font-bold uppercase tracking-tight text-[9px]">
 					{label}
 				</span>
-				<div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+				<div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden mx-2">
 					<div
 						className={`h-full transition-all duration-500 ${value > 16 ? "bg-green-500" : value > 12 ? "bg-blue-500" : value > 8 ? "bg-yellow-500" : "bg-red-500"}`}
 						style={{ width: `${Math.min(100, Math.max(0, progressPercentage))}%` }}
 					/>
 				</div>
-				<span className="w-6 text-right font-bold text-gray-800 ml-2 text-xs">
+				<span className="w-6 text-right font-bold text-gray-800 text-[10px]">
 					{Math.floor(value)}
 				</span>
 			</div>
@@ -134,6 +120,8 @@ export default function PlayerCard({
 			</div>
 		</div>
 	);
+
+    const isGK = player.position === "GK";
 
 	return (
 		<div className="flex flex-col h-full bg-white animate-fade-in">
@@ -156,6 +144,11 @@ export default function PlayerCard({
 							<span className={`px-1.5 py-0 rounded text-[10px] font-bold border ${getPositionColor(player.position)}`}>
 								{player.position}
 							</span>
+                            {!isGK && (
+                                <span className="px-1.5 py-0 rounded text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                                    {player.side === "L" ? "Gaucher" : player.side === "R" ? "Droitier" : "Axial"}
+                                </span>
+                            )}
 							<span className="text-xs text-gray-500">{player.age} ans</span>
 						</div>
 					</div>
@@ -198,24 +191,41 @@ export default function PlayerCard({
 			<div className="flex-1 overflow-y-auto p-4 space-y-6">
 				{activeTab === "stats" && (
 					<>
-						{player.traits && player.traits.length > 0 && (
-							<div className="flex flex-wrap gap-2">
-								{player.traits.map(t => (
-									<span key={t} className="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-100 flex items-center gap-1">
-										<Zap size={10} /> {getTraitLabel(t)}
-									</span>
-								))}
-							</div>
-						)}
+                        {/* Section Traits */}
+						<div className="mb-4">
+                            {player.traits && player.traits.length > 0 ? (
+                                <div className="flex flex-col gap-2">
+                                    {player.traits.map(t => {
+                                        const traitInfo = PLAYER_TRAIT_DATA[t] || { label: t, desc: "" };
+                                        return (
+                                            <div key={t} className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                                <div className="mt-0.5">
+                                                    <Star size={14} className="text-blue-600 fill-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-blue-800 leading-none mb-1">{traitInfo.label}</p>
+                                                    <p className="text-[10px] text-blue-600 leading-tight">{traitInfo.desc}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200 flex items-center gap-2 text-gray-400">
+                                    <Star size={14} />
+                                    <span className="text-[10px] italic">Aucun style de jeu particulier</span>
+                                </div>
+                            )}
+                        </div>
 
 						<div className="grid grid-cols-2 gap-3">
 							<DataMetric label="Potentiel" value={Math.floor(player.potential || player.skill)} />
 							<DataMetric 
-                                label="Fidélité" 
-                                value={`+${loyaltyBonus}%`} 
-                                sub="bonus" 
-                                color="text-pink-600"
-                                icon={<Heart size={14} className="text-pink-500 fill-pink-500" />}
+                                label="Confiance" 
+                                value={player.confidence || 50} 
+                                sub="/ 100"
+                                color={player.confidence > 70 ? "text-green-600" : player.confidence < 30 ? "text-red-600" : "text-blue-600"}
+                                icon={<Activity size={14} />}
                             />
 						</div>
 
@@ -223,37 +233,62 @@ export default function PlayerCard({
                             <div className="bg-pink-50 border border-pink-100 rounded-xl p-3 flex items-center gap-3">
                                 <Heart size={16} className="text-pink-500 fill-pink-500" />
                                 <p className="text-[11px] font-bold text-pink-700">
-                                    Au club depuis {totalDaysAtClub} jours ({Math.floor(totalDaysAtClub / 365)} saisons).
+                                    Au club depuis {totalDaysAtClub} jours (+{loyaltyBonus}% fidélité).
                                 </p>
                             </div>
                         )}
 
 						<div className="space-y-4">
+                            
+                            {/* BLOCK GARDIEN MIS EN AVANT SI GK */}
+                            {isGK && (
+                                <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 shadow-sm">
+                                    <h3 className="text-[10px] font-bold text-yellow-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <ShieldAlert size={14} className="text-yellow-600" /> Gardien
+                                    </h3>
+                                    <StatBar label="Réflexes" value={player.stats.goalkeeping || 10} />
+                                    <StatBar label="Agilité" value={player.stats.agility || 10} />
+                                    <StatBar label="Anticipation" value={player.stats.anticipation || 10} />
+                                    <StatBar label="Placement" value={player.stats.positioning} />
+                                </div>
+                            )}
+
+                            {/* Q - Technique */}
 							<div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
 								<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-									<Zap size={14} className="text-blue-500" /> Attaque
+									<Target size={14} className="text-blue-500" /> Technique (Q)
 								</h3>
-								<StatBar label="Finition" value={player.stats.finishing} />
-								<StatBar label="Création" value={player.stats.creation} />
+                                {!isGK && <StatBar label="Tir" value={player.stats.shooting} />}
+								<StatBar label="Passe" value={player.stats.passing} />
+                                {!isGK && <StatBar label="Centres" value={player.stats.crossing || 10} />}
+								{!isGK && <StatBar label="Dribble" value={player.stats.dribbling} />}
+                                <StatBar label="Contrôle" value={player.stats.ballControl || 10} />
+                                {!isGK && <StatBar label="Tacle" value={player.stats.tackling} />}
+							</div>
+
+                            {/* N - Mental */}
+							<div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+								<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+									<Brain size={14} className="text-purple-500" /> Mental (N)
+								</h3>
 								<StatBar label="Vision" value={player.stats.vision} />
+								<StatBar label="Sang-Froid" value={player.stats.composure} />
+                                <StatBar label="Leadership" value={player.stats.leadership || 10} />
+                                {!isGK && <StatBar label="Placement" value={player.stats.positioning} />}
+                                {!isGK && <StatBar label="Anticipation" value={player.stats.anticipation || 10} />}
+                                <StatBar label="Agressivité" value={player.stats.aggression || 10} />
 							</div>
 
+                            {/* V - Physique */}
 							<div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
 								<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-									<Shield size={14} className="text-blue-500" /> Défense
+									<PersonStanding size={14} className="text-orange-500" /> Physique (V)
 								</h3>
-								<StatBar label="Pressing" value={player.stats.pressing} />
-								<StatBar label="Intervention" value={player.stats.intervention} />
-								<StatBar label="Impact" value={player.stats.impact} />
-							</div>
-
-							<div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-								<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-									<Repeat size={14} className="text-blue-500" /> Physique
-								</h3>
-								<StatBar label="Résistance" value={player.stats.resistance} />
-								<StatBar label="Volume" value={player.stats.volume} />
-								<StatBar label="Explosivité" value={player.stats.explosivity} />
+								<StatBar label="Vitesse" value={player.stats.speed} />
+								<StatBar label="Force" value={player.stats.strength} />
+                                {!isGK && <StatBar label="Agilité" value={player.stats.agility || 10} />}
+                                <StatBar label="Détente" value={player.stats.jumping || 10} />
+								<StatBar label="Endurance" value={player.stats.stamina} />
 							</div>
 						</div>
 					</>
@@ -271,13 +306,8 @@ export default function PlayerCard({
 									<DataMetric label="Matchs" value={player.seasonStats.matches} />
 									<DataMetric label="Buts" value={player.seasonStats.goals} color="text-green-600" />
 									<DataMetric label="Passes D." value={player.seasonStats.assists} color="text-blue-600" />
-								</div>
-								<div className="bg-white p-4 rounded-xl border border-gray-100">
-									<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Performance Moyenne</h3>
-									<div className="flex items-center justify-between">
-										<span className="text-sm font-bold">Note Moyenne</span>
-										<RatingBadge rating={player.seasonStats.avgRating} />
-									</div>
+                                    <DataMetric label="Note Moy." value={player.seasonStats.avgRating.toFixed(2)} />
+                                    <DataMetric label="xG" value={player.seasonStats.xg.toFixed(1)} />
 								</div>
 							</>
 						)}

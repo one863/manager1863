@@ -1,58 +1,42 @@
 # 04. Mécaniques Métier (Engine)
 
-Ce document décrit les algorithmes et les logiques de calcul qui régissent la simulation du club, mis à jour selon l'implémentation réelle.
+Ce document décrit les algorithmes qui régissent la simulation, mis à jour pour le moteur VQN (Version 2.0).
 
-## 1. Moteur de Match (Match Engine)
-La simulation repose sur une **résolution par cycles minute par minute** (environ 95-100 cycles par match) utilisant des probabilités pondérées.
+## 1. Moteur de Match (VQN Engine)
+La simulation repose sur une boucle itérative de **90 séquences fixes** (représentant les 90 minutes du match). À chaque séquence (minute $i$), le moteur suit une logique stricte :
 
-### Calcul des Team Ratings (Contribution des Joueurs)
-La contribution de chaque joueur aux notes de secteur (Attaque, Défense, Milieu) est calculée dynamiquement avec les multiplicateurs suivants :
+### A. Étape d'Initiative (Duel du Milieu)
+Détermine quelle équipe prend le contrôle de la balle pour cette minute.
+*   **Calcul :** `Force_Equipe = Σ(Passe * 0.4 + Vision * 0.3 + Placement * 0.3) + D20 + Bonus_Analyste`.
+*   **Résultat :** Si la différence entre les deux équipes est $> 5$, l'équipe dominante lance une transition. Sinon, la séquence est marquée comme "VIDE" (possession neutre).
 
-*   **Condition Physique & Énergie :** Multiplicateur direct (ex: 80% de condition = 80% de contribution).
-*   **Forme du moment (`form`) :** De **0.7x** à **1.4x**. La valeur neutre (5) apporte un bonus de 1.1x.
-*   **Fidélité (`loyalty`) :** Bonus de **+2% tous les 100 jours** au club (max +20%).
-*   **Engagement :** Malus de **-10%** si le joueur est sur la liste des transferts (`isTransferListed`).
-*   **Confiance Individuelle (`confidence`) :** Impact max de **+/- 10%**, stabilisé par l'expérience du joueur (les vétérans sont moins volatiles).
-*   **Impact du Coach (Staff) :** 
-    *   **Sérénité :** Un coach en confiance booste globalement l'équipe (jusqu'à +5%).
-    *   **Familiarité Tactique :** Bonus progressif selon l'ancienneté du coach au club (+1% tous les 100 jours, max +10%).
-    *   **Traits de Staff :**
-        *   `TACTICIAN` : Bonus permanent de +5% à l'organisation.
-        *   `STRATEGIST` : Bonus de +5% lors des matchs à haute pression (>50).
-        *   `MOTIVATOR` : Réduit les pertes de confiance collectives après une défaite.
-*   **Pression du Match (`pressure`) :**
-    *   Chaque match possède un score de pression (0-100).
-    *   **Vétérans :** Gagnent en focus (+ contribution) sous pression.
-    *   **Jeunes :** Perdent en contribution (jusqu'à -10%) sous forte pression.
-    *   **Traits Joueurs :** `BIG_MATCH_PLAYER` (+15% max) et `GHOST_PLAYER` (-20% max).
+### B. Étape de Transition (Le Filtre de Risque)
+L'équipe en contrôle tente de progresser vers le dernier tiers.
+*   **Calcul :** Un jet de `D100` est effectué contre le `Seuil_de_Risque` défini par la tactique du Coach Principal (Tactical).
+*   **Succès :** Accès direct à la phase de Résolution (Tir).
+*   **Échec :** Déclenchement du sous-module de Contre-Réaction.
 
-### Résolution des Actions
-Deux types d'actions offensives sont déclenchés aléatoirement selon le contrôle :
-1.  **Attaque Normale (12% de chance par cycle) :** Duel entre l'Attaque du secteur et la Défense correspondante de l'adversaire.
-2.  **Coup de Pied Arrêté (4% de chance par cycle) :** Calcul basé sur `Team.setPieces vs Opponent.defenseCenter`.
+### C. Sous-Module de Contre-Réaction
+En cas d'échec de transition, le moteur teste deux événements :
+1.  **Contre-Pressing :** L'attaquant tente de récupérer la balle immédiatement via sa stat `Tacle (Q)`.
+2.  **Contre-Attaque :** Si le pressing échoue, le défenseur adverse tente une attaque rapide basée sur sa `Vitesse (V)`.
 
-## 2. Dynamique Psychologique & Confiance
+### D. Résolution (xG Dynamique & Duel Final)
+Si une équipe tire, le résultat est déterminé par un xG variable.
+*   **Formule xG :** `xG_Final = (Base_Zone * Variance_D10) * Modificateur_Risque_Coach`.
+*   **Le Duel Final :** Un but est marqué si `(Tir (Q) + D20) * xG_Final > (Gardien (Q) + D20)`.
 
-### Évolution de la Confiance
-La confiance évolue après chaque match selon la série de résultats (5 derniers matchs) :
-*   **Joueurs :** Influencée par la forme de l'équipe et leur note de performance individuelle (> 6.5).
-*   **Coach :** Très sensible aux résultats collectifs. Le trait `MOTIVATOR` amortit les chutes de moral en cas de crise.
-*   **Incidents :** Les blessures, suspensions et mises sur la liste des transferts dégradent la confiance et l'engagement.
+### E. Physiologie (Mise à jour du Volume V)
+À la fin de chaque séquence, l'usure est appliquée :
+*   **Consommation :** Le Volume (V) diminue selon l'Endurance du joueur et le staff médical.
+*   **Seuil Critique (50%) :** Si $V < 50\%$, toutes les statistiques techniques (Q) et mentales (N) sont réduites proportionnellement à la chute de Volume.
 
-## 3. Système de Progression (Training & Growth)
-Le développement est calculé chaque lundi (`day % 7 === 1`).
+## 2. Le Staff (Multiplicateurs de Système)
+Le personnel modifie les constantes avant et pendant le match :
+*   **Coach Principal :** Influence le `Seuil_de_Risque` et booste le `Placement (N)`.
+*   **Préparateur Physique :** Augmente le `Volume (V)` de départ et réduit l'usure par minute.
+*   **Analyste Vidéo :** Apporte un bonus fixe à l'Initiative (Lecture du jeu).
 
-### Formule de Gain
-*   **Cycle Hebdomadaire :** XP gagnée selon le `trainingFocus`.
-*   **Bonus Staff :** La stat du coach responsable ajoute un bonus de progression. Le trait `YOUTH_SPECIALIST` accélère le gain pour les joueurs de moins de 21 ans.
-*   **Facteur Jeunesse & Potentiel :** Les jeunes progressent plus vite, mais le gain ralentit drastiquement à mesure que le `skill` approche du `potential`.
-
-## 4. Économie & Finances
-### Revenus de Match
-*   **Affluence :** `FanCount * Modificateur de Confiance`, limitée par `StadiumCapacity`.
-*   **Billetterie :** Basée sur l'affluence et la réputation du club.
-
-## 5. Santé & Condition
-*   **Récupération :** Gain quotidien d'énergie et condition.
-*   **Blessures :** Risque accru par la fatigue. Une blessure réduit la condition et la confiance. Le trait `HARD_DRILLER` du staff augmente la stat physique mais accélère la fatigue.
-*   **Suspensions :** Gérées automatiquement après accumulation de cartons ou carton rouge.
+## 3. Dynamique de Fidélité (Loyalty)
+La fidélité est une variable cachée qui augmente avec l'ancienneté (jours au club).
+*   **Impact :** Un joueur fidèle résiste mieux à la baisse de moral et reçoit un léger bonus de performance sur ses stats Mentales (N).

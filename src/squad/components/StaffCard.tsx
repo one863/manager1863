@@ -14,7 +14,8 @@ import {
 	Brain, 
 	TrendingUp,
 	Calendar,
-    History
+    HeartPulse,
+    Activity
 } from "lucide-preact";
 import { useState } from "preact/hooks";
 import PlayerAvatar from "@/squad/components/PlayerAvatar";
@@ -123,6 +124,11 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 		</div>
 	);
 
+    // TODO: Mapping des stats staff vers les nouvelles stats Medicine/Psychology
+    // En attendant la migration DB complète
+    const psychology = (staff.stats.coaching + staff.stats.discipline) / 2;
+    const medicine = (staff.stats.recovery + staff.stats.conditioning) / 2;
+
 	return (
 		<div className="flex flex-col h-full bg-white animate-fade-in">
 			{/* Header */}
@@ -178,11 +184,35 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 							<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
 								<Award size={14} className="text-blue-500" /> Compétences
 							</h3>
-							<StatBar label="Gestion" value={staff.stats.management} />
-							<StatBar label="Entraînement" value={staff.stats.training} />
-							<StatBar label="Tactique" value={staff.stats.tactical} />
-							<StatBar label="Physique" value={staff.stats.physical} />
-							<StatBar label="Gardiens" value={staff.stats.goalkeeping} />
+                            {/* Stats affichées selon le rôle */}
+                            {staff.role === "COACH" && (
+                                <>
+                                    <StatBar label="Coaching" value={staff.stats.coaching} />
+                                    <StatBar label="Tactique" value={staff.stats.tactical} />
+                                    <StatBar label="Discipline" value={staff.stats.discipline} />
+                                    <StatBar label="Psychologie" value={psychology} />
+                                </>
+                            )}
+                            
+                            {staff.role === "PHYSICAL_TRAINER" && (
+                                <>
+                                    <StatBar label="Physique" value={staff.stats.conditioning} />
+                                    <StatBar label="Récupération" value={staff.stats.recovery} />
+                                    <StatBar label="Médecine" value={medicine} />
+                                </>
+                            )}
+                            
+                            {staff.role === "VIDEO_ANALYST" && (
+                                <>
+                                    <StatBar label="Lecture" value={staff.stats.reading} />
+                                    <StatBar label="Tactique" value={staff.stats.tactical} />
+                                </>
+                            )}
+                             {staff.role === "SCOUT" && (
+                                <>
+                                    <StatBar label="Évaluation" value={(staff.stats.tactical + staff.stats.reading)/2} />
+                                </>
+                            )}
 						</div>
 
 						<div className="grid grid-cols-2 gap-3">

@@ -2,134 +2,92 @@ import type { Player, PlayerTrait } from "@/core/db/db";
 import { clamp, randomInt, getRandomElement } from "@/core/utils/math";
 
 const FIRST_NAMES = [
-	"Arthur",
-	"William",
-	"Henry",
-	"George",
-	"Thomas",
-	"John",
-	"Edward",
-	"Charles",
-	"Walter",
-	"Frank",
-	"Joseph",
-	"Robert",
-	"James",
-	"Harry",
-	"Alfred",
-	"Ernest",
-	"Albert",
-	"Richard",
-	"Fred",
-	"Herbert",
+    "Arthur", "William", "Henry", "George", "Thomas", "John", "Edward", "Charles", "Walter", "Frank",
+    "Joseph", "Robert", "James", "Harry", "Alfred", "Ernest", "Albert", "Richard", "Fred", "Herbert",
+    "Jack", "Mason", "Declan", "Jude", "Marcus", "Cole", "Reece", "Trent", "Jordan", "Harvey",
+    "Callum", "Kieran", "Bukayo", "Phil", "Ben", "Kyle", "Ollie", "Luke", "Tyrone", "Aaron"
 ];
 
 const LAST_NAMES = [
-	"Smith",
-	"Jones",
-	"Williams",
-	"Taylor",
-	"Brown",
-	"Davies",
-	"Evans",
-	"Wilson",
-	"Thomas",
-	"Roberts",
-	"Johnson",
-	"Lewis",
-	"Walker",
-	"Robinson",
-	"Wood",
-	"Thompson",
-	"Wright",
-	"White",
-	"Watson",
-	"Harrison",
+    "Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts",
+    "Johnson", "Lewis", "Walker", "Robinson", "Wood", "Thompson", "Wright", "White", "Watson", "Harrison",
+    "Kane", "Sterling", "Pickford", "Rice", "Foden", "Bellingham", "Saka", "Palmer", "Grealish", "Trippier",
+    "Maguire", "Stones", "Alexander-Arnold", "Shaw", "Phillips", "Chilwell", "Gallagher", "Watkins", "Bowen", "Ramsdale"
 ];
 
 const POSITIONS = ["GK", "DEF", "MID", "FWD"];
 
+// Mise à jour de la pool avec les nouveaux traits V4.5
 const TRAIT_POOL: PlayerTrait[] = [
-	"COUNTER_ATTACKER",
-	"SHORT_PASSER",
-	"CLUTCH_FINISHER",
-	"WING_WIZARD",
-	"IRON_DEFENDER",
-	"MARATHON_MAN",
-	"BOX_TO_BOX",
-	"FREE_KICK_EXPERT",
-	"SWEEPER_GK"
+	"COUNTER_ATTACKER", 
+    "SHORT_PASSER", 
+    "CLUTCH_FINISHER", 
+    "WING_WIZARD", 
+    "IRON_DEFENDER",
+	"MARATHON_MAN", 
+    "BOX_TO_BOX", 
+    "FREE_KICK_EXPERT", 
+    "SWEEPER_GK",
+    "PENALTY_SPECIALIST", // Nouveau
+    "CORNER_SPECIALIST",  // Nouveau
+    "LONG_THROW_SPECIALIST" // Nouveau
 ];
 
-function generateStats(position: string, baseSkill: number) {
-	// Fonction utilitaire pour générer une stat autour d'une moyenne
-	const getStat = (bonus = 0) =>
-		clamp(baseSkill + bonus + (Math.random() * 4 - 2), 1, 20);
+function generateVQNStats(position: string, baseSkill: number) {
+	const getStat = (bonus = 0) => clamp(baseSkill + bonus + (Math.random() * 6 - 3), 1, 20);
 
 	const stats: Player["stats"] = {
-		// Physiques
-		speed: getStat(),
-		stamina: getStat(),
-		strength: getStat(),
-		explosivity: getStat(),
-		head: getStat(),
-
-		// Techniques
-		finishing: getStat(),
+		// Q - Technique
+		passing: getStat(),
 		shooting: getStat(),
 		dribbling: getStat(),
-		technique: getStat(),
-		passing: getStat(),
-		crossing: getStat(),
-		
-		// Mentales / Tactiques
-		positioning: getStat(),
-		vision: getStat(),
-		pressing: getStat(),
-		aggression: getStat(),
-		leadership: getStat(),
-		
-		// Défensives
 		tackling: getStat(),
-		marking: getStat(),
-		intervention: getStat(), // New
-		impact: getStat(), // New
-		
-		// Autres
-		resistance: getStat(),
-		volume: getStat(),
-		creation: getStat(),
+        ballControl: getStat(), // Q - Nouveau
+        crossing: getStat(), // Q - Nouveau
+		// V - Physique
+		speed: getStat(),
+		strength: getStat(),
+		stamina: getStat(),
+        jumping: getStat(), // V - Nouveau
+        agility: getStat(), // V - Nouveau
+		// N - Mental
+		vision: getStat(),
+		positioning: getStat(),
+		composure: getStat(),
+        aggression: getStat(), // N - Nouveau
+        leadership: getStat(), // N - Nouveau
+        anticipation: getStat(), // N - Nouveau
 	};
 
 	// Spécialisation par poste
 	if (position === "GK") {
-		stats.goalkeeping = getStat(5); // Bonus GK
-		stats.reflexes = getStat(5);
-		stats.handling = getStat(3);
-		stats.speed = getStat(-2);
-		stats.finishing = getStat(-5);
+		stats.goalkeeping = getStat(5);
+		stats.shooting = getStat(-6);
+		stats.passing = getStat(-2);
+        stats.crossing = getStat(-5);
+        stats.agility = getStat(3); // Important pour les GK
+        stats.anticipation = getStat(3);
 	} else if (position === "DEF") {
-		stats.tackling = getStat(3);
-		stats.marking = getStat(3);
-		stats.strength = getStat(2);
-		stats.intervention = getStat(3);
-		stats.impact = getStat(2);
-		stats.head = getStat(3);
-		stats.finishing = getStat(-3);
+		stats.tackling = getStat(4);
+		stats.positioning = getStat(3);
+		stats.strength = getStat(3);
+        stats.jumping = getStat(3); // Important pour les duels aériens
+        stats.aggression = getStat(2); // Important pour le pressing
+        stats.anticipation = getStat(3); // Important pour couper les lignes
+		stats.shooting = getStat(-4);
 	} else if (position === "MID") {
-		stats.passing = getStat(3);
-		stats.vision = getStat(3);
-		stats.stamina = getStat(2);
-		stats.volume = getStat(3);
-		stats.resistance = getStat(2);
-		stats.technique = getStat(2);
+		stats.passing = getStat(4);
+		stats.vision = getStat(4);
+		stats.stamina = getStat(3);
+        stats.ballControl = getStat(4); // Important pour la transition
+        stats.agility = getStat(2);
 	} else if (position === "FWD") {
-		stats.finishing = getStat(4);
-		stats.shooting = getStat(3);
-		stats.speed = getStat(2);
-		stats.dribbling = getStat(2);
-		stats.tackling = getStat(-3);
-		stats.explosivity = getStat(3);
+		stats.shooting = getStat(5);
+		stats.speed = getStat(4);
+		stats.composure = getStat(3);
+        stats.jumping = getStat(2); // Jeu de tête offensif
+        stats.agility = getStat(3); // Changement de direction
+		stats.tackling = getStat(-5);
 	}
 
 	return stats;
@@ -140,44 +98,33 @@ export function generatePlayer(
 	forcedPosition?: string,
 ): Partial<Player> {
 	const position = forcedPosition || getRandomElement(POSITIONS);
-	const age = randomInt(16, 34);
-	const stats = generateStats(position, targetAvgSkill);
+	const age = randomInt(16, 36);
+	const stats = generateVQNStats(position, targetAvgSkill);
 
-	// Calcul du skill global (moyenne simple pour l'instant)
-	const skill =
-		Object.values(stats).reduce((a, b) => (a || 0) + (b || 0), 0) /
-		Object.values(stats).length;
+	// Skill basé sur les stats VQN
+	const skill = Object.values(stats).reduce((a, b) => (a || 0) + (b || 0), 0) / Object.values(stats).length;
 
-	// Potentiel : minimum égal au skill actuel, maximum 20.99
-	// Les jeunes ont un potentiel plus élevé
-	const potentialBuffer = clamp((35 - age) * 0.4 + Math.random() * 5, 0.5, 8);
+	const potentialBuffer = clamp((37 - age) * 0.5 + Math.random() * 5, 0.5, 8);
 	const potential = clamp(skill + potentialBuffer, skill, 20.99);
 
-	// Génération de traits (10% de chance d'en avoir un, ou plus si bon joueur)
 	const traits: PlayerTrait[] = [];
+	
+    // Chance d'avoir un trait (augmentée pour les bons joueurs)
+    // On permet maintenant d'avoir jusqu'à 2 traits pour plus de diversité
 	if (skill > 10 && Math.random() > 0.7) {
-		const trait = getRandomElement(TRAIT_POOL);
-		if (
-			(position === "GK" && trait === "SWEEPER_GK") ||
-			(position === "FWD" && trait === "CLUTCH_FINISHER") ||
-			(position !== "GK" && trait !== "SWEEPER_GK")
-		) {
-			traits.push(trait);
-		}
+		traits.push(getRandomElement(TRAIT_POOL));
+        
+        // Chance d'un 2ème trait pour les stars
+        if (skill > 14 && Math.random() > 0.8) {
+            const secondTrait = getRandomElement(TRAIT_POOL);
+            if (!traits.includes(secondTrait)) traits.push(secondTrait);
+        }
 	}
 
-	// DNA Visuel
-	// Format: SkinTone-HairType-HairColor-Beard-Glasses
-	const skinTone = randomInt(0, 4); // 0-4
-	const hairType = randomInt(0, 6); // 0-6
-	const hairColor = randomInt(0, 4); // 0-4
-	const beard = randomInt(0, 10) > 6 ? randomInt(1, 4) : 0; // 0=None, 1-4 Styles
-	const glasses = Math.random() > 0.95 ? 1 : 0;
-	const dna = `${skinTone}-${hairType}-${hairColor}-${beard}-${glasses}`;
+	const dna = `${randomInt(0, 4)}-${randomInt(0, 6)}-${randomInt(0, 4)}-${randomInt(0, 4)}-${Math.random() > 0.9 ? 1 : 0}`;
 
-	const marketValue = Math.round(Math.pow(skill, 2.5) * 10 * (1.5 - age / 40));
-	const wage = Math.round(marketValue / 500);
-
+	const marketValue = Math.round(Math.pow(skill, 2.7) * 12 * (1.6 - age / 40));
+	const wage = Math.round(marketValue / 450);
 	const side = position !== "GK" && position !== "FWD" ? (Math.random() > 0.6 ? (Math.random() > 0.5 ? "L" : "R") : "C") : "C";
 
 	return {
@@ -193,12 +140,11 @@ export function generatePlayer(
 		stats,
 		energy: 100,
 		morale: 80,
-		condition: 100, // Forme du joueur (0-100)
-		form: 5.0, // Note moyenne des derniers matchs
+		condition: 100,
+		form: 5.0,
 		formBackground: 5.0,
 		marketValue,
 		wage,
-		contractEnds: 1, // Saison relative
 		dna,
 		traits,
 		injuryDays: 0,
