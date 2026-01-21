@@ -76,7 +76,7 @@ export default function Dashboard({
 						.equals(currentSaveId)
 						.filter(m => m.played === true && (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId))
 						.toArray();
-					setUserForm(userRecent.sort((a, b) => b.day - a.day).slice(0, 5));
+					setUserForm(userRecent.sort((a, b) => b.day - a.day).slice(0, 5).reverse());
 
 					// Get next match - SAFE QUERY
 					const futureMatches = await db.matches
@@ -110,7 +110,7 @@ export default function Dashboard({
 								.equals(currentSaveId)
 								.filter(m => m.played === true && (m.homeTeamId === opponentId || m.awayTeamId === opponentId))
 								.toArray();
-							setOpponentForm(oppRecent.sort((a, b) => b.day - a.day).slice(0, 5));
+							setOpponentForm(oppRecent.sort((a, b) => b.day - a.day).slice(0, 5).reverse());
 						}
 					}
 				}

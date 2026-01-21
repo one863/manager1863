@@ -17,7 +17,6 @@ const LAST_NAMES = [
 
 const POSITIONS = ["GK", "DEF", "MID", "FWD"];
 
-// Mise à jour de la pool avec les nouveaux traits V4.5
 const TRAIT_POOL: PlayerTrait[] = [
 	"COUNTER_ATTACKER", 
     "SHORT_PASSER", 
@@ -28,65 +27,74 @@ const TRAIT_POOL: PlayerTrait[] = [
     "BOX_TO_BOX", 
     "FREE_KICK_EXPERT", 
     "SWEEPER_GK",
-    "PENALTY_SPECIALIST", // Nouveau
-    "CORNER_SPECIALIST",  // Nouveau
-    "LONG_THROW_SPECIALIST" // Nouveau
+    "PENALTY_SPECIALIST",
+    "CORNER_SPECIALIST", 
+    "LONG_THROW_SPECIALIST"
 ];
 
 function generateVQNStats(position: string, baseSkill: number) {
 	const getStat = (bonus = 0) => clamp(baseSkill + bonus + (Math.random() * 6 - 3), 1, 20);
 
 	const stats: Player["stats"] = {
-		// Q - Technique
 		passing: getStat(),
 		shooting: getStat(),
 		dribbling: getStat(),
 		tackling: getStat(),
-        ballControl: getStat(), // Q - Nouveau
-        crossing: getStat(), // Q - Nouveau
-		// V - Physique
+        ballControl: getStat(), 
+        crossing: getStat(),
 		speed: getStat(),
 		strength: getStat(),
 		stamina: getStat(),
-        jumping: getStat(), // V - Nouveau
-        agility: getStat(), // V - Nouveau
-		// N - Mental
+        jumping: getStat(), 
+        agility: getStat(), 
 		vision: getStat(),
 		positioning: getStat(),
 		composure: getStat(),
-        aggression: getStat(), // N - Nouveau
-        leadership: getStat(), // N - Nouveau
-        anticipation: getStat(), // N - Nouveau
+        aggression: getStat(), 
+        leadership: getStat(), 
+        anticipation: getStat(),
+        // Nouvelles caractéristiques fondamentales
+        workrate: getStat(),
+        flair: getStat(),
+        decisions: getStat(),
+        concentration: getStat(),
+        adaptability: getStat(),
+        pressure: getStat(),
 	};
 
-	// Spécialisation par poste
 	if (position === "GK") {
 		stats.goalkeeping = getStat(5);
 		stats.shooting = getStat(-6);
 		stats.passing = getStat(-2);
         stats.crossing = getStat(-5);
-        stats.agility = getStat(3); // Important pour les GK
+        stats.agility = getStat(3);
         stats.anticipation = getStat(3);
+        stats.concentration = getStat(4);
 	} else if (position === "DEF") {
 		stats.tackling = getStat(4);
 		stats.positioning = getStat(3);
 		stats.strength = getStat(3);
-        stats.jumping = getStat(3); // Important pour les duels aériens
-        stats.aggression = getStat(2); // Important pour le pressing
-        stats.anticipation = getStat(3); // Important pour couper les lignes
+        stats.jumping = getStat(3);
+        stats.aggression = getStat(2);
+        stats.anticipation = getStat(3);
+        stats.concentration = getStat(3);
 		stats.shooting = getStat(-4);
 	} else if (position === "MID") {
 		stats.passing = getStat(4);
 		stats.vision = getStat(4);
 		stats.stamina = getStat(3);
-        stats.ballControl = getStat(4); // Important pour la transition
+        stats.ballControl = getStat(4);
         stats.agility = getStat(2);
+        stats.decisions = getStat(3);
+        stats.workrate = getStat(3);
 	} else if (position === "FWD") {
 		stats.shooting = getStat(5);
 		stats.speed = getStat(4);
 		stats.composure = getStat(3);
-        stats.jumping = getStat(2); // Jeu de tête offensif
-        stats.agility = getStat(3); // Changement de direction
+        stats.jumping = getStat(2);
+        stats.agility = getStat(3);
+        stats.flair = getStat(4);
+        stats.decisions = getStat(2);
 		stats.tackling = getStat(-5);
 	}
 
@@ -101,7 +109,6 @@ export function generatePlayer(
 	const age = randomInt(16, 36);
 	const stats = generateVQNStats(position, targetAvgSkill);
 
-	// Skill basé sur les stats VQN
 	const skill = Object.values(stats).reduce((a, b) => (a || 0) + (b || 0), 0) / Object.values(stats).length;
 
 	const potentialBuffer = clamp((37 - age) * 0.5 + Math.random() * 5, 0.5, 8);
@@ -109,12 +116,8 @@ export function generatePlayer(
 
 	const traits: PlayerTrait[] = [];
 	
-    // Chance d'avoir un trait (augmentée pour les bons joueurs)
-    // On permet maintenant d'avoir jusqu'à 2 traits pour plus de diversité
 	if (skill > 10 && Math.random() > 0.7) {
 		traits.push(getRandomElement(TRAIT_POOL));
-        
-        // Chance d'un 2ème trait pour les stars
         if (skill > 14 && Math.random() > 0.8) {
             const secondTrait = getRandomElement(TRAIT_POOL);
             if (!traits.includes(secondTrait)) traits.push(secondTrait);

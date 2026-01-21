@@ -4,7 +4,6 @@ import type { MatchResult, TacticType } from "./types";
 
 /**
  * Point d'entrée principal du moteur de match.
- * Délègue la simulation au MatchSequencer (Architecture 90-S).
  */
 export async function simulateMatch(
 	homePlayers: Player[], 
@@ -20,7 +19,10 @@ export async function simulateMatch(
     hTactic: TacticType = "NORMAL",
     aTactic: TacticType = "NORMAL",
     hCohesion = 50,
-    aCohesion = 50
+    aCohesion = 50,
+    hMentality = 3, // NOUVEAU PARAMÈTRE
+    aMentality = 3, // NOUVEAU PARAMÈTRE
+    debug = false
 ): Promise<MatchResult> {
     
     const sequencer = new MatchSequencer(
@@ -30,8 +32,11 @@ export async function simulateMatch(
         homeStaff, awayStaff,
         hIntensity, aIntensity,
         hTactic, aTactic,
-        hCohesion, aCohesion
+        hCohesion, aCohesion,
+        hMentality, aMentality
     );
+
+    if (debug) sequencer.enableDebug();
 
     return await sequencer.run();
 }

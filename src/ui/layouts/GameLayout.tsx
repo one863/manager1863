@@ -197,7 +197,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 					<div className="flex flex-col items-center">
 						<Loader2 size={40} className="text-blue-600 animate-spin mb-4" />
 						<p className="text-sm font-black uppercase tracking-widest text-blue-600">
-							{saveStatus === "saving" ? t("dashboard.day", { day: day + 1 }) : "Synchronisé"}
+							{saveStatus === "saving" ? "Sauvegarde en cours..." : "Synchronisé"}
 						</p>
 					</div>
 				</div>

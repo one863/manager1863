@@ -66,8 +66,8 @@ export async function generateWorld(saveId: number, userTeamName: string) {
 
 			if (isUserTeam) userTeamId = teamId;
 
-			// Squad VQN
-			const avgSkill = (11 - league.level * 2) + (Math.random() * 2);
+			// Squad VQN : Ajustement du skill moyen pour éviter le "0 but" en D5
+			const avgSkill = (12 - league.level * 1.5) + (Math.random() * 2);
 			await generateFullSquad(saveId, teamId as number, avgSkill);
 
             // Staff VQN : Coach + Physical Trainer + Video Analyst

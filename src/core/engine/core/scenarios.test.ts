@@ -1,119 +1,105 @@
 import { describe, it } from "vitest";
-import { simulateMatch } from "./simulator"; // Ton point d'entrée qui appelle MatchSequencer
+import { simulateMatch } from "./simulator"; 
 import type { Player } from "@/core/db/db";
 import { FORMATIONS } from "./tactics";
 import type { StaffImpact } from "./match-sequencer";
 
 let globalIdCounter = 1;
 
-// Mise à jour avec les nouveaux attributs de staff
 const DEFAULT_STAFF: StaffImpact = {
-    coaching: 10, 
-    tactical: 10, 
-    reading: 10, 
-    recovery: 10, 
-    conditioning: 10,
-    psychology: 10, // Nouveau
-    medicine: 10    // Nouveau
+    coaching: 10, tactical: 10, reading: 10, recovery: 10, conditioning: 10,
+    psychology: 10, medicine: 10
 };
 
 const createTestPlayer = (pos: any, skill: number, teamId: number): Player => {
+    const s = Math.max(1, Math.min(20, skill + (Math.random() * 2 - 1)));
     return {
-        id: globalIdCounter++, saveId: 1, teamId,
+        id: teamId === 1 ? globalIdCounter++ : globalIdCounter++ + 5000,
+        saveId: 1, teamId,
         firstName: "Test", lastName: `${pos}-${globalIdCounter}`,
         age: 25, position: pos, side: "C", dna: "0-0-0",
-        skill, 
+        skill: s, 
         stats: {
-            // Stats de base
-            passing: skill, shooting: skill, dribbling: skill, tackling: skill,
-            speed: skill, strength: skill, stamina: skill,
-            vision: skill, positioning: skill, composure: skill,
-            goalkeeping: pos === "GK" ? skill : 2,
-            
-            // NOUVELLES STATS V4.5
-            agility: skill,
-            ballControl: skill,
-            anticipation: skill,
-            aggression: skill,
-            leadership: skill,
-            jumping: skill,
-            crossing: skill
+            passing: s, shooting: s, dribbling: s, tackling: s,
+            speed: s, strength: s, stamina: s,
+            vision: s, positioning: s, composure: s,
+            goalkeeping: pos === "GK" ? s : 2,
+            agility: s, ballControl: s, anticipation: s,
+            aggression: s, leadership: s, jumping: s, crossing: s,
+            // Nouvelles stats fondamentales
+            workrate: s, flair: s, decisions: s, concentration: s,
+            adaptability: s, pressure: s
         }, 
-        traits: [], // On peut ajouter des traits ici pour tester (ex: ["CLUTCH_FINISHER"])
-        energy: 100, 
-        confidence: 50, // Équivalent à 0 dans le moteur (-10 à +10)
-        condition: 100,
-        isStarter: true,
-    } as any; // Casté en any pour simplifier les tests
+        traits: [], energy: 100, confidence: 50, condition: 100, isStarter: true,
+    } as any;
 };
 
-const createTeam = (avgSkill: number, teamId: number): Player[] => {
-    const f = FORMATIONS["4-4-2"];
+const createTeam = (baseSkill: number, teamId: number, formation: any = "4-4-2"): Player[] => {
+    const f = FORMATIONS[formation as keyof typeof FORMATIONS];
     const squad: Player[] = [];
-    for (let i = 0; i < f.GK; i++) squad.push(createTestPlayer("GK", avgSkill, teamId));
-    for (let i = 0; i < f.DEF; i++) squad.push(createTestPlayer("DEF", avgSkill, teamId));
-    for (let i = 0; i < f.MID; i++) squad.push(createTestPlayer("MID", avgSkill, teamId));
-    for (let i = 0; i < f.FWD; i++) squad.push(createTestPlayer("FWD", avgSkill, teamId));
+    for (let i = 0; i < f.GK; i++) squad.push(createTestPlayer("GK", baseSkill, teamId));
+    for (let i = 0; i < f.DEF; i++) squad.push(createTestPlayer("DEF", baseSkill, teamId));
+    for (let i = 0; i < f.MID; i++) squad.push(createTestPlayer("MID", baseSkill, teamId));
+    for (let i = 0; i < f.FWD; i++) squad.push(createTestPlayer("FWD", baseSkill, teamId));
+    for (let i = 0; i < 7; i++) {
+        const p = createTestPlayer(i === 0 ? "GK" : (i < 3 ? "DEF" : (i < 5 ? "MID" : "FWD")), baseSkill - 2, teamId);
+        p.isStarter = false;
+        squad.push(p);
+    }
+    // Injecter la formation dans les métadonnées (utilisé par le sequencer)
+    squad.forEach(p => (p as any).teamFormation = formation);
     return squad;
 };
 
-async function runScenario(hSkill: number, aSkill: number, label: string, iterations = 50) {
-    let stats = {
-        goals: 0, xG: 0, shots: 0, shotsOnTarget: 0,
-        hWins: 0, aWins: 0, draws: 0, possession: 0
-    };
-    
-    const homePlayers = createTeam(hSkill, 1);
-    const awayPlayers = createTeam(aSkill, 2);
-
+async function runBenchmark(hBaseSkill: number, aBaseSkill: number, label: string, iterations = 10) {
+    let stats = { goals: 0, hWins: 0, aWins: 0, draws: 0, hGoals: 0, aGoals: 0, tirs: 0, xg: 0 };
     for (let i = 0; i < iterations; i++) {
+        const home = createTeam(hBaseSkill, 1);
+        const away = createTeam(aBaseSkill, 2);
+        // Paramètres Mentality ajoutés : 3, 3
         const res = await simulateMatch(
-            homePlayers, awayPlayers, 
-            "Home Team", "Away Team",
-            1, 2,
-            DEFAULT_STAFF, DEFAULT_STAFF
+            home, away, "H", "A", 1, 2, 
+            DEFAULT_STAFF, DEFAULT_STAFF, 
+            3, 3, "NORMAL", "NORMAL", 50, 50, 
+            3, 3, // Mentalité
+            false // Debug
         );
         stats.goals += (res.homeScore + res.awayScore);
-        stats.xG += (res.stats.homeXG + res.stats.awayXG);
-        stats.shots += (res.stats.homeShots + res.stats.awayShots);
-        stats.shotsOnTarget += (res.stats.homeShotsOnTarget + res.stats.awayShotsOnTarget);
-        stats.possession += res.homePossession;
-        
+        stats.hGoals += res.homeScore;
+        stats.aGoals += res.awayScore;
+        stats.tirs += (res.stats.homeShots + res.stats.awayShots);
+        stats.xg += (res.stats.homeXG + res.stats.awayXG);
         if (res.homeScore > res.awayScore) stats.hWins++;
         else if (res.awayScore > res.homeScore) stats.aWins++;
         else stats.draws++;
     }
-
-    const conversionRate = ((stats.goals / stats.xG) * 100).toFixed(1);
-    const precision = ((stats.shotsOnTarget / stats.shots) * 100).toFixed(1);
-
-    console.log(`
-╔═══════════════════════════════════════════════════════════╗
-  SCÉNARIO : ${label.padEnd(42)}
-╟───────────────────────────────────────────────────────────╢
-  ⚽ MOY. BUTS : ${(stats.goals / iterations).toFixed(2)} / xG : ${(stats.xG / iterations).toFixed(2)}
-  🎯 CONVERSION: ${conversionRate}% (Cible: 80-100%)
-  🏹 PRÉCISION : ${precision}% (Cible: 35-45%)
-  📈 POSSESSION: ${Math.round(stats.possession / iterations)}%
-  ⚖️  V/N/D     : ${Math.round(stats.hWins/iterations*100)}% / ${Math.round(stats.draws/iterations*100)}% / ${Math.round(stats.aWins/iterations*100)}%
-╚═══════════════════════════════════════════════════════════╝`);
+    console.log(`📊 [${label}] - Moy. Buts: ${(stats.goals/iterations).toFixed(2)} | xG: ${(stats.xg/iterations).toFixed(2)} | Tirs: ${(stats.tirs/iterations).toFixed(1)} | V:${stats.hWins} N:${stats.draws} D:${stats.aWins}`);
 }
 
-describe("Validation Multi-Scénarios VQN V4.5", () => {
-    it("Équilibré (Ligue 1 vs Ligue 1)", async () => {
-        await runScenario(12, 12, "CHOC DES TITANS (ÉQUILIBRÉ)");
-    }, 30000);
+describe("Analyse Moteur Spatial 18 Zones", () => {
+    it("Benchmark Réalisme", async () => {
+        console.log(`\n=============================================================================`);
+        console.log(`🔍 FOCUS : TEST DE COHÉRENCE DU NOUVEAU MOTEUR SPATIAL`);
+        console.log(`=============================================================================`);
+        
+        const home = createTeam(12, 1, "4-4-2");
+        const away = createTeam(12, 2, "4-3-3");
+        const res = await simulateMatch(
+            home, away, "LIVERPOOL", "CITY", 1, 2, 
+            DEFAULT_STAFF, DEFAULT_STAFF, 
+            3, 3, "NORMAL", "NORMAL", 50, 50, 
+            3, 3, // Mentalité
+            true // Debug
+        );
+        
+        res.debugLogs?.slice(0, 50).forEach(l => console.log(l));
+        console.log(`... [Logs tronqués pour lisibilité] ...`);
+        console.log(`\n🏁 SCORE FINAL : ${res.homeScore} - ${res.awayScore}`);
+        console.log(`=============================================================================\n`);
 
-    it("Déséquilibré (Ligue 1 vs National)", async () => {
-        await runScenario(16, 7, "ELITE vs FAIBLE (DÉZONAGE)");
-    }, 30000);
-
-    it("Impact Mental (Favori avec stats moyennes)", async () => {
-        // Ici on pourrait tester avec un différentiel de staff ou de cohésion
-        await runScenario(14, 11, "FAVORI vs OUTSIDER");
-    }, 30000);
-
-    it("Match de district (Faible skill, forte variance)", async () => {
-        await runScenario(5, 5, "DISTRICT (ERREURS TECHNIQUES)");
-    }, 30000);
+        await runBenchmark(15, 15, "ELITE (Niveau 15)");
+        await runBenchmark(10, 10, "PRO (Niveau 10)");
+        await runBenchmark(5, 5, "AMATEUR (Niveau 5)");
+        await runBenchmark(15, 5, "DÉSÉQUILIBRÉ (15 vs 5)");
+    }, 60000);
 });

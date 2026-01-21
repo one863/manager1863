@@ -169,7 +169,7 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
                     <button 
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
+                        className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-ink"}`}
                     >
                         {tab.label}
                     </button>

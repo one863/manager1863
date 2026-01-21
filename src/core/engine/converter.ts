@@ -59,26 +59,34 @@ export const DEFAULT_STAFF_IMPACT: StaffImpact = {
 /**
  * Fusionne les stats de tout le staff d'une équipe pour le moteur
  */
-export function getStaffImpact(staffList: StaffMember[]): StaffImpact {
+export function getStaffImpact(staffList: StaffMember[] | any): StaffImpact {
     const impact = { ...DEFAULT_STAFF_IMPACT };
     
-    // Note: Dans une version future, StaffMember devrait aussi inclure les attributs 
-    // medicine, psychology, etc. Pour l'instant on utilise des valeurs par défaut 
-    // ou mappées depuis les existantes.
-    
-    staffList.forEach(member => {
-        if (member.role === "COACH") {
-            impact.coaching = member.stats.coaching;
-            impact.tactical = member.stats.tactical;
-            impact.psychology = (member.stats.coaching + member.stats.discipline) / 2; // Mapping approx
-        } else if (member.role === "PHYSICAL_TRAINER") {
-            impact.conditioning = member.stats.conditioning;
-            impact.recovery = member.stats.recovery;
-            impact.medicine = (member.stats.recovery + member.stats.conditioning) / 2; // Mapping approx
-        } else if (member.role === "VIDEO_ANALYST") {
-            impact.reading = member.stats.reading;
-        }
-    });
+    if (Array.isArray(staffList)) {
+        staffList.forEach(member => {
+            if (member.role === "COACH") {
+                impact.coaching = (member.stats?.coaching !== undefined) ? member.stats.coaching : 0;
+                impact.tactical = (member.stats?.tactical !== undefined) ? member.stats.tactical : 10;
+                // Mapping approx pour psychology si manquant
+                const discipline = member.stats?.discipline || 10;
+                impact.psychology = (impact.coaching + discipline) / 2; 
+            } else if (member.role === "PHYSICAL_TRAINER") {
+                impact.conditioning = (member.stats?.conditioning !== undefined) ? member.stats.conditioning : 0;
+                impact.recovery = (member.stats?.recovery !== undefined) ? member.stats.recovery : 0;
+                impact.medicine = (impact.recovery + impact.conditioning) / 2; 
+            } else if (member.role === "VIDEO_ANALYST") {
+                impact.reading = (member.stats?.reading !== undefined) ? member.stats.reading : 0;
+            }
+        });
+    } else if (staffList && typeof staffList === 'object' && staffList.coaching !== undefined) {
+        // Fallback pour supporter l'ancien format (objet stats direct) si nécessaire
+        impact.coaching = staffList.coaching || 0;
+        impact.tactical = staffList.tactical || 10;
+        impact.psychology = staffList.discipline || 10; 
+        impact.conditioning = staffList.conditioning || 0;
+        impact.recovery = staffList.recovery || 0;
+        impact.reading = staffList.reading || 0;
+    }
 
     return impact;
 }

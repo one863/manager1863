@@ -54,7 +54,7 @@ export function SubTabs({ tabs, activeTab, onChange, sticky = true }: SubTabsPro
 							onClick={() => onChange(tab.id)}
 							className={`
 								flex-shrink-0 flex items-center gap-2 px-3.5 py-3.5 text-[10px] uppercase tracking-[0.1em] font-black transition-all relative
-								${isActive ? "text-ink" : "text-slate-500 hover:text-ink"}
+								${isActive ? "text-ink" : "text-gray-600 hover:text-ink"}
 							`}
 						>
 							<span>{tab.label}</span>

@@ -23,7 +23,7 @@ export const MatchEventTypeSchema = z.enum([
 	"SET_PIECE",
 	"CORNER",
 	"FREE_KICK",
-    "LONG_THROW", // Nouveau
+    "LONG_THROW", 
 	"SPECIAL",
 	"SHOT",
     "COUNTER_ATTACK",
@@ -39,9 +39,9 @@ export const PlayerTraitSchema = z.enum([
 	"MARATHON_MAN",
 	"BOX_TO_BOX",
 	"FREE_KICK_EXPERT",
-	"PENALTY_SPECIALIST", // Nouveau
-	"CORNER_SPECIALIST",  // Nouveau
-    "LONG_THROW_SPECIALIST", // Nouveau
+	"PENALTY_SPECIALIST", 
+	"CORNER_SPECIALIST",  
+    "LONG_THROW_SPECIALIST", 
 	"SWEEPER_GK",
 	"BIG_MATCH_PLAYER",
 	"GHOST_PLAYER",
@@ -60,21 +60,15 @@ export const StaffRoleSchema = z.enum(["COACH", "PHYSICAL_TRAINER", "SCOUT", "VI
 // --- Schémas de base ---
 
 export const TeamRatingsSchema = z.object({
-	// Volume & Control
 	midfield: z.number(),      
 	pressing: z.number(),      
 	resistance: z.number(),    
-	
-	// Offensive
 	attackLeft: z.number(),
 	attackCenter: z.number(),
 	attackRight: z.number(),
-	
-	// Defensive
 	defenseLeft: z.number(),
 	defenseCenter: z.number(),
 	defenseRight: z.number(),
-	
 	setPieces: z.number(),
 	tacticSkill: z.number(),
 	tacticType: TacticTypeSchema,
@@ -135,6 +129,12 @@ export const MatchResultSchema = z.object({
 	awayScore: z.number().int().min(0),
 	homePossession: z.number().min(0).max(100),
 	events: z.array(MatchEventSchema),
+    debugLogs: z.array(z.string()).optional(), 
+    ballHistory: z.array(z.number()).optional(), 
+    heatmap: z.object({
+        home: z.array(z.number()),
+        away: z.array(z.number()),
+    }).optional(),
 	stats: z.object({
 		homeChances: z.number().int(),
 		awayChances: z.number().int(),
@@ -164,31 +164,31 @@ export const MatchResultSchema = z.object({
     playerUpdates: z.record(z.string(), PlayerUpdateSchema).optional(), 
 });
 
-// --- Schémas de la Base de Données (Persistance) ---
-
 export const PlayerStatsSchema = z.object({
-    // Q - Technique
     passing: z.number().min(1).max(20),
     shooting: z.number().min(1).max(20),
     dribbling: z.number().min(1).max(20),
     tackling: z.number().min(1).max(20),
-    ballControl: z.number().min(1).max(20).default(10), // Q - Nouveau
-    crossing: z.number().min(1).max(20).default(10), // Q - Nouveau
-    // V - Physique
+    ballControl: z.number().min(1).max(20).default(10), 
+    crossing: z.number().min(1).max(20).default(10), 
     speed: z.number().min(1).max(20),
     strength: z.number().min(1).max(20),
     stamina: z.number().min(1).max(20),
-    jumping: z.number().min(1).max(20).default(10), // V - Nouveau (Détente)
-    agility: z.number().min(1).max(20).default(10), // V - Nouveau
-    // N - Mental
+    jumping: z.number().min(1).max(20).default(10), 
+    agility: z.number().min(1).max(20).default(10), 
     vision: z.number().min(1).max(20),
     positioning: z.number().min(1).max(20),
     composure: z.number().min(1).max(20),
-    aggression: z.number().min(1).max(20).default(10), // N - Nouveau
-    leadership: z.number().min(1).max(20).default(10), // N - Nouveau
-    anticipation: z.number().min(1).max(20).default(10), // N - Nouveau
-    // Special
+    aggression: z.number().min(1).max(20).default(10), 
+    leadership: z.number().min(1).max(20).default(10), 
+    anticipation: z.number().min(1).max(20).default(10), 
     goalkeeping: z.number().min(1).max(20).optional(),
+    workrate: z.number().min(1).max(20).default(10),
+    flair: z.number().min(1).max(20).default(10),
+    decisions: z.number().min(1).max(20).default(10),
+    concentration: z.number().min(1).max(20).default(10),
+    adaptability: z.number().min(1).max(20).default(10),
+    pressure: z.number().min(1).max(20).default(10),
 });
 
 export const PlayerSchema = z.object({
@@ -210,7 +210,7 @@ export const PlayerSchema = z.object({
 	form: z.number().min(1).max(8).default(5),
 	formBackground: z.number().min(1).max(8).default(5),
 	experience: z.number().min(1).max(10).default(1),
-	energy: z.number().min(0).max(100), // Ce sera notre "Volume (V) Actuel"
+	energy: z.number().min(0).max(100), 
 	condition: z.number().min(0).max(100),
 	morale: z.number().min(0).max(100),
 	confidence: z.number().min(0).max(100).default(50),
@@ -273,11 +273,7 @@ export const TeamSchema = z.object({
 	tacticType: TacticTypeSchema.default("NORMAL"),
 	formation: z.enum(["4-4-2", "4-3-3", "3-5-2", "3-4-3", "4-2-4", "5-4-1", "2-3-5"]).default("4-4-2"),
 	version: z.number(),
-    
-    // Nouvelles variables collectives
     teamCohesion: z.number().min(0).max(100).default(50),
-    
-    // Attributs du staff
     staffAttributes: StaffAttributesSchema.optional(),
 });
 
@@ -348,7 +344,6 @@ export const ExportDataSchema = z.object({
     backups: z.array(BackupSlotSchema).optional(),
 });
 
-// --- Types dérivés (TypeScript) ---
 export type PlayerPosition = z.infer<typeof PlayerPositionSchema>;
 export type TacticType = z.infer<typeof TacticTypeSchema>;
 export type StrategyType = z.infer<typeof StrategyTypeSchema>;

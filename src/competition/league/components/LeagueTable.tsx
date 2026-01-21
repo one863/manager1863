@@ -91,7 +91,7 @@ export default function LeagueTable({
 
 			<div className="flex-1 overflow-auto">
 				<table className="w-full text-left border-collapse min-w-[380px]">
-					<thead className="bg-gray-50 sticky top-0 z-20 text-[10px] font-black uppercase tracking-tight text-gray-400">
+					<thead className="bg-gray-50 sticky top-0 z-20 text-[10px] font-black uppercase tracking-tight text-gray-500">
 						<tr>
 							<th className="px-1 py-3 w-8 text-center bg-gray-50">#</th>
 							<th className="px-1 py-3 w-28 sticky left-0 bg-gray-50 z-20 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">Club</th>
@@ -113,7 +113,7 @@ export default function LeagueTable({
                                     key={team.id} 
                                     className={`border-b border-gray-50 last:border-0 ${rowBg}`}
                                 >
-                                    <td className={`px-1 py-3 text-center font-bold ${isUserTeam ? "text-accent" : (index === 0 ? "text-amber-500" : "text-gray-400")}`}>
+                                    <td className={`px-1 py-3 text-center font-bold ${isUserTeam ? "text-accent" : (index === 0 ? "text-amber-500" : "text-gray-500")}`}>
                                         {index + 1}
                                     </td>
                                     <td className={`px-1 py-3 font-bold truncate sticky left-0 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] ${rowBg}`}>
@@ -122,25 +122,24 @@ export default function LeagueTable({
                                             className={`hover:text-accent text-left transition-colors flex items-center gap-1 w-full ${isUserTeam ? "text-accent" : "text-ink"}`}
                                         >
                                             <span className="truncate">{team.name}</span>
-                                            {isUserTeam && <Star size={10} fill="currentColor" className="shrink-0" />}
                                         </button>
                                     </td>
-                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-500"}`}>
                                         {team.matchesPlayed || 0}
                                     </td>
-                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-500"}`}>
                                         {team.wins || 0}
                                     </td>
-                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-500"}`}>
                                         {team.draws || 0}
                                     </td>
-                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-500"}`}>
                                         {team.losses || 0}
                                     </td>
-                                    <td className={`px-1 py-3 text-center font-mono text-[10px] ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono text-[10px] ${isUserTeam ? "text-accent/60" : "text-gray-500"}`}>
                                         {team.goalsFor || 0}-{team.goalsAgainst || 0}
                                     </td>
-                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-400"}`}>
+                                    <td className={`px-1 py-3 text-center font-mono ${isUserTeam ? "text-accent/60" : "text-gray-500"}`}>
                                         {team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference || 0}
                                     </td>
                                     <td className={`px-1 py-3 text-center font-black font-mono text-sm ${isUserTeam ? "text-accent bg-accent/10" : "text-ink bg-gray-50/30"}`}>

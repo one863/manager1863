@@ -82,19 +82,19 @@ export default function ClubDetails({ teamId, onClose, onSelectPlayer }: ClubDet
 			<div className="flex bg-white px-2">
 				<button 
 					onClick={() => setActiveTab("info")}
-					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "info" ? "text-accent border-b-2 border-accent" : "text-gray-300 hover:text-gray-500"}`}
+					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "info" ? "text-accent border-b-2 border-accent" : "text-gray-600 hover:text-ink"}`}
 				>
 					Infos
 				</button>
 				<button 
 					onClick={() => setActiveTab("squad")}
-					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "squad" ? "text-accent border-b-2 border-accent" : "text-gray-300 hover:text-gray-500"}`}
+					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "squad" ? "text-accent border-b-2 border-accent" : "text-gray-600 hover:text-ink"}`}
 				>
 					Effectif
 				</button>
                 <button 
 					onClick={() => setActiveTab("history")}
-					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "history" ? "text-accent border-b-2 border-accent" : "text-gray-300 hover:text-gray-500"}`}
+					className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === "history" ? "text-accent border-b-2 border-accent" : "text-gray-600 hover:text-ink"}`}
 				>
 					Histoire
 				</button>

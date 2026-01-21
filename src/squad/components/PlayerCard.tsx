@@ -1,7 +1,7 @@
 import type { Player, PlayerTrait } from "@/core/db/db";
 import { TransferService } from "@/market/transfers/transfer-service";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
-import { ArrowLeft, Trash2, Zap, Shield, Repeat, Handshake, Heart, Activity, ShieldAlert, Footprints, Target, Brain, PersonStanding, Star, Info } from "lucide-preact";
+import { ArrowLeft, Trash2, Zap, Shield, Repeat, Handshake, Heart, Activity, ShieldAlert, Footprints, Target, Brain, PersonStanding, Star, Info, Timer, Sparkles, Lightbulb, Focus, Gauge } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
 import PlayerAvatar from "./PlayerAvatar";
@@ -180,7 +180,7 @@ export default function PlayerCard({
 					<button 
 						key={tab.id}
 						onClick={() => setActiveTab(tab.id as any)}
-						className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-400"}`}
+						className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-ink"}`}
 					>
 						{tab.label}
 					</button>
@@ -222,7 +222,7 @@ export default function PlayerCard({
 							<DataMetric label="Potentiel" value={Math.floor(player.potential || player.skill)} />
 							<DataMetric 
                                 label="Confiance" 
-                                value={player.confidence || 50} 
+                                value={Math.round(player.confidence || 50)} 
                                 sub="/ 100"
                                 color={player.confidence > 70 ? "text-green-600" : player.confidence < 30 ? "text-red-600" : "text-blue-600"}
                                 icon={<Activity size={14} />}
@@ -277,6 +277,9 @@ export default function PlayerCard({
                                 {!isGK && <StatBar label="Placement" value={player.stats.positioning} />}
                                 {!isGK && <StatBar label="Anticipation" value={player.stats.anticipation || 10} />}
                                 <StatBar label="Agressivité" value={player.stats.aggression || 10} />
+                                <StatBar label="Décisions" value={player.stats.decisions || 10} />
+                                <StatBar label="Concentration" value={player.stats.concentration || 10} />
+                                <StatBar label="Flair" value={player.stats.flair || 10} />
 							</div>
 
                             {/* V - Physique */}
@@ -289,6 +292,7 @@ export default function PlayerCard({
                                 {!isGK && <StatBar label="Agilité" value={player.stats.agility || 10} />}
                                 <StatBar label="Détente" value={player.stats.jumping || 10} />
 								<StatBar label="Endurance" value={player.stats.stamina} />
+                                <StatBar label="Workrate" value={player.stats.workrate || 10} />
 							</div>
 						</div>
 					</>

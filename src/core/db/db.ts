@@ -15,7 +15,7 @@ import type {
     StaffRole
 } from "../engine/core/types";
 
-export const CURRENT_DATA_VERSION = 16; // Increment version due to schema change
+export const CURRENT_DATA_VERSION = 17; // Passé de 16 à 17 pour intégrer les nouvelles stats fondamentales
 
 export interface SaveSlot {
 	id?: number;
@@ -34,17 +34,12 @@ export interface BackupSlot {
 }
 
 export interface StaffStats {
-    // Coach Principal Modifiers
-	coaching: number;    // Augmente le Placement (N)
-	tactical: number;    // Définit le Seuil de Risque / Style
-	discipline: number;  // Réduit les incidents (Cartons)
-    
-    // Physical Trainer Modifiers
-    conditioning: number; // Volume de départ (V)
-    recovery: number;     // Récupération / Moins de perte de V
-    
-    // Analyst Modifiers
-    reading: number;      // Bonus Initiative
+	coaching: number;    
+	tactical: number;    
+	discipline: number;  
+    conditioning: number; 
+    recovery: number;     
+    reading: number;      
 }
 
 export interface StaffMember {
@@ -105,6 +100,12 @@ export async function persistStorage() {
       await navigator.storage.persist();
     }
   }
+}
+
+export async function clearAllData() {
+    await db.transaction("rw", db.tables, async () => {
+        await Promise.all(db.tables.map(table => table.clear()));
+    });
 }
 
 export type { 

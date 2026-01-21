@@ -5,6 +5,8 @@ interface LiveMatchData {
 	matchId: number;
 	homeTeam: any;
 	awayTeam: any;
+    homePlayers: any[];
+    awayPlayers: any[];
 	result: any;
 	currentMinute: number;
 }
@@ -16,6 +18,8 @@ interface LiveMatchState {
 		matchId: number,
 		homeTeam: any,
 		awayTeam: any,
+        homePlayers: any[],
+        awayPlayers: any[],
 		result: any,
 		saveId: number,
 		startMinute?: number,
@@ -31,6 +35,8 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 		matchId,
 		homeTeam,
 		awayTeam,
+        homePlayers,
+        awayPlayers,
 		result,
 		saveId,
 		startMinute = 0,
@@ -39,11 +45,12 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 			matchId,
 			homeTeam,
 			awayTeam,
+            homePlayers,
+            awayPlayers,
 			result,
 			currentMinute: startMinute,
 		};
 
-		// Sync with persistent storage
 		if (saveId) {
 			await db.gameState.where("saveId").equals(saveId).modify({ liveMatch: initialData });
 		}

@@ -29,9 +29,14 @@ export function calculateVolumeLoss(stamina: number, intensity: number, recovery
 
 /**
  * Sélectionne un élément dans une liste avec des poids
+ * Retourne null si la liste est vide.
  */
-export function weightedPick<T>(items: { item: T; weight: number }[]): T {
+export function weightedPick<T>(items: { item: T; weight: number }[]): T | null {
+    if (!items || items.length === 0) return null;
+    
 	const totalWeight = items.reduce((acc, i) => acc + i.weight, 0);
+    if (totalWeight <= 0) return items[0].item;
+
 	let random = Math.random() * totalWeight;
 	for (const { item, weight } of items) {
 		if (random < weight) return item;
