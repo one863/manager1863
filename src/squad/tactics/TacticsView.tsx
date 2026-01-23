@@ -3,7 +3,7 @@ import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { useEffect, useState } from "preact/hooks";
 import { ArrowDownUp, ChevronDown, Shield, User } from "lucide-preact";
 import PlayerAvatar from "@/squad/components/PlayerAvatar";
-import { FORMATIONS, type FormationKey } from "@/core/engine/core/tactics";
+import { FORMATIONS, type FormationKey } from "@/core/tactics";
 
 export default function Tactics() {
 	const userTeamId = useGameStore((state) => state.userTeamId);

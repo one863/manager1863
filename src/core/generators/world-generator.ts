@@ -60,17 +60,15 @@ export async function generateWorld(saveId: number, userTeamName: string) {
 				goalsAgainst: 0,
 				goalDifference: 0,
                 version: 1,
-                tacticType: "NORMAL",
+                tacticType: "4-4-2", // Correction : formation par défaut 4-4-2 pour les jetons
                 formation: "4-4-2"
 			});
 
 			if (isUserTeam) userTeamId = teamId;
 
-			// Squad VQN : Ajustement du skill moyen pour éviter le "0 but" en D5
 			const avgSkill = (12 - league.level * 1.5) + (Math.random() * 2);
 			await generateFullSquad(saveId, teamId as number, avgSkill);
 
-            // Staff VQN : Coach + Physical Trainer + Video Analyst
             const coach = generateStaff(avgSkill, "COACH");
             const physio = generateStaff(avgSkill, "PHYSICAL_TRAINER");
             const analyst = generateStaff(avgSkill, "VIDEO_ANALYST");

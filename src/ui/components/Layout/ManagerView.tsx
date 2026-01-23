@@ -4,7 +4,7 @@ import { SubTabs } from "@/ui/components/Common/SubTabs";
 import { ArrowLeft, LogOut, Info, Bell, Database, User, Briefcase, Award, Download } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useTranslation } from "react-i18next";
-import type { Team } from "@/core/engine/core/types";
+import type { Team } from "@/core/types";
 import { exportSaveToJSON } from "@/core/db/export-system";
 
 interface ManagerViewProps {
@@ -17,6 +17,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 	const [activeTab, setActiveTab] = useState<"profile" | "settings">("profile");
 	const userTeamId = useGameStore((state) => state.userTeamId);
     const currentSaveId = useGameStore((state) => state.currentSaveId);
+    const quitGame = useGameStore((state) => state.quitGame);
 	const [userTeam, setUserTeam] = useState<Team | null>(null);
 
 	useEffect(() => {
@@ -47,6 +48,11 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
             console.error("Export failed", error);
             alert("Erreur lors de l'export de la sauvegarde.");
         }
+    };
+
+    const handleQuit = () => {
+        quitGame();
+        onQuit();
     };
 
 	const tabs = [
@@ -181,7 +187,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 
 						<div className="pt-8">
 							<button 
-								onClick={onQuit}
+								onClick={handleQuit}
 								className="w-full py-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
 							>
 								<LogOut size={18} />

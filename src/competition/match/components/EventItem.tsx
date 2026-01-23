@@ -1,4 +1,4 @@
-import type { MatchEvent } from "@/core/engine/core/types";
+import type { MatchEvent } from "@/core/types";
 import { MoveRight, ShieldCheck, Zap, AlertTriangle } from "lucide-preact";
 
 interface EventItemProps {

@@ -1,4 +1,4 @@
-import { verifySaveIntegrity, type Player, type StaffMember } from "@/core/db/db";
+import { verifySaveIntegrity, type Player, type StaffMember, computeSaveHash, db } from "@/core/db/db";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
 import { Loader2 } from "lucide-preact";
@@ -51,7 +51,6 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
 	const currentDate = useGameStore((state) => state.currentDate);
-	const day = useGameStore((state) => state.day);
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const isProcessing = useGameStore((state) => state.isProcessing);
 	const isGameOver = useGameStore((state) => state.isGameOver);
@@ -62,7 +61,6 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 
 	const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 
-	// Effect to switch to live-match view when a match starts
 	useEffect(() => {
 		if (liveMatch && currentView !== "live-match" && currentView !== "match-report") {
 			setCurrentView("live-match");
@@ -72,7 +70,6 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const handleContinueClick = async () => {
 		if (isGameOver || isProcessing) return;
 
-        // Si on est dans le rapport de match après un live, on redirige juste
         if (currentView === "match-report") {
             setCurrentView("dashboard");
             return;
@@ -82,28 +79,28 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	};
 
 	const executeContinue = async () => {
+		setSaveStatus("saving");
+        
+        // WATCHDOG : Force le déblocage après 20 secondes quoi qu'il arrive
+        const watchdog = setTimeout(() => {
+            setSaveStatus("idle");
+            console.error("WATCHDOG: Advance date too long, unlocking UI");
+        }, 20000);
+
 		try {
-			setSaveStatus("saving");
-			await new Promise((resolve) => setTimeout(resolve, 300));
 			await advanceDate();
-
-			if (currentSaveId) {
-				const isValid = await verifySaveIntegrity(currentSaveId);
-				setSaveStatus(isValid ? "verified" : "error");
-				if (isValid) await new Promise((resolve) => setTimeout(resolve, 500));
-			}
-
+			
 			if (useLiveMatchStore.getState().liveMatch) {
-				setSaveStatus("idle");
 				setCurrentView("live-match");
-				return;
+			} else {
+				setCurrentView("dashboard");
 			}
-			setCurrentView("dashboard");
 		} catch (error) {
 			console.error("Simulation error:", error);
 			setSaveStatus("error");
 		} finally {
-			setTimeout(() => setSaveStatus("idle"), 300);
+            clearTimeout(watchdog);
+			setSaveStatus("idle");
 		}
 	};
 

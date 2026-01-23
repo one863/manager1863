@@ -1,4 +1,4 @@
-import { ExportDataSchema } from "@/core/engine/core/types";
+import { ExportDataSchema } from "@/core/types";
 import { db } from "./db";
 
 /**

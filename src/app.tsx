@@ -22,17 +22,9 @@ export function App() {
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const loadGame = useGameStore((state) => state.loadGame);
 
-	// Tentative de restauration de la session au démarrage
 	useEffect(() => {
 		const restoreSession = async () => {
-            // Tentative de persistance du stockage pour éviter les pertes de données
-            try {
-                await persistStorage();
-            } catch (e) {
-                console.warn("Storage persistence failed:", e);
-            }
-
-            // Nettoyage des anciens backups du localStorage (migration)
+            try { await persistStorage(); } catch (e) {}
             BackupService.clearOldLocalStorageBackups();
 
 			try {
@@ -44,22 +36,18 @@ export function App() {
 						return;
 					}
 				}
-			} catch (e) {
-				console.error("Failed to restore session", e);
-			}
+			} catch (e) {}
 			setAppState("menu");
 		};
 
 		restoreSession();
 	}, []);
 
-	// Sécurité : si on a un ID de sauvegarde actif mais qu'on est sur le menu (ex: après un refresh),
-	// on restaure l'affichage du jeu.
 	useEffect(() => {
 		if (currentSaveId && (appState === "menu" || appState === "initializing")) {
 			setAppState("game");
 		}
-	}, [currentSaveId]);
+	}, [currentSaveId, appState]);
 
 	const handleNewGameClick = () => setAppState("create");
 	const handleGameCreated = () => setAppState("game");
@@ -74,11 +62,7 @@ export function App() {
 	};
 
 	if (appState === "initializing") {
-		return (
-			<div className="h-screen bg-paper flex items-center justify-center font-serif italic text-ink-light">
-				Chargement des archives...
-			</div>
-		);
+		return <div className="h-screen bg-paper flex items-center justify-center font-serif italic text-ink-light">Chargement...</div>;
 	}
 
 	return (

@@ -1,7 +1,7 @@
 import { db } from "@/core/db/db";
 import { clamp, randomInt } from "@/core/utils/math";
 import { NewsService } from "@/news/service/news-service";
-import type { Sponsor } from "@/core/engine/core/types";
+import type { Sponsor } from "@/core/types";
 
 export const ClubService = {
 	async processDailyUpdates(

@@ -1,159 +1,76 @@
-import type { Player, PlayerTrait } from "@/core/db/db";
+import type { Player } from "@/core/db/db";
 import { clamp, randomInt, getRandomElement } from "@/core/utils/math";
+import { ROLES_CONFIG } from "../engine/token-engine/config/roles-config";
 
-const FIRST_NAMES = [
-    "Arthur", "William", "Henry", "George", "Thomas", "John", "Edward", "Charles", "Walter", "Frank",
-    "Joseph", "Robert", "James", "Harry", "Alfred", "Ernest", "Albert", "Richard", "Fred", "Herbert",
-    "Jack", "Mason", "Declan", "Jude", "Marcus", "Cole", "Reece", "Trent", "Jordan", "Harvey",
-    "Callum", "Kieran", "Bukayo", "Phil", "Ben", "Kyle", "Ollie", "Luke", "Tyrone", "Aaron"
-];
+const FIRST_NAMES = ["Arthur", "William", "Henry", "George", "Thomas", "John", "Edward", "Charles", "Walter", "Frank"];
+const LAST_NAMES = ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts"];
 
-const LAST_NAMES = [
-    "Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts",
-    "Johnson", "Lewis", "Walker", "Robinson", "Wood", "Thompson", "Wright", "White", "Watson", "Harrison",
-    "Kane", "Sterling", "Pickford", "Rice", "Foden", "Bellingham", "Saka", "Palmer", "Grealish", "Trippier",
-    "Maguire", "Stones", "Alexander-Arnold", "Shaw", "Phillips", "Chilwell", "Gallagher", "Watkins", "Bowen", "Ramsdale"
-];
+const VALID_ROLES = Object.keys(ROLES_CONFIG);
 
-const POSITIONS = ["GK", "DEF", "MID", "FWD"];
-
-const TRAIT_POOL: PlayerTrait[] = [
-	"COUNTER_ATTACKER", 
-    "SHORT_PASSER", 
-    "CLUTCH_FINISHER", 
-    "WING_WIZARD", 
-    "IRON_DEFENDER",
-	"MARATHON_MAN", 
-    "BOX_TO_BOX", 
-    "FREE_KICK_EXPERT", 
-    "SWEEPER_GK",
-    "PENALTY_SPECIALIST",
-    "CORNER_SPECIALIST", 
-    "LONG_THROW_SPECIALIST"
-];
-
-function generateVQNStats(position: string, baseSkill: number) {
+function generateSimplifiedStats(role: string, baseSkill: number) {
 	const getStat = (bonus = 0) => clamp(baseSkill + bonus + (Math.random() * 6 - 3), 1, 20);
 
-	const stats: Player["stats"] = {
-		passing: getStat(),
-		shooting: getStat(),
-		dribbling: getStat(),
-		tackling: getStat(),
-        ballControl: getStat(), 
-        crossing: getStat(),
-		speed: getStat(),
-		strength: getStat(),
-		stamina: getStat(),
-        jumping: getStat(), 
-        agility: getStat(), 
-		vision: getStat(),
-		positioning: getStat(),
-		composure: getStat(),
-        aggression: getStat(), 
-        leadership: getStat(), 
-        anticipation: getStat(),
-        // Nouvelles caractéristiques fondamentales
-        workrate: getStat(),
-        flair: getStat(),
-        decisions: getStat(),
-        concentration: getStat(),
-        adaptability: getStat(),
-        pressure: getStat(),
+	const stats: any = {
+		technical: getStat(),
+		finishing: getStat(),
+		defense: getStat(),
+		physical: getStat(),
+		mental: getStat(),
+        goalkeeping: getStat(role === "GK" ? 5 : -10),
 	};
 
-	if (position === "GK") {
-		stats.goalkeeping = getStat(5);
-		stats.shooting = getStat(-6);
-		stats.passing = getStat(-2);
-        stats.crossing = getStat(-5);
-        stats.agility = getStat(3);
-        stats.anticipation = getStat(3);
-        stats.concentration = getStat(4);
-	} else if (position === "DEF") {
-		stats.tackling = getStat(4);
-		stats.positioning = getStat(3);
-		stats.strength = getStat(3);
-        stats.jumping = getStat(3);
-        stats.aggression = getStat(2);
-        stats.anticipation = getStat(3);
-        stats.concentration = getStat(3);
-		stats.shooting = getStat(-4);
-	} else if (position === "MID") {
-		stats.passing = getStat(4);
-		stats.vision = getStat(4);
-		stats.stamina = getStat(3);
-        stats.ballControl = getStat(4);
-        stats.agility = getStat(2);
-        stats.decisions = getStat(3);
-        stats.workrate = getStat(3);
-	} else if (position === "FWD") {
-		stats.shooting = getStat(5);
-		stats.speed = getStat(4);
-		stats.composure = getStat(3);
-        stats.jumping = getStat(2);
-        stats.agility = getStat(3);
-        stats.flair = getStat(4);
-        stats.decisions = getStat(2);
-		stats.tackling = getStat(-5);
+	switch (role) {
+		case "GK": stats.mental += 3; stats.physical -= 2; break;
+		case "DC": stats.defense += 4; stats.finishing -= 5; break;
+		case "MC": stats.technical += 4; stats.mental += 3; break;
+		case "ST": stats.finishing += 5; stats.defense -= 5; break;
+        case "LW":
+        case "RW": stats.technical += 3; stats.physical += 3; break;
 	}
 
 	return stats;
 }
 
-export function generatePlayer(
-	targetAvgSkill = 5,
-	forcedPosition?: string,
-): Partial<Player> {
-	const position = forcedPosition || getRandomElement(POSITIONS);
+export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial<Player> {
+    let role = forcedRole || getRandomElement(VALID_ROLES);
+    if (role === "DEF") role = "DC";
+    if (role === "MID") role = "MC";
+    if (role === "FWD") role = "ST";
+
 	const age = randomInt(16, 36);
-	const stats = generateVQNStats(position, targetAvgSkill);
-
-	const skill = Object.values(stats).reduce((a, b) => (a || 0) + (b || 0), 0) / Object.values(stats).length;
-
-	const potentialBuffer = clamp((37 - age) * 0.5 + Math.random() * 5, 0.5, 8);
-	const potential = clamp(skill + potentialBuffer, skill, 20.99);
-
-	const traits: PlayerTrait[] = [];
-	
-	if (skill > 10 && Math.random() > 0.7) {
-		traits.push(getRandomElement(TRAIT_POOL));
-        if (skill > 14 && Math.random() > 0.8) {
-            const secondTrait = getRandomElement(TRAIT_POOL);
-            if (!traits.includes(secondTrait)) traits.push(secondTrait);
-        }
-	}
-
-	const dna = `${randomInt(0, 4)}-${randomInt(0, 6)}-${randomInt(0, 4)}-${randomInt(0, 4)}-${Math.random() > 0.9 ? 1 : 0}`;
-
-	const marketValue = Math.round(Math.pow(skill, 2.7) * 12 * (1.6 - age / 40));
-	const wage = Math.round(marketValue / 450);
-	const side = position !== "GK" && position !== "FWD" ? (Math.random() > 0.6 ? (Math.random() > 0.5 ? "L" : "R") : "C") : "C";
+	const stats = generateSimplifiedStats(role, targetAvgSkill);
+	const skill = Object.values(stats).reduce((a: any, b: any) => a + b, 0) / 6;
 
 	return {
 		firstName: getRandomElement(FIRST_NAMES),
 		lastName: getRandomElement(LAST_NAMES),
 		age,
-		position: position as any,
-		side: side as any,
+		role,
+		position: getGeneralPosition(role) as any,
+		side: getSideFromRole(role) as any,
 		skill,
-		potential,
-		joinedDay: 1,
-		joinedSeason: 1,
+		potential: clamp(skill + Math.random() * 5, skill, 20),
 		stats,
 		energy: 100,
 		morale: 80,
 		condition: 100,
-		form: 5.0,
-		formBackground: 5.0,
-		marketValue,
-		wage,
-		dna,
-		traits,
-		injuryDays: 0,
-		suspensionMatches: 0,
-		playedThisWeek: false,
-		lastRatings: [],
+		marketValue: Math.round(Math.pow(skill, 2.7) * 1000),
+		wage: Math.round(Math.pow(skill, 2) * 10),
+        dna: "0-0-0-0-0",
+		traits: [],
 		seasonStats: { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 }
 	};
+}
+
+function getGeneralPosition(role: string): string {
+    if (role === "GK") return "GK";
+    if (["DC", "DL", "DR"].includes(role)) return "DEF";
+    if (["MC", "ML", "MR"].includes(role)) return "MID";
+    return "FWD";
+}
+
+function getSideFromRole(role: string): string {
+    if (role.endsWith("L") || role === "LW") return "L";
+    if (role.endsWith("R") || role === "RW") return "R";
+    return "C";
 }

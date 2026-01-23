@@ -5,8 +5,9 @@
     pkgs.nodejs_20
   ];
 
-  env = {};
-
+  env = {
+    GOOGLE_API_KEY = "AIzaSyAK3fdh5iPkxyca_5tU-JncZh-LcFU-T2w";
+  };
   idx = {
     extensions = [
       "biomejs.biome"

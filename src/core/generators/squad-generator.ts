@@ -10,55 +10,47 @@ export async function generateFullSquad(
 	const players = [];
 
 	/**
-	 * Total 22 joueurs avec répartition variable :
-	 * - GK: 2-3
-	 * - DEF: 6-8
-	 * - MID: 6-8
-	 * - FWD: 4-6
-	 * On ajuste pour que le total soit exactement 22.
+	 * Total 22 joueurs avec répartition équilibrée pour couvrir le terrain
 	 */
 	
-	const gkCountTarget = randomInt(2, 3);
-	const defCountTarget = randomInt(6, 8);
-	const midCountTarget = randomInt(6, 8);
-	// Le reste en FWD pour atteindre 22
-	const fwdCountTarget = 22 - (gkCountTarget + defCountTarget + midCountTarget);
-
-	// Génération des Gardiens
-	for (let i = 0; i < gkCountTarget; i++) {
-		players.push({ ...generatePlayer(avgSkill + (i === 0 ? 0 : -1), "GK"), saveId, teamId });
+	// Gardiens (2)
+	for (let i = 0; i < 2; i++) {
+		players.push({ ...generatePlayer(avgSkill, "GK"), saveId, teamId });
 	}
 
-	// Génération des Défenseurs
-	for (let i = 0; i < defCountTarget; i++) {
-		players.push({ ...generatePlayer(avgSkill + (Math.random() * 2 - 1), "DEF"), saveId, teamId });
+	// Défenseurs (7) : 4 DC, 2 DL, 1 DR
+    const defRoles = ["DC", "DC", "DC", "DC", "DL", "DL", "DR"];
+	for (const role of defRoles) {
+		players.push({ ...generatePlayer(avgSkill, role), saveId, teamId });
 	}
 
-	// Génération des Milieux
-	for (let i = 0; i < midCountTarget; i++) {
-		players.push({ ...generatePlayer(avgSkill + (Math.random() * 2 - 1), "MID"), saveId, teamId });
+	// Milieux (8) : 4 MC, 2 ML, 2 MR
+    const midRoles = ["MC", "MC", "MC", "MC", "ML", "ML", "MR", "MR"];
+	for (const role of midRoles) {
+		players.push({ ...generatePlayer(avgSkill, role), saveId, teamId });
 	}
 
-	// Génération des Attaquants
-	for (let i = 0; i < fwdCountTarget; i++) {
-		players.push({ ...generatePlayer(avgSkill + (Math.random() * 2 - 1), "FWD"), saveId, teamId });
+	// Attaquants (5) : 3 ST, 1 LW, 1 RW
+    const fwdRoles = ["ST", "ST", "ST", "LW", "RW"];
+	for (const role of fwdRoles) {
+		players.push({ ...generatePlayer(avgSkill, role), saveId, teamId });
 	}
 
-	// Assigner les titulaires par défaut (les meilleurs par poste pour une formation 4-4-2)
+	// Assigner les titulaires par défaut (les meilleurs par rôle pour un 4-4-2)
 	players.sort((a, b) => (b.skill || 0) - (a.skill || 0));
 	
-	let gkStarters = 0;
-	let defStarters = 0;
-	let midStarters = 0;
-	let fwdStarters = 0;
+	let gkCount = 0, dcCount = 0, dlCount = 0, drCount = 0, mcCount = 0, mlCount = 0, mrCount = 0, stCount = 0;
 
-	// Tactique par défaut 4-4-2
 	players.forEach(p => {
 		let isStarter = false;
-		if (p.position === "GK" && gkStarters < 1) { isStarter = true; gkStarters++; }
-		else if (p.position === "DEF" && defStarters < 4) { isStarter = true; defStarters++; }
-		else if (p.position === "MID" && midStarters < 4) { isStarter = true; midStarters++; }
-		else if (p.position === "FWD" && fwdStarters < 2) { isStarter = true; fwdStarters++; }
+		if (p.role === "GK" && gkCount < 1) { isStarter = true; gkCount++; }
+		else if (p.role === "DC" && dcCount < 2) { isStarter = true; dcCount++; }
+		else if (p.role === "DL" && dlCount < 1) { isStarter = true; dlCount++; }
+		else if (p.role === "DR" && drCount < 1) { isStarter = true; drCount++; }
+		else if (p.role === "MC" && mcCount < 2) { isStarter = true; mcCount++; }
+		else if (p.role === "ML" && mlCount < 1) { isStarter = true; mlCount++; }
+		else if (p.role === "MR" && mrCount < 1) { isStarter = true; mrCount++; }
+		else if (p.role === "ST" && stCount < 2) { isStarter = true; stCount++; }
 		p.isStarter = isStarter;
 	});
 

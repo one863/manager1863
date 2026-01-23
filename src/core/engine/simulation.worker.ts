@@ -4,7 +4,7 @@ import fr from "../../infrastructure/locales/fr.json";
 
 // NEW TOKEN ENGINE IMPORTS
 import { TokenMatchEngine } from "./token-engine/match-engine";
-import { convertToTokenPlayers } from "./token-engine/converter";
+import { createTokenPlayers } from "./token-engine/converter";
 
 // Initialisation i18next
 const initI18n = i18next.init({
@@ -15,6 +15,15 @@ const initI18n = i18next.init({
 	interpolation: { escapeValue: false },
 });
 
+// Polyfill pour randomUUID si manquant dans le worker
+const generateId = () => {
+    try {
+        return crypto.randomUUID();
+    } catch (e) {
+        return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+};
+
 async function runSimulation(data: any) {
     try {
         await initI18n;
@@ -23,51 +32,56 @@ async function runSimulation(data: any) {
         const awayTeamId = data.awayTeamId || 2;
         const homeName = data.homeName || "Home";
         const awayName = data.awayName || "Away";
+        const hTactic = data.hTactic || "4-4-2";
+        const aTactic = data.aTactic || "4-4-2";
 
-        const allTokenPlayers = convertToTokenPlayers(
+        const homeTokenPlayers = createTokenPlayers(
             data.homePlayers || [],
-            data.awayPlayers || [],
+            data.homeStaff || [],
             homeTeamId,
-            awayTeamId
+            hTactic,
+            true
         );
 
-        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId);
+        const awayTokenPlayers = createTokenPlayers(
+            data.awayPlayers || [],
+            data.awayStaff || [],
+            awayTeamId,
+            aTactic,
+            false
+        );
 
-        // Simulation qui renvoie events et ballHistory
+        const allTokenPlayers = [...homeTokenPlayers, ...awayTokenPlayers];
+        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId, hTactic, aTactic);
+
         const engineResult = engine.simulateMatch();
         const rawEvents = engineResult.events;
 
-        // Adaptation du résultat pour l'UI
-        let homeScore = 0;
-        let awayScore = 0;
         const goalEvents: any[] = [];
+        const homeScore = engineResult.stats.shots[homeTeamId].goals;
+        const awayScore = engineResult.stats.shots[awayTeamId].goals;
 
         const formattedEvents = rawEvents.map((evt: any) => {
             const isHome = evt.teamId === homeTeamId;
             let type = "highlight";
             
-            if (evt.text.includes("BUT !")) {
+            if (evt.eventSubtype === "GOAL") {
                 type = "GOAL";
-                if (isHome) homeScore++; else awayScore++;
                 goalEvents.push({
                     minute: Math.floor(evt.time / 60),
-                    scorer: `Joueur ${evt.text.split(" ")[1]}`, 
-                    teamId: evt.teamId
+                    teamId: evt.teamId,
+                    scorerName: evt.playerName || 'Joueur'
                 });
-            } else if (evt.text.includes("TIR")) {
+            } else if (evt.eventSubtype === "SHOT") {
                 type = "SHOT";
-            } else if (evt.text.includes("récupère")) {
-                type = "TRANSITION"; 
-            } else if (evt.text.includes("surface") || evt.text.includes("Occasion")) {
-                type = "CHANCE";
-            } else if (evt.type === "CORNER") {
-                type = "CORNER";
-            } else if (evt.type === "CARD") {
+            } else if (evt.eventSubtype === "FOUL") {
                 type = "CARD";
+            } else if (evt.eventSubtype === "CORNER") {
+                type = "CORNER";
             }
 
             return {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 matchId: data.matchId,
                 minute: Math.floor(evt.time / 60),
                 second: evt.time % 60,
@@ -76,11 +90,11 @@ async function runSimulation(data: any) {
                 text: evt.text,
                 teamId: evt.teamId,
                 isHome: isHome,
-                xg: type === "SHOT" || type === "GOAL" ? 0.12 : 0 
+                scorerName: type === "GOAL" ? (evt.playerName || 'Joueur') : undefined
             };
         });
 
-        const result = {
+        return {
             matchId: data.matchId,
             homeTeamId: homeTeamId,
             awayTeamId: awayTeamId,
@@ -89,20 +103,21 @@ async function runSimulation(data: any) {
             homeScore: homeScore,
             awayScore: awayScore,
             events: formattedEvents,
-            ballHistory: engineResult.ballHistory, // Vrai Momentum
-            stoppageTime: 4,
-            playerStats: {}, 
-            possessionHistory: [], 
-            stats: {
-                homePasses: formattedEvents.filter((e:any) => e.description.includes("passe") && e.isHome).length,
-                awayPasses: formattedEvents.filter((e:any) => e.description.includes("passe") && !e.isHome).length,
-                homeShotsOnTarget: formattedEvents.filter((e:any) => (e.type === "GOAL" || e.description.includes("CADRÉ")) && e.isHome).length,
-                awayShotsOnTarget: formattedEvents.filter((e:any) => (e.type === "GOAL" || e.description.includes("CADRÉ")) && !e.isHome).length,
-            },
-            scorers: goalEvents
+            debugLogs: engineResult.fullJournal.map(l => ({ 
+                time: l.time,
+                type: l.type,
+                text: l.text,
+                playerName: l.playerName,
+                teamId: l.teamId,
+                ballPosition: l.ballPosition,
+                bag: l.bag,
+                drawnToken: l.drawnToken 
+            })),
+            ballHistory: engineResult.ballHistory,
+            stats: engineResult.stats,
+            scorers: goalEvents,
+            stoppageTime: 4
         };
-
-        return result;
 
     } catch (err: any) {
         console.error("Worker Simulation Error:", err);
@@ -112,46 +127,39 @@ async function runSimulation(data: any) {
 
 self.onmessage = async (e: MessageEvent) => {
 	const { type, payload } = e.data;
-    
     try {
         await initI18n;
-        if (payload?.language && i18next.language !== payload.language) {
-            await i18next.changeLanguage(payload.language);
-        }
+        if (payload?.language && i18next.language !== payload.language) await i18next.changeLanguage(payload.language);
 
         switch (type) {
             case "SIMULATE_BATCH": {
-                const { matches, saveId } = payload;
                 const results = [];
-                for (const matchData of matches) {
+                for (const matchData of payload.matches) {
                     try {
                         const result = await runSimulation(matchData);
                         results.push({ matchId: matchData.matchId, result });
-                    } catch (error) {
-                        console.error(`Error simulating match ${matchData.matchId}`, error);
+                    } catch (e) {
+                        console.error("Batch simulation individual error", e);
                     }
                 }
-                self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId } });
+                self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId: payload.saveId } });
                 break;
             }
             case "SIMULATE_MATCH": {
                 try {
                     const result = await runSimulation(payload);
                     self.postMessage({ type: "MATCH_COMPLETE", payload: { result, requestId: payload.requestId } });
-                } catch (error: any) {
-                    console.error("Worker SIMULATE_MATCH error:", error);
+                } catch (simError: any) {
                     self.postMessage({ 
                         type: "MATCH_ERROR", 
                         payload: { 
-                            requestId: payload.requestId, 
-                            error: error.message || "Unknown error during simulation" 
+                            error: simError.message || "Simulation failed", 
+                            requestId: payload.requestId 
                         } 
                     });
                 }
                 break;
             }
-            default:
-                console.warn("Unknown message type in worker:", type);
         }
     } catch (error: any) {
         console.error("Worker Global Error:", error);
@@ -159,8 +167,8 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({ 
                 type: "MATCH_ERROR", 
                 payload: { 
-                    requestId: payload.requestId, 
-                    error: "Global worker error: " + error.message 
+                    error: "Critical worker error", 
+                    requestId: payload.requestId 
                 } 
             });
         }

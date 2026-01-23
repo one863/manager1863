@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { useEffect, useState } from "preact/hooks";
 import { db } from "@/core/db/db";
-import type { Team } from "@/core/engine/core/types";
+import type { Team } from "@/core/types";
 
 export default function AcademyView() {
 	const { t } = useTranslation();

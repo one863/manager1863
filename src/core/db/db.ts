@@ -6,16 +6,10 @@ import type {
 	NewsArticle, 
 	Player, 
 	Team, 
-	Sponsor,
-	PlayerStats,
-	MatchResult,
-	SeasonStats,
-	PlayerTrait,
-    StaffTrait,
     StaffRole
-} from "../engine/core/types";
+} from "../types";
 
-export const CURRENT_DATA_VERSION = 17; // Passé de 16 à 17 pour intégrer les nouvelles stats fondamentales
+export const CURRENT_DATA_VERSION = 19; 
 
 export interface SaveSlot {
 	id?: number;
@@ -35,11 +29,8 @@ export interface BackupSlot {
 
 export interface StaffStats {
 	coaching: number;    
-	tactical: number;    
-	discipline: number;  
-    conditioning: number; 
-    recovery: number;     
-    reading: number;      
+	medical: number;    
+	management: number;  
 }
 
 export interface StaffMember {
@@ -53,10 +44,8 @@ export interface StaffMember {
 	wage: number;
 	age: number;
 	dna: string;
-	preferredStrategy?: "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
 	stats: StaffStats;
 	confidence: number;
-    traits: StaffTrait[];
     joinedDay: number;
     joinedSeason: number;
 }
@@ -108,19 +97,6 @@ export async function clearAllData() {
     });
 }
 
-export type { 
-	Player, 
-	Team, 
-	Match, 
-	League, 
-	NewsArticle, 
-	Sponsor, 
-	PlayerStats, 
-	MatchResult,
-	SeasonStats,
-	PlayerTrait
-};
-
 export async function verifySaveIntegrity(saveId: number): Promise<boolean> {
 	try {
 		const state = await db.gameState.where("saveId").equals(saveId).first();
@@ -131,5 +107,6 @@ export async function verifySaveIntegrity(saveId: number): Promise<boolean> {
 }
 
 export async function computeSaveHash(saveId: number): Promise<string> {
+	// Implémentation basique du hash pour la stabilité
 	return "STABLE_HASH_" + saveId;
 }

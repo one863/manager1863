@@ -7,7 +7,7 @@ import { SubTabs } from "@/ui/components/Common/SubTabs";
 import ClubIdentityCard from "@/ui/components/Dashboard/ClubIdentityCard";
 import NextMatchCard from "@/ui/components/Dashboard/NextMatchCard";
 import BoardView from "@/club/personnel/BoardView";
-import { TacticType, StrategyType } from "@/core/engine/core/types";
+import { TacticType, StrategyType } from "@/core/types";
 
 export default function Dashboard({
 	onNavigate,

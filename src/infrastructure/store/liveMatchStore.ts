@@ -52,7 +52,12 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 		};
 
 		if (saveId) {
-			await db.gameState.where("saveId").equals(saveId).modify({ liveMatch: initialData });
+            // OPTIMISATION : On ne sauve pas les debugLogs lourds dans la DB persistante de sauvegarde
+            // pour garder une sauvegarde rapide. On les garde seulement en RAM (Zustand).
+            const lightResult = { ...result, debugLogs: [] };
+			await db.gameState.where("saveId").equals(saveId).modify({ 
+                liveMatch: { ...initialData, result: lightResult } 
+            });
 		}
 
 		set({ liveMatch: initialData });
@@ -63,12 +68,10 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 		if (!liveMatch) return;
 
 		const updatedMatch = { ...liveMatch, currentMinute: minute };
-
 		set({ liveMatch: updatedMatch });
 
-		if (saveId) {
-			db.gameState.where("saveId").equals(saveId).modify({ liveMatch: updatedMatch });
-		}
+        // On ne persiste pas en DB à chaque minute pour économiser le CPU/Disque
+        // La persistance se fera lors de la finalisation du match.
 	},
 
 	clearLiveMatch: () => {
