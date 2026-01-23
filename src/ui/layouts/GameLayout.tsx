@@ -81,11 +81,10 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const executeContinue = async () => {
 		setSaveStatus("saving");
         
-        // WATCHDOG : Force le déblocage après 20 secondes quoi qu'il arrive
         const watchdog = setTimeout(() => {
             setSaveStatus("idle");
             console.error("WATCHDOG: Advance date too long, unlocking UI");
-        }, 20000);
+        }, 30000);
 
 		try {
 			await advanceDate();
@@ -146,7 +145,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
     const isLive = currentView === "live-match";
 
 	return (
-		<div className="flex flex-col h-screen max-w-md mx-auto bg-white border-x border-gray-100 shadow-xl overflow-hidden relative">
+		<div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 border-x border-slate-200 shadow-xl overflow-hidden relative font-sans">
 			{!isLive && (
                 <Header
                     currentDate={currentDate}
@@ -159,7 +158,7 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
             )}
 
 			<main
-				className={`flex-1 flex flex-col ${["match-report", "league", "live-match"].includes(currentView) ? "overflow-hidden" : "overflow-y-auto"} ${!isLive ? "mb-16" : ""} scroll-smooth relative bg-white`}
+				className={`flex-1 flex flex-col ${["match-report", "league", "live-match"].includes(currentView) ? "overflow-hidden" : "overflow-y-auto"} ${!isLive ? "mb-16" : ""} scroll-smooth relative bg-slate-50`}
 			>
 				<ErrorBoundary>
 					<Suspense fallback={<ViewLoader />}>
@@ -189,12 +188,12 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
                 />
             )}
 
-			{saveStatus !== "idle" && (
-				<div className="fixed inset-0 z-[500] flex items-center justify-center bg-white/80 backdrop-blur-sm">
-					<div className="flex flex-col items-center">
-						<Loader2 size={40} className="text-blue-600 animate-spin mb-4" />
-						<p className="text-sm font-black uppercase tracking-widest text-blue-600">
-							{saveStatus === "saving" ? "Sauvegarde en cours..." : "Synchronisé"}
+			{(saveStatus === "saving" || isProcessing) && (
+				<div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-50/80 backdrop-blur-sm transition-all duration-300">
+					<div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center max-w-[80%] text-center">
+						<Loader2 size={32} className="text-slate-400 animate-spin mb-4" />
+						<p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+							Sauvegarde en cours...
 						</p>
 					</div>
 				</div>
@@ -206,8 +205,8 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 function ViewLoader() {
 	return (
 		<div className="flex flex-col items-center justify-center h-full">
-			<Loader2 size={32} className="text-blue-600 animate-spin mb-2" />
-			<p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
+			<Loader2 size={32} className="text-slate-400 animate-spin mb-2" />
+			<p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
 				Chargement...
 			</p>
 		</div>

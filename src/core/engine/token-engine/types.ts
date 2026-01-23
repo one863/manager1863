@@ -1,6 +1,21 @@
 export type TokenType = 
-  | 'PASS' | 'DRIBBLE' | 'SHOOT' | 'TACKLE' | 'INTERCEPT' | 'SAVE' | 'FATIGUE'
-  | 'ERROR' | 'COMBO_PASS' | 'OFFSIDE' | 'FOUL' | 'CORNER' | 'SYSTEM' | 'NEUTRAL_POSSESSION';
+  | 'PASS' | 'DRIBBLE' | 'COMBO_PASS' | 'CROSS' | 'THROUGH_BALL' | 'KEY_PASS' | 'CUT_BACK'
+  | 'SHOOT_GOAL' | 'SHOOT_SAVED' | 'SHOOT_CORNER' | 'SHOOT_OFF_TARGET' | 'SHOOT_WOODWORK'
+  | 'HEAD_PASS' | 'HEAD_SHOT' | 'REBOUND' | 'OWN_GOAL'
+  | 'TACKLE' | 'INTERCEPT' | 'SAVE' | 'BLOCK' | 'CLEARANCE' | 'BALL_RECOVERY'
+  | 'DUEL_WON' | 'DUEL_LOST' | 'PRESSING_SUCCESS'
+  | 'PUNCH' | 'CLAIM' | 'SWEEPER_KEEPER'
+  | 'FATIGUE' | 'ERROR' | 'OFFSIDE' | 'FOUL' | 'YELLOW_CARD' | 'RED_CARD' | 'SECOND_YELLOW_CARD' | 'INJURY' | 'STRETCHER'
+  | 'KICK_OFF_BACK' | 'KICK_OFF_LONG'
+  | 'CORNER_GOAL' | 'CORNER_CLEARED' | 'CORNER_SHORT' | 'CORNER_OVERCOOKED'
+  | 'PENALTY_GOAL' | 'PENALTY_SAVED' | 'PENALTY_MISS'
+  | 'GK_SHORT' | 'GK_LONG' | 'GK_BOULETTE'
+  | 'THROW_IN_SAFE' | 'THROW_IN_LOST' | 'THROW_IN_LONG_BOX'
+  | 'FREE_KICK_SHOT' | 'FREE_KICK_CROSS' | 'FREE_KICK_WALL'
+  | 'VAR_CHECK' | 'STALEMATE' | 'ADDED_TIME'
+  | 'NEUTRAL_POSSESSION' | 'SYSTEM';
+
+export type MatchSituation = 'NORMAL' | 'CORNER' | 'PENALTY' | 'FREE_KICK' | 'GOAL_KICK' | 'THROW_IN' | 'KICK_OFF' | 'REBOUND_ZONE' | 'VAR_ZONE';
 
 export interface Token {
   id: string;
@@ -12,24 +27,52 @@ export interface Token {
   metadata?: any;
 }
 
+export interface TokenExecutionResult {
+    moveX: number;
+    moveY: number;
+    possessionChange: boolean;
+    isGoal: boolean;
+    isEvent: boolean;
+    eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
+    logMessage: string;
+    customDuration?: number;
+    stats?: { 
+        xg?: number; 
+        isPass?: boolean; 
+        isSuccess?: boolean; 
+        isDuel?: boolean; 
+        isInterception?: boolean; 
+        isChanceCreated?: boolean; 
+        isAssist?: boolean;
+    };
+}
+
 export interface GridPosition { x: number; y: number; }
 
-export interface ZoneData {
-    id: string; 
-    baseTokens: Token[]; 
-    logic: { defenseMultiplier: number; errorChance: number; };
+export interface MatchStats {
+    possession: { [teamId: number]: number };
+    possessionPercent?: { [teamId: number]: number };
+    xg: { [teamId: number]: number };
+    passes: { [teamId: number]: { attempted: number; successful: number } };
+    shots: { [teamId: number]: { total: number; onTarget: number; goals: number } };
+    duels: { [teamId: number]: { total: number; won: number } };
+    interceptions: { [teamId: number]: number };
+    fouls: { [teamId: number]: number };
+    corners: { [teamId: number]: number };
+    woodwork: { [teamId: number]: number };
 }
 
 export interface MatchLog {
     time: number;
     type: 'ACTION' | 'THINKING' | 'EVENT' | 'STAT';
-    eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT';
+    eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
     text: string;
     playerName?: string;
     teamId?: number;
     ballPosition?: GridPosition;
     bag?: { type: TokenType, teamId: number }[];
-    drawnToken?: { type: TokenType, teamId: number }; // Nouveau: Jeton tiré
+    drawnToken?: { type: TokenType, teamId: number };
+    statImpact?: any;
 }
 
 export interface TokenPlayerState {
@@ -37,23 +80,8 @@ export interface TokenPlayerState {
     name: string;
     teamId: number;
     role: string;
-    stats: {
-        technical: number; 
-        finishing: number;  
-        defense: number;    
-        physical: number;   
-        mental: number;     
-        goalkeeping: number; 
-    };
+    stats: { technical: number; finishing: number; defense: number; physical: number; mental: number; goalkeeping: number; };
     staffModifiers: any;
-}
-
-export interface MatchStats {
-    possession: { [teamId: number]: number };
-    passes: { [teamId: number]: { attempted: number; successful: number } };
-    shots: { [teamId: number]: { total: number; onTarget: number; goals: number } };
-    fouls: { [teamId: number]: number };
-    corners: { [teamId: number]: number };
 }
 
 export type TacticType = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2';
@@ -66,11 +94,4 @@ export interface TacticTemplate {
             zones: GridPosition[];
         }
     };
-}
-
-export interface StaffModifiers {
-    technicalBonus: number;
-    tacticalBonus: number;
-    disciplineBonus: number;
-    staminaBonus: number;
 }

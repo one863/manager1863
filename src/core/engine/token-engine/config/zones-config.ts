@@ -1,4 +1,4 @@
-import { Token, GridPosition, TokenType } from "../types";
+import { Token, TokenType } from "../types";
 
 export interface ZoneConfig {
     baseTokens: Partial<Token>[];
@@ -6,19 +6,38 @@ export interface ZoneConfig {
     errorChance?: number;
 }
 
-/**
- * ZONES_CONFIG NEUTRE
- * On ne définit plus de jetons ici pour laisser la TACTIQUE (Roles) 
- * être la seule source de jetons dans le sac.
- */
+const sys = (type: TokenType, count: number = 1, quality: number = 30): Partial<Token>[] => 
+    Array(Math.floor(count)).fill({ type, quality, duration: 5 });
+
 export const ZONES_CONFIG: Record<string, ZoneConfig> = {
-    // On garde uniquement des multiplicateurs ou des règles spéciales par zone si besoin
-    "0,2": { baseTokens: [], defenseMultiplier: 2.0 }, // But Home
-    "5,2": { baseTokens: [], defenseMultiplier: 2.0 }, // But Away
+    // --- AILES : Centres et Dribbles ---
+    "1,0": { baseTokens: [...sys('DRIBBLE', 2), ...sys('PASS', 1)] },
+    "2,0": { baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS', 2), ...sys('CROSS', 1)] },
+    "3,0": { baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS', 2), ...sys('CROSS', 1)] },
+    "4,0": { baseTokens: [...sys('DRIBBLE', 2), ...sys('CROSS', 2)] },
+    "1,4": { baseTokens: [...sys('DRIBBLE', 2), ...sys('PASS', 1)] },
+    "2,4": { baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS', 2), ...sys('CROSS', 1)] },
+    "3,4": { baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS', 2), ...sys('CROSS', 1)] },
+    "4,4": { baseTokens: [...sys('DRIBBLE', 2), ...sys('CROSS', 2)] },
+
+    // --- AXE : Construction et Danger ---
+    "1,2": { baseTokens: [...sys('PASS', 4), ...sys('INTERCEPT', 2)] },
+    "2,2": { baseTokens: [...sys('PASS', 5), ...sys('THROUGH_BALL', 1)] },
+    "3,2": { baseTokens: [...sys('PASS', 4), ...sys('THROUGH_BALL', 2), ...sys('FOUL', 1)] },
+    "4,2": { baseTokens: [...sys('PASS', 2), ...sys('SHOOT_GOAL', 1, 50), ...sys('SHOOT_SAVED', 1), ...sys('FOUL', 1)] },
+
+    // --- SURFACES (Gardiens) ---
+    "0,2": { baseTokens: [...sys('SAVE', 5), ...sys('TACKLE', 3)], defenseMultiplier: 2.0 },
+    "5,2": { baseTokens: [...sys('SAVE', 5), ...sys('TACKLE', 3)], defenseMultiplier: 2.0 },
 };
 
 export const DEFAULT_ZONE_CONFIG: ZoneConfig = {
-    baseTokens: [], // Vide par défaut
+    baseTokens: [
+        ...sys('PASS', 2), 
+        ...sys('NEUTRAL_POSSESSION', 1),
+        ...sys('ERROR', 1), 
+        ...sys('FOUL', 1) 
+    ],
     defenseMultiplier: 1.0,
     errorChance: 1.0
 };

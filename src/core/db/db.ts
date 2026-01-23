@@ -9,7 +9,8 @@ import type {
     StaffRole
 } from "../types";
 
-export const CURRENT_DATA_VERSION = 19; 
+// Inscription de la nouvelle version pour supporter Condition, Moral et Potentiel persistants
+export const CURRENT_DATA_VERSION = 20; 
 
 export interface SaveSlot {
 	id?: number;
@@ -107,6 +108,5 @@ export async function verifySaveIntegrity(saveId: number): Promise<boolean> {
 }
 
 export async function computeSaveHash(saveId: number): Promise<string> {
-	// Implémentation basique du hash pour la stabilité
 	return "STABLE_HASH_" + saveId;
 }

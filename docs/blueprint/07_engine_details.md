@@ -1,76 +1,42 @@
-# ⚙️ Détails du Moteur de Match "Token Engine"
+# ⚙️ Détails du Moteur de Match "Token Engine" (V2)
 
-Le moteur de jeu a abandonné l'approche probabiliste pure pour un système de **Deck Building dynamique** et de **Jetons Nominatifs**. Cette approche "Bottom-Up" permet une narration émergente plus riche et réaliste.
+Le moteur de jeu repose sur une séparation stricte entre l'**Intelligence Systémique** (Arbitrage) et le **Dictionnaire de Données** (Cinématique).
 
-## 🃏 Concept Fondamental : Les Jetons (Tokens)
+## 🃏 Concept Fondamental : Les Jetons Narratifs
 
-Chaque action sur le terrain est le résultat du tirage d'un **Jeton** dans un "Sac" commun. Les joueurs injectent leurs jetons dans ce sac en fonction de leur position et de leurs caractéristiques.
+Le moteur a abandonné les calculs de probabilités internes au profit de jetons portant directement leur issue narrative. Le "talent" d'une équipe se reflète désormais dans la **proportion de jetons favorables** injectés dans le sac.
 
-### Types de Jetons
-*   **PASS :** Tentative de transmission (Action la plus commune).
-*   **DRIBBLE :** Tentative d'élimination individuelle.
-*   **SHOOT :** Tentative de tir (nécessite d'être en zone offensive).
-*   **TACKLE :** Tentative de récupération défensive (peut provoquer une faute).
-*   **INTERCEPT :** Lecture du jeu et interception propre.
-*   **SAVE :** Arrêt du gardien.
-*   **ERROR :** Perte de balle non provoquée (déchet technique).
-*   **FATIGUE :** Jeton "négatif" qui, si tiré, diminue les attributs du joueur.
+### 🎭 Sacs de Situation (Nouveau)
+Lors de phases spécifiques, le moteur utilise un sac dédié dont les proportions respectent les standards Opta :
+*   **CORNER :** Composé de jetons `CORNER_GOAL` (3%), `CORNER_CLEARED` (60%), `CORNER_SHORT` (20%), et `CORNER_OVERCOOKED` (17%).
+*   **PENALTY :** Composé de `PENALTY_GOAL` (75%), `PENALTY_SAVED` (20%), et `PENALTY_MISS` (5%).
+*   **GOAL_KICK (6 mètres) :** Définit la qualité de relance (`GK_SHORT`, `GK_LONG`, `GK_BOULETTE`).
+*   **KICK_OFF :** Force une reprise de jeu propre (`KICK_OFF_BACK`, `KICK_OFF_LONG`).
 
-## 🗺️ Le Terrain : Grille Tactique 6x5
+## 🏗️ Architecture Technique (Engine vs Logic)
 
-Le terrain n'est plus une simple ligne (1-5) mais une **Grille 2D de 30 zones (6x5)**.
+### 1. Le Moteur (`MatchEngine.ts`) : Le Cerveau
+*   **Gestion d'État :** Identifie la `MatchSituation` actuelle pour basculer entre le sac tactique et les sacs de situation.
+*   **Filtrage :** Applique les interdits géographiques (ex: pas de tir depuis les ailes ou sa propre moitié de terrain).
+*   **Arbitrage :** Gère les conséquences systémiques (repositionnement du ballon, cumul du temps additionnel).
 
-*   **Axe X (0-5) :** La profondeur du terrain.
-    *   Zone 0 : But Domicile (Gardien Home).
-    *   Zone 5 : But Extérieur (Gardien Away).
-*   **Axe Y (0-4) :** La largeur du terrain (Gauche, Centre-Gauche, Centre, Centre-Droit, Droite).
+### 2. Dictionnaire de Logique (`token-logic.ts`) : La Cinématique
+Un pur dictionnaire de données, sans calcul aléatoire interne.
+*   **Déplacement :** Définit le vecteur de mouvement précis.
+*   **Narration :** Fournit les commentaires variés pour chaque issue (ex: plusieurs façons de décrire un but sur corner).
+*   **Stats :** Enregistre l'impact Opta (xG, Passes réussies, Duels).
 
-### Mécanique d'Injection (Le Sac)
-À chaque phase de jeu, le moteur construit un "Sac" de jetons basé sur la position du ballon :
-1.  **Zone Active (Ballon) :** Les joueurs présents dans cette case injectent **100%** de leur stock de jetons pertinents.
-2.  **Zones Adjacentes :** Les joueurs situés dans les 8 cases autour injectent **50%** de leur stock.
-3.  **Mélange :** Le sac est mélangé aléatoirement.
-4.  **Tirage :** Un seul jeton est tiré et résolu.
+## 🧠 État Dynamique du Joueur (Mental & Physique)
 
-## ⏱️ Gestion du Temps Dynamique
+*   **Confiance (Mental) :** Score de 0 à 100. Influence directement la `quality` des jetons injectés.
+*   **Fatigue (Physique) :** Réduit le volume technique (nombre de jetons dans le sac) et la précision.
+*   **Synergie Collective :** Un but marqué booste le moral de toute l'équipe (+15), simulant un momentum psychologique.
 
-Contrairement à un système de "Ticks" fixes (ex: 1 tick = 1 minute), le temps s'écoule de manière fluide selon l'action tirée :
-*   Une **Passe** consomme ~3-5 secondes.
-*   Un **Dribble** consomme ~5-8 secondes.
-*   Un **Corner** consomme ~45 secondes.
-*   Un **But** (célébration + engagement) consomme ~60 secondes.
+## 🗺️ Le Terrain : Influence et Reach
 
-Le match s'arrête naturellement quand le chronomètre dépasse le temps réglementaire (+ arrêts de jeu).
+*   **Zones Actives :** Le joueur injecte **100%** de son influence (stock plein).
+*   **Zones de "Reach" :** Les voisins directs reçoivent **50%** de l'influence, simulant la capacité de couverture latérale et la projection.
 
-## 📊 Momentum & Domination Territoriale
+## ⏱️ Chronométrie Événementielle
 
-Le moteur calcule en temps réel la "Pression" exercée par chaque équipe, inspirée des graphiques Opta/SofaScore.
-
-*   **Calcul :** Basé sur la position X du ballon.
-    *   Ballon chez l'adversaire = Momentum Positif (Barre vers le haut).
-    *   Ballon dans son camp = Momentum Négatif (Barre vers le bas).
-    *   Bonus pour la possession active.
-*   **Visualisation :** Un graphique à barres (Bleu/Orange) permet de lire instantanément la physionomie du match (Dominé vs Dominant).
-
-## 🧠 Comportement des Joueurs (IA)
-
-Les joueurs ne sont pas statiques. À chaque phase :
-1.  **Suivi du Ballon :** Le bloc équipe coulisse pour suivre le ballon (montée/descente).
-2.  **Rôle Tactique :**
-    *   Les **Défenseurs** restent généralement derrière la ligne du ballon.
-    *   Les **Milieux** suivent le ballon de près.
-    *   Les **Attaquants** se projettent dans les zones libres devant.
-3.  **Fatigue :** Chaque action consomme de l'énergie. Un joueur fatigué injecte plus de jetons "FATIGUE" et "ERROR" dans le sac, augmentant le risque de perdre le match en fin de partie.
-
-## ⚽ Résolution des Actions Clés
-
-*   **Tirs :**
-    *   Ne sont possibles que dans les zones proches du but adverse (X >= 4 ou X <= 1).
-    *   Taux de conversion réaliste (~10-15%).
-    *   Gestion des Tirs Cadrés (Arrêts Gardien) et Non Cadrés.
-*   **Fautes & Cartons :**
-    *   Chaque jeton `TACKLE` a une probabilité de générer une faute.
-    *   Gravité aléatoire : Simple faute, Jaune, ou Rouge (Expulsion).
-*   **Corners :**
-    *   Générés aléatoirement suite à un arrêt du gardien ou un contre défensif.
-    *   Phase de jeu spécifique avec danger de but accru.
+Le temps s'écoule par l'action. Chaque jeton consomme un temps réaliste (CPA: 45s, But: 60s, Passe: 3-5s). Le match se termine lorsque le cumul `BaseTime + StoppageTime` est atteint.

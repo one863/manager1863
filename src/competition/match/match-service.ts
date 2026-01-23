@@ -79,6 +79,35 @@ export const MatchService = {
 			]);
 			const matchData = { matchId: userMatch.id, homeTeamId: userMatch.homeTeamId, awayTeamId: userMatch.awayTeamId, homePlayers, awayPlayers, homeName: homeT?.name, awayName: awayT?.name, homeStaff, awayStaff, hTactic: homeT?.tacticType, aTactic: awayT?.tacticType };
             const result = await runMatchInWorker(matchData, i18next.language);
+
+            // Inject kickoff comment at 00:00
+            const kickoffText = i18next.t('narratives.match.kickoff', { team: homeT?.name });
+            const kickoffEvent = {
+                id: 'kickoff-' + userMatch.id,
+                matchId: userMatch.id,
+                minute: 0,
+                second: 0,
+                type: 'highlight',
+                text: kickoffText,
+                description: kickoffText,
+                teamId: userMatch.homeTeamId,
+                isHome: true
+            };
+
+            if (result.events) {
+                result.events.unshift(kickoffEvent);
+            }
+
+            if (result.debugLogs) {
+                result.debugLogs.unshift({
+                    time: 0,
+                    type: 'ACTION',
+                    text: kickoffText,
+                    teamId: userMatch.homeTeamId,
+                    ballPosition: { x: 2, y: 2 }
+                });
+            }
+
             return { matchId: userMatch.id!, homeTeam: homeT, awayTeam: awayT, homePlayers, awayPlayers, result };
 		}
 		return null;

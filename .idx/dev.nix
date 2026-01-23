@@ -31,7 +31,7 @@
       };
       # Utiliser onStart pour ouvrir le fichier de ton choix au lieu du README
       onStart = {
-        open-main = "code src/app.tsx";
+        open-main = "code docs/blueprint/00_gemini.md";
       };
     };
   };

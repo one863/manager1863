@@ -1,4 +1,4 @@
-import { Player, StaffMember } from "../../db/db";
+import { Player, StaffMember } from "../../core/types";
 import { TokenPlayer } from "./token-player";
 import { TACTIC_TEMPLATES } from "./tactics-data";
 import { TokenPlayerState, StaffModifiers } from "./types";
@@ -7,11 +7,11 @@ function getStaffModifiers(staff: StaffMember[]): StaffModifiers {
     const modifiers: StaffModifiers = { technicalBonus: 0, tacticalBonus: 0, disciplineBonus: 0, staminaBonus: 0 };
     staff.forEach(m => {
         if (m.role === "COACH") {
-            modifiers.technicalBonus = Math.max(modifiers.technicalBonus, m.stats.coaching);
-            modifiers.tacticalBonus = Math.max(modifiers.tacticalBonus, m.stats.tactical);
-            modifiers.disciplineBonus = Math.max(modifiers.disciplineBonus, m.stats.discipline);
+            // Utilisation des stats de staff si disponibles
+            modifiers.technicalBonus = Math.max(modifiers.technicalBonus, m.stats?.coaching || 0);
+            modifiers.tacticalBonus = Math.max(modifiers.tacticalBonus, m.stats?.management || 0);
         } else if (m.role === "PHYSICAL_TRAINER") {
-            modifiers.staminaBonus = Math.max(modifiers.staminaBonus, m.stats.conditioning);
+            modifiers.staminaBonus = Math.max(modifiers.staminaBonus, m.stats?.medical || 0);
         }
     });
     return modifiers;
@@ -35,20 +35,20 @@ export function createTokenPlayers(
             name: `${p.firstName.charAt(0)}. ${p.lastName}`,
             teamId: teamId,
             role: roleData.label,
-            stats: {
-                technical: (p.stats.passing + p.stats.dribbling) / 2,
-                finishing: p.stats.shooting,
-                defense: p.stats.tackling,
-                physical: (p.stats.stamina + 20) / 2, 
-                mental: p.stats.positioning,
-                goalkeeping: p.stats.reflexes
-            },
+            stats: p.stats,
             staffModifiers: staffModifiers
         };
 
         const tokenPlayer = new TokenPlayer(state);
+        
+        // --- INITIALISATION DYNAMIQUE DEPUIS LA DB ---
+        // On inverse la condition (0-100) pour obtenir la fatigue initiale (ex: 90% condition -> 10 fatigue)
+        tokenPlayer.fatigue = 100 - p.condition;
+        // On synchronise la confiance initiale avec le moral de la DB
+        tokenPlayer.confidence = p.morale;
+
         tokenPlayer.setBaseInfluence(roleData.zones);
-        tokenPlayer.updateInfluence(2, isHome); // Initialisation au centre
+        tokenPlayer.updateInfluence(2, isHome); 
         return tokenPlayer;
     });
 }

@@ -142,6 +142,7 @@
 	},
 	"narratives": {
 		"match": {
+            "kickoff": "Kick-off is about to be taken by {{team}}.",
 			"goal": [
 				"Goal for {{team}}! {{player}} smashes the ball into the net with a clinical finish!",
 				"Goal for {{team}}! The stadium erupts as {{player}} beats the keeper.",

@@ -77,6 +77,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 			const slot = await db.saveSlots.get(slotId);
 			if (state && slot) {
 				if (state.liveMatch) {
+                    // On restaure l'état complet du match live s'il existe
 					useLiveMatchStore.getState().initializeLiveMatch(
                         state.liveMatch.matchId, 
                         state.liveMatch.homeTeam, 
@@ -85,7 +86,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                         state.liveMatch.awayPlayers,
                         state.liveMatch.result, 
                         slotId, 
-                        state.liveMatch.currentMinute
+                        state.liveMatch.currentTime || state.liveMatch.currentMinute || 0,
+                        state.liveMatch.isPaused ?? true,
+                        state.liveMatch.activeTab || "flux"
                     );
 				} else {
 					useLiveMatchStore.getState().clearLiveMatch();

@@ -3,8 +3,8 @@
 Ce document définit les règles graphiques et ergonomiques. Le design suit une approche "Neutral Dashboard" où la structure est incolore pour laisser les données métier (notes, stats, alertes) être les seuls points d'attention.
 
 ## 1. Philosophie Visuelle : "Clean & Informative"
-* **Base Chromatique :** Gris et Blanc uniquement.
-* **Typographie :** * *Interface :* Sans-serif moderne (Inter ou System UI) pour la lisibilité.
+* **Base Chromatique :** Gris et Blanc uniquement. Assurez-vous que le Gris de base a un contraste suffisant (accessibilité WCAG) par rapport au blanc pour que la structure reste lisible, même en extérieur sur mobile.
+* **Typographie :** *  "Google sans" et "Google sans code".
     * *Données :* Monospacé (JetBrains Mono) pour les scores et les notes, renforçant l'aspect "simulation".
 * **Surfaces :** Utilisation de l'élévation (ombres légères) et des bordures fines (`border-slate-200`) pour séparer les zones sans alourdir.
 
@@ -17,6 +17,7 @@ Les couleurs ne sont utilisées que pour le feedback utilisateur :
     * `<8` : Rouge (Faible).
 * **Finances :** Positif (Vert), Négatif (Rouge).
 * **Énergie :** Barre de progression grise qui vire au jaune puis au rouge sous 30%.
+* **Live Match :** Couleur Bleue pour HOME et couleur Orange pour AWAY 'bg-blue-500' : 'bg-orange-500'}`
 
 ## 3. Structure des Menus (Architecture Mobile-First)
 Le jeu est conçu pour être utilisé à une main (Navigation en bas).

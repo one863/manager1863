@@ -147,6 +147,7 @@
 	},
 	"narratives": {
 		"match": {
+            "kickoff": "Le coup d'envoi du match va être donné par {{team}}.",
 			"goal": [
 				"But pour {{team}} ! {{player}} propulse le ballon au fond des filets d'une frappe limpide !",
 				"But pour {{team}} ! Le stade exulte alors que {{player}} trompe le gardien.",

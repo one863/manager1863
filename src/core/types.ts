@@ -41,12 +41,12 @@ export interface Player {
     position: "GK" | "DEF" | "MID" | "FWD";
     side: "L" | "R" | "C";
     skill: number;
-    potential: number;
+    potential: number; // Max atteignable
     marketValue: number;
     wage: number;
-    energy: number;
-    morale: number;
-    condition: number;
+    energy: number;    // Forme actuelle
+    morale: number;    // Confiance actuelle
+    condition: number; // Fraîcheur physique globale
     isStarter: boolean;
     stats: {
         technical: number;
@@ -100,7 +100,8 @@ export interface Match {
     awayScore: number;
     played: boolean;
     pressure: number;
-    details?: any;
+    stoppageTime?: number; // --- NOUVEAU ---
+    details?: MatchResult;  // --- NOUVEAU: Référence le MatchResult complet ---
 }
 
 export interface MatchResult {
@@ -110,9 +111,10 @@ export interface MatchResult {
     homeScore: number;
     awayScore: number;
     events: any[];
-    stats: any;
+    stats: any; // Contient xG, duels, interceptions, possession
     ballHistory: any[];
     debugLogs?: any[];
+    stoppageTime?: number;
 }
 
 export type StaffRole = "COACH" | "PHYSICAL_TRAINER" | "VIDEO_ANALYST";

@@ -39,7 +39,17 @@ export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial
 
 	const age = randomInt(16, 36);
 	const stats = generateSimplifiedStats(role, targetAvgSkill);
-	const skill = Object.values(stats).reduce((a: any, b: any) => a + b, 0) / 6;
+    
+    // Calcul de la note moyenne (Skill)
+	const skill = Object.values(stats).reduce((a: any, b: any) => Number(a) + Number(b), 0) / 6;
+
+    // --- LOGIQUE DE POTENTIEL ---
+    let potentialBonus = Math.random() * 4 + 1; // Standard: +1 à +5 points
+    const randCrack = Math.random();
+    if (randCrack > 0.9) potentialBonus += 4; // Crack: +5 à +9 points
+    else if (age > 30) potentialBonus = Math.max(0, potentialBonus - 3); // Déclin après 30 ans
+    
+    const potential = clamp(skill + potentialBonus, skill, 20);
 
 	return {
 		firstName: getRandomElement(FIRST_NAMES),
@@ -49,12 +59,12 @@ export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial
 		position: getGeneralPosition(role) as any,
 		side: getSideFromRole(role) as any,
 		skill,
-		potential: clamp(skill + Math.random() * 5, skill, 20),
+		potential,
 		stats,
 		energy: 100,
-		morale: 80,
+		morale: 60 + Math.random() * 30, // Confiance initiale aléatoire (60-90)
 		condition: 100,
-		marketValue: Math.round(Math.pow(skill, 2.7) * 1000),
+		marketValue: Math.round(Math.pow(skill, 2.7) * 1000 + (potential - skill) * 500),
 		wage: Math.round(Math.pow(skill, 2) * 10),
         dna: "0-0-0-0-0",
 		traits: [],

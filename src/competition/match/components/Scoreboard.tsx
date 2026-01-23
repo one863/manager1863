@@ -24,7 +24,7 @@ interface ScoreboardProps {
 
 export default function Scoreboard({
 	homeTeam, awayTeam, homeScore, awayScore, minute, homeScorers, awayScorers,
-	isFinished, stoppageTime, possession
+	isFinished, stoppageTime
 }: ScoreboardProps) {
 
 	const isGoalHighlight = useSignal(false);
@@ -42,11 +42,16 @@ export default function Scoreboard({
 		prevAwayScore.value = awayScore.value;
 	});
 
-    const formatScorers = (scorers: Scorer[]) => {
+    const formatScorers = (scorers: Scorer[] | undefined) => {
+        // SÉCURISATION : On vérifie que la liste existe
+        if (!scorers || !Array.isArray(scorers)) return "";
+        
         const map = new Map<string, number[]>();
         scorers.forEach(s => {
-            if (!map.has(s.name)) map.set(s.name, []);
-            map.get(s.name)!.push(s.minute);
+            if (s && s.name) {
+                if (!map.has(s.name)) map.set(s.name, []);
+                map.get(s.name)!.push(s.minute);
+            }
         });
         return Array.from(map.entries())
             .map(([name, mins]) => `${name} (${mins.sort((a, b) => a - b).join("', ") + "'"})`)
@@ -58,16 +63,9 @@ export default function Scoreboard({
 
 	return (
 		<div className="bg-white border-b border-gray-100 shadow-sm relative overflow-hidden shrink-0 h-[115px]">
-            {/* Barre de Couleur d'Équipes (Header) */}
             <div className="absolute top-0 inset-x-0 h-1 flex overflow-hidden">
-                <div 
-                    className="h-full transition-all duration-1000 ease-out" 
-                    style={{ width: `50%`, backgroundColor: homeColors.primary }} 
-                />
-                <div 
-                    className="h-full transition-all duration-1000 ease-out" 
-                    style={{ width: `50%`, backgroundColor: awayColors.primary }} 
-                />
+                <div className="h-full w-1/2 bg-blue-500 transition-all duration-1000" />
+                <div className="h-full w-1/2 bg-orange-500 transition-all duration-1000" />
             </div>
 
 			<div className="relative z-10 px-4 h-full flex flex-col justify-center pt-2">
@@ -77,7 +75,7 @@ export default function Scoreboard({
 					<div className="flex flex-col items-start min-w-0 pr-1">
                         <div className="flex items-center gap-2 mb-1 w-full">
                             <div className="w-9 h-9 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100 shadow-sm overflow-hidden shrink-0">
-                                <TeamCrest primary={homeColors.primary} secondary={homeColors.secondary} name={homeTeam.name} type={homeTeam.logoType} size="xs" />
+                                <TeamCrest primary={homeColors.primary} secondary={homeColors.secondary} name={homeTeam.name} size="xs" />
                             </div>
                             <span className="text-[13px] font-black text-gray-900 truncate uppercase leading-tight">{homeTeam.name}</span>
                         </div>
@@ -111,7 +109,7 @@ export default function Scoreboard({
                         <div className="flex items-center gap-2 mb-1 justify-end w-full">
                             <span className="text-[13px] font-black text-gray-900 truncate uppercase leading-tight text-right">{awayTeam.name}</span>
                             <div className="w-9 h-9 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100 shadow-sm overflow-hidden shrink-0">
-                                <TeamCrest primary={awayColors.primary} secondary={awayColors.secondary} name={awayTeam.name} type={awayTeam.logoType} size="xs" />
+                                <TeamCrest primary={awayColors.primary} secondary={awayColors.secondary} name={awayTeam.name} size="xs" />
                             </div>
                         </div>
                         <div className="min-h-8 w-full">

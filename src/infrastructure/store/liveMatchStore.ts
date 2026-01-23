@@ -7,8 +7,10 @@ interface LiveMatchData {
 	awayTeam: any;
     homePlayers: any[];
     awayPlayers: any[];
-	result: any;
-	currentMinute: number;
+	result: any; // Peut être null si la simu n'est pas finie
+	currentTime: number;
+    isPaused: boolean;
+    activeTab: "flux" | "2d" | "stats" | "players";
 }
 
 interface LiveMatchState {
@@ -20,12 +22,15 @@ interface LiveMatchState {
 		awayTeam: any,
         homePlayers: any[],
         awayPlayers: any[],
-		result: any,
+		result: any | null, // Peut être null
 		saveId: number,
-		startMinute?: number,
+		startTime?: number,
+        isPaused?: boolean,
+        activeTab?: "flux" | "2d" | "stats" | "players"
 	) => Promise<void>;
-	updateLiveMatchMinute: (minute: number, saveId: number) => void;
-	clearLiveMatch: () => void;
+	updateLiveMatchState: (data: Partial<LiveMatchData>, saveId?: number) => Promise<void>;
+	clearLiveMatch: (saveId: number) => Promise<void>;
+    loadLiveMatchFromDb: (saveId: number) => Promise<void>;
 }
 
 export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
@@ -39,42 +44,56 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
         awayPlayers,
 		result,
 		saveId,
-		startMinute = 0,
+		startTime = 0,
+        isPaused = true,
+        activeTab = "flux"
 	) => {
-		const initialData = {
+		const initialData: LiveMatchData = {
 			matchId,
 			homeTeam,
 			awayTeam,
             homePlayers,
             awayPlayers,
 			result,
-			currentMinute: startMinute,
+			currentTime: startTime,
+            isPaused,
+            activeTab
 		};
 
 		if (saveId) {
-            // OPTIMISATION : On ne sauve pas les debugLogs lourds dans la DB persistante de sauvegarde
-            // pour garder une sauvegarde rapide. On les garde seulement en RAM (Zustand).
-            const lightResult = { ...result, debugLogs: [] };
 			await db.gameState.where("saveId").equals(saveId).modify({ 
-                liveMatch: { ...initialData, result: lightResult } 
+                liveMatch: initialData 
             });
 		}
-
 		set({ liveMatch: initialData });
 	},
 
-	updateLiveMatchMinute: (minute: number, saveId: number) => {
+	updateLiveMatchState: async (data, saveId) => {
 		const { liveMatch } = get();
 		if (!liveMatch) return;
 
-		const updatedMatch = { ...liveMatch, currentMinute: minute };
+		const updatedMatch = { ...liveMatch, ...data };
 		set({ liveMatch: updatedMatch });
 
-        // On ne persiste pas en DB à chaque minute pour économiser le CPU/Disque
-        // La persistance se fera lors de la finalisation du match.
+        if (saveId) {
+            // Mise à jour partielle pour ne pas écraser result si déjà présent
+            await db.gameState.where("saveId").equals(saveId).modify(oldState => {
+                oldState.liveMatch = { ...oldState.liveMatch, ...data };
+            });
+        }
 	},
 
-	clearLiveMatch: () => {
+	clearLiveMatch: async (saveId) => {
 		set({ liveMatch: null });
+        if (saveId) {
+            await db.gameState.where("saveId").equals(saveId).modify({ liveMatch: null });
+        }
 	},
+
+    loadLiveMatchFromDb: async (saveId) => {
+        const gameState = await db.gameState.where("saveId").equals(saveId).first();
+        if (gameState?.liveMatch) {
+            set({ liveMatch: gameState.liveMatch });
+        }
+    }
 }));
