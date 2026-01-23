@@ -1,42 +1,76 @@
-# ⚙️ Détails du Moteur de Match (Engine V9.0.1)
+# ⚙️ Détails du Moteur de Match "Token Engine"
 
-Ce document détaille le fonctionnement interne du simulateur de match basé sur une grille de 30 zones (6x5).
+Le moteur de jeu a abandonné l'approche probabiliste pure pour un système de **Deck Building dynamique** et de **Jetons Nominatifs**. Cette approche "Bottom-Up" permet une narration émergente plus riche et réaliste.
 
-## 1. Architecture du Moteur
-Le moteur fonctionne par **Micro-Cycles** (4 par minute) pour simuler la fluidité du football.
+## 🃏 Concept Fondamental : Les Jetons (Tokens)
 
-### Composants Clés
-*   **Heatmap d'Influence :** Système de cache calculant la puissance Atk/Def de chaque zone selon le placement des 22 joueurs.
-*   **Fondation Statistique (Floor 3.0) :** Chaque zone possède une résistance de base de 3.0 pour éviter les scores fleuves en cas de zone vide.
-*   **Validation Spatiale :** Les actions (tirs, centres, relances) sont bridées par les coordonnées relatives (Home 1->6, Away 6->1).
+Chaque action sur le terrain est le résultat du tirage d'un **Jeton** dans un "Sac" commun. Les joueurs injectent leurs jetons dans ce sac en fonction de leur position et de leurs caractéristiques.
 
-## 2. Logique de Flux (Transition)
+### Types de Jetons
+*   **PASS :** Tentative de transmission (Action la plus commune).
+*   **DRIBBLE :** Tentative d'élimination individuelle.
+*   **SHOOT :** Tentative de tir (nécessite d'être en zone offensive).
+*   **TACKLE :** Tentative de récupération défensive (peut provoquer une faute).
+*   **INTERCEPT :** Lecture du jeu et interception propre.
+*   **SAVE :** Arrêt du gardien.
+*   **ERROR :** Perte de balle non provoquée (déchet technique).
+*   **FATIGUE :** Jeton "négatif" qui, si tiré, diminue les attributs du joueur.
 
-### Algorithme Anti-Stagnation (Anti-Loop)
-Pour éviter les duels infinis dans une zone unique :
-*   **Seuil :** 3 cycles (ou 5 en zone de sortie de camp).
-*   **Action :** Déclenchement d'un `handleEmergencyExit` (Renversement d'aile ou Dégagement long).
+## 🗺️ Le Terrain : Grille Tactique 6x5
 
-### Zone Fatigue & Saturation
-Chaque entrée du ballon dans une zone incrémente un `saturationIndex`.
-*   **Friction :** Si Index >= 3, la puissance offensive chute de **60%**.
-*   **Conséquence :** Le moteur force mathématiquement le porteur à chercher une zone "fraîche" (Soutien intérieur ou changement d'aile).
+Le terrain n'est plus une simple ligne (1-5) mais une **Grille 2D de 30 zones (6x5)**.
 
-### Intelligence de Soutien
-*   **Couverture Dynamique :** Si les ailes (L1/L5) sont saturées, les zones intérieures (L2/L4) reçoivent un bonus d'attractivité de **x1.5** pour simuler une solution de passe en retrait.
-*   **Repiquage Axial :** En Colonne 5 (approche), les MID/FWD ont 60% de chances de quitter l'aile pour entrer dans l'axe (Z27/Z28/Z29) afin de maximiser le xG.
+*   **Axe X (0-5) :** La profondeur du terrain.
+    *   Zone 0 : But Domicile (Gardien Home).
+    *   Zone 5 : But Extérieur (Gardien Away).
+*   **Axe Y (0-4) :** La largeur du terrain (Gauche, Centre-Gauche, Centre, Centre-Droit, Droite).
 
-## 3. Système de Résolution (Tirs & xG)
+### Mécanique d'Injection (Le Sac)
+À chaque phase de jeu, le moteur construit un "Sac" de jetons basé sur la position du ballon :
+1.  **Zone Active (Ballon) :** Les joueurs présents dans cette case injectent **100%** de leur stock de jetons pertinents.
+2.  **Zones Adjacentes :** Les joueurs situés dans les 8 cases autour injectent **50%** de leur stock.
+3.  **Mélange :** Le sac est mélangé aléatoirement.
+4.  **Tirage :** Un seul jeton est tiré et résolu.
 
-### xG Adaptatif
-Le xG n'est plus fixe mais calculé selon la densité défensive :
-`xG_Final = Base_xG * (1 - (saturationIndex * 0.15))`
-*   Un tir dans une zone saturée simule un bloc regroupé et un manque d'angle.
+## ⏱️ Gestion du Temps Dynamique
 
-### Bridage des Rôles
-*   **GK Locking :** Le gardien est exclu des tirs et des progressions. Il ne peut effectuer que des "Relances Longues".
-*   **Position Penalty :** Un joueur agissant hors de sa zone naturelle (ex: DEF en attaque) subit un malus de **-80%** d'efficacité.
+Contrairement à un système de "Ticks" fixes (ex: 1 tick = 1 minute), le temps s'écoule de manière fluide selon l'action tirée :
+*   Une **Passe** consomme ~3-5 secondes.
+*   Un **Dribble** consomme ~5-8 secondes.
+*   Un **Corner** consomme ~45 secondes.
+*   Un **But** (célébration + engagement) consomme ~60 secondes.
 
-## 4. Performance & Optimisation
-*   **Caching d'Influence :** La heatmap n'est recalculée qu'en cas de changement tactique ou de remplacement (`isInfluenceDirty`).
-*   **Fast-Lookup Zones :** Utilisation d'une map de proximité pour identifier instantanément le réceptionneur de balle le plus proche.
+Le match s'arrête naturellement quand le chronomètre dépasse le temps réglementaire (+ arrêts de jeu).
+
+## 📊 Momentum & Domination Territoriale
+
+Le moteur calcule en temps réel la "Pression" exercée par chaque équipe, inspirée des graphiques Opta/SofaScore.
+
+*   **Calcul :** Basé sur la position X du ballon.
+    *   Ballon chez l'adversaire = Momentum Positif (Barre vers le haut).
+    *   Ballon dans son camp = Momentum Négatif (Barre vers le bas).
+    *   Bonus pour la possession active.
+*   **Visualisation :** Un graphique à barres (Bleu/Orange) permet de lire instantanément la physionomie du match (Dominé vs Dominant).
+
+## 🧠 Comportement des Joueurs (IA)
+
+Les joueurs ne sont pas statiques. À chaque phase :
+1.  **Suivi du Ballon :** Le bloc équipe coulisse pour suivre le ballon (montée/descente).
+2.  **Rôle Tactique :**
+    *   Les **Défenseurs** restent généralement derrière la ligne du ballon.
+    *   Les **Milieux** suivent le ballon de près.
+    *   Les **Attaquants** se projettent dans les zones libres devant.
+3.  **Fatigue :** Chaque action consomme de l'énergie. Un joueur fatigué injecte plus de jetons "FATIGUE" et "ERROR" dans le sac, augmentant le risque de perdre le match en fin de partie.
+
+## ⚽ Résolution des Actions Clés
+
+*   **Tirs :**
+    *   Ne sont possibles que dans les zones proches du but adverse (X >= 4 ou X <= 1).
+    *   Taux de conversion réaliste (~10-15%).
+    *   Gestion des Tirs Cadrés (Arrêts Gardien) et Non Cadrés.
+*   **Fautes & Cartons :**
+    *   Chaque jeton `TACKLE` a une probabilité de générer une faute.
+    *   Gravité aléatoire : Simple faute, Jaune, ou Rouge (Expulsion).
+*   **Corners :**
+    *   Générés aléatoirement suite à un arrêt du gardien ou un contre défensif.
+    *   Phase de jeu spécifique avec danger de but accru.

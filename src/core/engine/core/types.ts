@@ -16,6 +16,7 @@ export const NewsTypeSchema = z.enum(["PRESS", "CLUB", "LEAGUE", "TRANSFER", "SP
 export const MatchEventTypeSchema = z.enum([
 	"GOAL",
 	"MISS",
+    "CHANCE",
 	"SE",
 	"CARD",
 	"INJURY",
@@ -23,13 +24,14 @@ export const MatchEventTypeSchema = z.enum([
 	"SET_PIECE",
 	"CORNER",
 	"FREE_KICK",
+    "PENALTY",
     "LONG_THROW", 
 	"SPECIAL",
 	"SHOT",
     "COUNTER_ATTACK",
     "COUNTER_PRESS",
 ]);
-
+// ... reste du fichier inchangé ...
 export const PlayerTraitSchema = z.enum([
 	"COUNTER_ATTACKER",
 	"SHORT_PASSER",
@@ -93,6 +95,9 @@ export const PlayerMatchStatsSchema = z.object({
 	interventions: z.number().default(0), 
 	saves: z.number().default(0),
     ballsLost: z.number().default(0),
+    fatigue: z.number().default(0),
+    ratingHistory: z.array(z.number()).optional(),
+    fatigueHistory: z.array(z.number()).optional(),
 });
 
 export const SeasonStatsSchema = z.object({
@@ -109,6 +114,7 @@ export const SeasonStatsSchema = z.object({
 
 export const MatchEventSchema = z.object({
 	minute: z.number().int().min(0).max(ENGINE_LIMITS.MAX_MATCH_MINUTES),
+    second: z.number().optional(), 
 	type: MatchEventTypeSchema,
 	teamId: z.number(),
 	scorerId: z.number().optional(),
@@ -130,11 +136,8 @@ export const MatchResultSchema = z.object({
 	homePossession: z.number().min(0).max(100),
 	events: z.array(MatchEventSchema),
     debugLogs: z.array(z.string()).optional(), 
-    ballHistory: z.array(z.number()).optional(), 
-    heatmap: z.object({
-        home: z.array(z.number()),
-        away: z.array(z.number()),
-    }).optional(),
+    ballHistory: z.array(z.number()).optional(),
+    possessionHistory: z.array(z.number()).optional(), 
 	stats: z.object({
 		homeChances: z.number().int(),
 		awayChances: z.number().int(),
@@ -162,6 +165,7 @@ export const MatchResultSchema = z.object({
 	playerPerformances: z.record(z.string(), z.number()).optional(), 
 	playerStats: z.record(z.string(), PlayerMatchStatsSchema).optional(),
     playerUpdates: z.record(z.string(), PlayerUpdateSchema).optional(), 
+    stoppageTime: z.number().optional(),
 });
 
 export const PlayerStatsSchema = z.object({

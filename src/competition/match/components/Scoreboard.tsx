@@ -24,7 +24,7 @@ interface ScoreboardProps {
 
 export default function Scoreboard({
 	homeTeam, awayTeam, homeScore, awayScore, minute, homeScorers, awayScorers,
-	isFinished, stoppageTime
+	isFinished, stoppageTime, possession
 }: ScoreboardProps) {
 
 	const isGoalHighlight = useSignal(false);
@@ -57,8 +57,20 @@ export default function Scoreboard({
     const aStr = formatScorers(awayScorers.value);
 
 	return (
-		<div className="bg-white border-b border-gray-100 shadow-sm relative overflow-hidden shrink-0 h-[105px]">
-			<div className="relative z-10 px-4 h-full flex flex-col justify-center">
+		<div className="bg-white border-b border-gray-100 shadow-sm relative overflow-hidden shrink-0 h-[115px]">
+            {/* Barre de Couleur d'Équipes (Header) */}
+            <div className="absolute top-0 inset-x-0 h-1 flex overflow-hidden">
+                <div 
+                    className="h-full transition-all duration-1000 ease-out" 
+                    style={{ width: `50%`, backgroundColor: homeColors.primary }} 
+                />
+                <div 
+                    className="h-full transition-all duration-1000 ease-out" 
+                    style={{ width: `50%`, backgroundColor: awayColors.primary }} 
+                />
+            </div>
+
+			<div className="relative z-10 px-4 h-full flex flex-col justify-center pt-2">
 				<div className="grid grid-cols-[1fr_auto_1fr] items-start max-w-lg mx-auto w-full gap-4">
 					
 					{/* Home Team */}
@@ -83,9 +95,9 @@ export default function Scoreboard({
 							<span className="text-gray-200 font-bold text-xl leading-none">:</span>
 							<span className="text-3xl font-black tabular-nums leading-none">{awayScore.value}</span>
 						</div>
-						<div className="mt-1.5">
+						<div className="mt-1.5 flex flex-col items-center gap-1">
 							{!isFinished ? (
-                                <span className="text-[11px] font-black text-blue-600 tabular-nums bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                                <span className="text-[11px] font-black text-slate-600 tabular-nums bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                                     {minute.value}'{minute.value >= 90 && stoppageTime.value > 0 ? `+${stoppageTime.value}` : ""}
                                 </span>
                             ) : (

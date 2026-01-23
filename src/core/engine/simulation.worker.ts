@@ -1,10 +1,12 @@
 import i18next from "i18next";
 import en from "../../infrastructure/locales/en.json";
 import fr from "../../infrastructure/locales/fr.json";
-import { simulateMatch } from "./core/simulator";
-import { getStaffImpact } from "./converter";
 
-// Initialisation i18next asynchrone
+// NEW TOKEN ENGINE IMPORTS
+import { TokenMatchEngine } from "./token-engine/match-engine";
+import { convertToTokenPlayers } from "./token-engine/converter";
+
+// Initialisation i18next
 const initI18n = i18next.init({
 	lng: "fr",
 	fallbackLng: "en",
@@ -15,50 +17,93 @@ const initI18n = i18next.init({
 
 async function runSimulation(data: any) {
     try {
-        await initI18n; // On s'assure qu'i18n est prêt
+        await initI18n;
 
-        // Le nouveau moteur a besoin des joueurs bruts et de l'impact du staff
-        const homeStaffImpact = getStaffImpact(data.homeStaff || []);
-        const awayStaffImpact = getStaffImpact(data.awayStaff || []);
-        
-        // Valeurs par défaut pour la cohésion si non fournie (Legacy support)
-        const homeCohesion = data.homeCohesion !== undefined ? data.homeCohesion : 50;
-        const awayCohesion = data.awayCohesion !== undefined ? data.awayCohesion : 50;
+        const homeTeamId = data.homeTeamId || 1;
+        const awayTeamId = data.awayTeamId || 2;
+        const homeName = data.homeName || "Home";
+        const awayName = data.awayName || "Away";
 
-        // Valeurs par défaut pour la mentalité
-        const hMentality = data.hMentality !== undefined ? data.hMentality : 3;
-        const aMentality = data.aMentality !== undefined ? data.aMentality : 3;
-
-        const homePlayers = data.homePlayers || [];
-        const awayPlayers = data.awayPlayers || [];
-
-        // VALIDATION: Vérifier qu'on a bien des titulaires
-        const homeStarters = homePlayers.filter((p: any) => p.isStarter);
-        const awayStarters = awayPlayers.filter((p: any) => p.isStarter);
-
-        if (homeStarters.length < 7 || awayStarters.length < 7) {
-            throw new Error(`Not enough starters! Home: ${homeStarters.length}, Away: ${awayStarters.length}. Total players: ${homePlayers.length}/${awayPlayers.length}`);
-        }
-
-        return await simulateMatch(
-            homePlayers,
-            awayPlayers,
-            data.homeName || "Home",
-            data.awayName || "Away",
-            data.homeTeamId || 1,
-            data.awayTeamId || 2,
-            homeStaffImpact,
-            awayStaffImpact,
-            data.hIntensity || 3,
-            data.aIntensity || 3,
-            data.hTactic || "NORMAL",
-            data.aTactic || "NORMAL",
-            homeCohesion,
-            awayCohesion,
-            hMentality,
-            aMentality,
-            true // DEBUG ENABLED FOR LOGS
+        const allTokenPlayers = convertToTokenPlayers(
+            data.homePlayers || [],
+            data.awayPlayers || [],
+            homeTeamId,
+            awayTeamId
         );
+
+        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId);
+
+        // Simulation qui renvoie events et ballHistory
+        const engineResult = engine.simulateMatch();
+        const rawEvents = engineResult.events;
+
+        // Adaptation du résultat pour l'UI
+        let homeScore = 0;
+        let awayScore = 0;
+        const goalEvents: any[] = [];
+
+        const formattedEvents = rawEvents.map((evt: any) => {
+            const isHome = evt.teamId === homeTeamId;
+            let type = "highlight";
+            
+            if (evt.text.includes("BUT !")) {
+                type = "GOAL";
+                if (isHome) homeScore++; else awayScore++;
+                goalEvents.push({
+                    minute: Math.floor(evt.time / 60),
+                    scorer: `Joueur ${evt.text.split(" ")[1]}`, 
+                    teamId: evt.teamId
+                });
+            } else if (evt.text.includes("TIR")) {
+                type = "SHOT";
+            } else if (evt.text.includes("récupère")) {
+                type = "TRANSITION"; 
+            } else if (evt.text.includes("surface") || evt.text.includes("Occasion")) {
+                type = "CHANCE";
+            } else if (evt.type === "CORNER") {
+                type = "CORNER";
+            } else if (evt.type === "CARD") {
+                type = "CARD";
+            }
+
+            return {
+                id: crypto.randomUUID(),
+                matchId: data.matchId,
+                minute: Math.floor(evt.time / 60),
+                second: evt.time % 60,
+                type: type,
+                description: evt.text,
+                text: evt.text,
+                teamId: evt.teamId,
+                isHome: isHome,
+                xg: type === "SHOT" || type === "GOAL" ? 0.12 : 0 
+            };
+        });
+
+        const result = {
+            matchId: data.matchId,
+            homeTeamId: homeTeamId,
+            awayTeamId: awayTeamId,
+            homeName: homeName,
+            awayName: awayName,
+            homeScore: homeScore,
+            awayScore: awayScore,
+            events: formattedEvents,
+            ballHistory: engineResult.ballHistory, // Vrai Momentum
+            stoppageTime: 4,
+            playerStats: {}, 
+            possessionHistory: [], 
+            stats: {
+                homePasses: formattedEvents.filter((e:any) => e.description.includes("passe") && e.isHome).length,
+                awayPasses: formattedEvents.filter((e:any) => e.description.includes("passe") && !e.isHome).length,
+                homeShotsOnTarget: formattedEvents.filter((e:any) => (e.type === "GOAL" || e.description.includes("CADRÉ")) && e.isHome).length,
+                awayShotsOnTarget: formattedEvents.filter((e:any) => (e.type === "GOAL" || e.description.includes("CADRÉ")) && !e.isHome).length,
+            },
+            scorers: goalEvents
+        };
+
+        return result;
+
     } catch (err: any) {
         console.error("Worker Simulation Error:", err);
         throw err;
@@ -84,7 +129,6 @@ self.onmessage = async (e: MessageEvent) => {
                         results.push({ matchId: matchData.matchId, result });
                     } catch (error) {
                         console.error(`Error simulating match ${matchData.matchId}`, error);
-                        // On continue pour les autres matchs
                     }
                 }
                 self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId } });
@@ -111,7 +155,6 @@ self.onmessage = async (e: MessageEvent) => {
         }
     } catch (error: any) {
         console.error("Worker Global Error:", error);
-        // On essaie d'envoyer un message d'erreur même en cas de crash global
         if (type === "SIMULATE_MATCH" && payload?.requestId) {
             self.postMessage({ 
                 type: "MATCH_ERROR", 

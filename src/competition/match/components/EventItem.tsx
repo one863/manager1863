@@ -8,6 +8,7 @@ interface EventItemProps {
 
 export default function EventItem({ event, homeTeamId }: EventItemProps) {
 	const isGoal = event.type === "GOAL";
+    const isAway = event.teamId !== homeTeamId;
     // @ts-ignore
 	const isSuspense = event.type === "SUSPENSE";
 	const displayMinute = event.minute > 90 ? `90+${event.minute - 90}` : `${event.minute}`;
@@ -21,16 +22,11 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
     const getIcon = () => {
         if (isGoal) return <GreenBall />;
         switch (event.type) {
-            case "CARD": return <span className="mr-2">🟨</span>;
-            case "INJURY": return <span className="mr-2">🚑</span>;
-            case "SUBSTITUTION": return <span className="mr-2">🔄</span>;
+            case "CARD": return null; // Retiré picto pour éviter décalage
+            case "INJURY": return null; // Retiré picto pour éviter décalage
+            case "SUBSTITUTION": return null; // Retiré picto pour éviter décalage
             case "SPECIAL": return <Zap size={14} className="mr-2 text-emerald-500" />;
-            case "MISS": return <span className="mr-2 text-red-500">✕</span>;
-            case "TRANSITION": 
-                if (event.description.includes("Dégagement")) return <ShieldCheck size={14} className="mr-2 text-blue-400" />;
-                if (event.description.includes("pénètre")) return <Zap size={14} className="mr-2 text-orange-400 animate-pulse" />;
-                if (event.description.includes("Interception")) return <ShieldCheck size={14} className="mr-2 text-gray-400" />;
-                return <MoveRight size={14} className="mr-2 text-gray-300" />;
+            case "MISS": return <span className="mr-2 text-red-500 font-bold">✕</span>;
             default: return null;
         }
     };
@@ -44,9 +40,16 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
 		);
 	}
 
+    const getBgColor = () => {
+        if (isGoal) return isAway ? 'bg-orange-50/50' : 'bg-blue-50/50';
+        if (event.type === "CARD") return 'bg-yellow-50/30';
+        if (event.type === "INJURY") return 'bg-red-50/30';
+        return 'hover:bg-gray-50/50';
+    }
+
 	return (
-		<div className={`flex gap-3 animate-fade-in py-2 border-b border-gray-50 items-start ${isGoal ? 'bg-emerald-50/30 -mx-4 px-6 relative z-10' : 'hover:bg-gray-50/50 transition-colors px-2 rounded-lg'}`}>
-			<div className={`font-mono text-[10px] w-8 shrink-0 py-0.5 text-center font-black rounded border ${isGoal ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-100'}`}>
+		<div className={`flex gap-3 animate-fade-in py-2 border-b border-gray-50 items-start transition-colors px-2 rounded-lg ${getBgColor()} ${isGoal ? 'relative z-10 border-l-4 ' + (isAway ? 'border-l-orange-500' : 'border-l-blue-500') : ''}`}>
+			<div className={`font-mono text-[10px] w-8 shrink-0 py-0.5 text-center font-black rounded border ${isGoal ? (isAway ? 'bg-orange-600 text-white border-orange-600' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-gray-400 border-gray-100'}`}>
 				{displayMinute}
 			</div>
 

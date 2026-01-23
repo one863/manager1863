@@ -16,7 +16,6 @@ const simulationWorker = new Worker(
 const runMatchInWorker = (matchData: any, language: string): Promise<MatchResult> => {
 	return new Promise((resolve, reject) => {
 		const requestId = Math.random().toString(36).substring(7);
-        // Clonage profond pour éviter les DataCloneError et nettoyer les données
         const cleanPayload = JSON.parse(JSON.stringify({ ...matchData, requestId, language }));
         
 		const handler = (e: MessageEvent) => {
@@ -27,13 +26,11 @@ const runMatchInWorker = (matchData: any, language: string): Promise<MatchResult
                     console.error("Simulation worker error:", payload.error);
                     reject(new Error(payload.error));
                 } else {
-                    console.log("Simulation complete:", payload.result);
                     resolve(payload.result);
                 }
 			}
 		};
 		simulationWorker.addEventListener("message", handler);
-        console.log("Sending match to worker...", cleanPayload);
 		simulationWorker.postMessage({ type: "SIMULATE_MATCH", payload: cleanPayload });
 	});
 };
@@ -48,6 +45,7 @@ export const MatchService = {
 	async autoSelectStarters(saveId: number, teamId: number, currentPlayers: Player[]) {
 		const currentStarters = currentPlayers.filter((p) => p.isStarter);
 		if (currentStarters.length >= 11) return;
+        
 		const [coach, team] = await Promise.all([
 			db.staff.where("[saveId+teamId]").equals([saveId, teamId]).and((s) => s.role === "COACH").first(),
 			db.teams.get(teamId),
@@ -58,8 +56,10 @@ export const MatchService = {
 		const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
 		currentStarters.forEach((p) => { if (counts[p.position] !== undefined) counts[p.position]++; });
 		const needed = { GK: Math.max(0, (req.GK || 0) - counts.GK), DEF: Math.max(0, (req.DEF || 0) - counts.DEF), MID: Math.max(0, (req.MID || 0) - counts.MID), FWD: Math.max(0, (req.FWD || 0) - counts.FWD) };
-		let available = currentPlayers.filter((p) => !p.isStarter && p.injuryDays <= 0 && p.suspensionMatches <= 0);
-		const PICK_STARTERS = (pos: "GK" | "DEF" | "MID" | "FWD", count: number) => {
+		
+        let available = currentPlayers.filter((p) => !p.isStarter && p.injuryDays <= 0 && p.suspensionMatches <= 0);
+		
+        const PICK_STARTERS = (pos: "GK" | "DEF" | "MID" | "FWD", count: number) => {
 			let candidates = available.filter((p) => p.position === pos).sort((a, b) => b.skill - a.skill);
 			if (candidates.length < count) { candidates = [...candidates, ...available.filter((p) => p.position !== pos).sort((a, b) => b.skill - a.skill)]; }
 			for (let i = 0; i < count; i++) {
@@ -72,7 +72,12 @@ export const MatchService = {
 			}
 		};
 		PICK_STARTERS("GK", needed.GK); PICK_STARTERS("DEF", needed.DEF); PICK_STARTERS("MID", needed.MID); PICK_STARTERS("FWD", needed.FWD);
-		if (currentStarters.length < 11) await db.players.where("id").anyOf(currentPlayers.filter(p => p.isStarter).map(p => p.id!)).modify({ isStarter: true });
+		
+        // Sauvegarder en DB
+        const startersToUpdate = currentPlayers.filter(p => p.isStarter).map(p => p.id!);
+        if (startersToUpdate.length > 0) {
+            await db.players.where("id").anyOf(startersToUpdate).modify({ isStarter: true });
+        }
 	},
 
 	async simulateDayByDay(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
@@ -118,7 +123,6 @@ export const MatchService = {
             if (!result) throw new Error("Simulation returned empty result");
 
             await this.saveMatchResult(userMatch, result, saveId, date, true, true);
-            // On renvoie aussi les joueurs pour l'initialisation du store
             return { matchId: userMatch.id!, homeTeam: homeT, awayTeam: awayT, homePlayers, awayPlayers, result };
 		}
 		return null;
@@ -152,21 +156,37 @@ export const MatchService = {
 		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
 		for (const player of players) {
             const playerStats = result.playerStats?.[player.id!.toString()];
-            const playerUpdate = result.playerUpdates?.[player.id!.toString()];
-			if (playerStats || player.isStarter) {
-				const matchRating = playerStats?.rating || 6.0;
+			if (playerStats) {
+				const matchRating = playerStats.rating || 6.0;
 				const newRatings = [matchRating, ...(player.lastRatings || [])].slice(0, 5);
 				const sStats = player.seasonStats || { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 };
-				if (playerStats) {
-					const n = sStats.matches; sStats.matches += 1;
-					sStats.goals += (playerStats.goals || 0); sStats.assists += (playerStats.assists || 0);
-					sStats.xg += (playerStats.xg || 0); sStats.xa += (playerStats.xa || 0);
-					sStats.distance += (playerStats.distance || 0); sStats.avgRating = (sStats.avgRating * n + matchRating) / sStats.matches;
-					sStats.passAccuracy = (sStats.passAccuracy * n + (playerStats.passes > 0 ? (playerStats.passesSuccess || 0) / (playerStats.passes || 1) : 0.8)) / sStats.matches;
-					sStats.duelsWinRate = (sStats.duelsWinRate * n + (playerStats.duels > 0 ? (playerStats.duelsWon || 0) / (playerStats.duels || 1) : 0.5)) / sStats.matches;
-				}
-				await db.players.update(player.id!, { energy: playerUpdate ? playerUpdate.energy : Math.max(0, (player.energy || 100) - 25), condition: Math.max(10, (player.condition || 100) - randomInt(1, 4)), playedThisWeek: true, lastRatings: newRatings, seasonStats: sStats, confidence: playerUpdate ? playerUpdate.confidence : clamp((player.confidence || 50) + (matchRating - 6.0) * 2, 0, 100) });
-			} else { await db.players.update(player.id!, { confidence: clamp((player.confidence || 50) - 1, 0, 100) }); }
+				
+                const n = sStats.matches; sStats.matches += 1;
+                sStats.goals += (playerStats.goals || 0); sStats.assists += (playerStats.assists || 0);
+                sStats.xg += (playerStats.xg || 0); sStats.xa += (playerStats.xa || 0);
+                sStats.distance += (playerStats.distance || 0); 
+                sStats.avgRating = (sStats.avgRating * n + matchRating) / sStats.matches;
+                sStats.passAccuracy = (sStats.passAccuracy * n + (playerStats.passes > 0 ? (playerStats.passesSuccess || 0) / (playerStats.passes || 1) : 0.8)) / sStats.matches;
+                sStats.duelsWinRate = (sStats.duelsWinRate * n + (playerStats.duels > 0 ? (playerStats.duelsWon || 0) / (playerStats.duels || 1) : 0.5)) / sStats.matches;
+
+                // Appliquer la fatigue réelle du match à l'énergie du joueur
+                const finalEnergy = Math.max(0, 100 - (playerStats.fatigue || 0));
+                
+				await db.players.update(player.id!, { 
+                    energy: finalEnergy, 
+                    condition: Math.max(10, (player.condition || 100) - randomInt(1, 4)), 
+                    playedThisWeek: true, 
+                    lastRatings: newRatings, 
+                    seasonStats: sStats, 
+                    confidence: clamp((player.confidence || 50) + (matchRating - 6.0) * 2, 0, 100) 
+                });
+			} else { 
+                // Pour les joueurs n'ayant pas joué, on réinitialise leur note de match et on récupère un peu d'énergie (training/repos)
+                await db.players.update(player.id!, { 
+                    confidence: clamp((player.confidence || 50) - 1, 0, 100),
+                    energy: Math.min(100, (player.energy || 100) + 5) // Petit gain d'énergie pour ceux qui ne jouent pas
+                }); 
+            }
 		}
 	},
 

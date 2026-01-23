@@ -1,83 +1,72 @@
 import { describe, it } from "vitest";
 import { simulateMatch } from "./simulator"; 
 import type { Player } from "@/core/db/db";
-import { FORMATION_ROLES } from "./tactics";
+import { FORMATIONS } from "./tactics";
 import type { StaffImpact } from "./match-sequencer";
 
 let globalIdCounter = 1;
 
-// Staff neutre
 const DEFAULT_STAFF: StaffImpact = {
-    coaching: 10, tactical: 10, reading: 10, recovery: 10, conditioning: 10,
-    psychology: 10, medicine: 10
+    coaching: 12, tactical: 12, reading: 10, recovery: 10, conditioning: 11
 };
 
-// Création de joueur Standardisé (Note 10 partout)
-const createStandardPlayer = (pos: any, teamId: number): Player => {
-    const s = 10; // NOTE FIXE DE 10
+const createRandomPlayer = (pos: any, teamId: number): Player => {
+    const s = () => Math.floor(Math.random() * 9) + 8; 
     return {
         id: teamId === 1 ? globalIdCounter++ : globalIdCounter++ + 5000,
         saveId: 1, teamId,
         firstName: "Test", lastName: `${pos}-${globalIdCounter}`,
         age: 25, position: pos, side: "C", dna: "0-0-0",
-        skill: s, 
+        skill: 12, 
         stats: {
-            passing: s, shooting: s, dribbling: s, tackling: s,
-            speed: s, strength: s, stamina: s,
-            vision: s, positioning: s, composure: s,
-            goalkeeping: pos === "GK" ? s : 2, 
-            agility: s, ballControl: s, anticipation: s,
-            aggression: s, leadership: s, jumping: s, crossing: s,
-            workrate: s, flair: s, decisions: s, concentration: s,
-            adaptability: s, pressure: s
+            passing: s(), shooting: s(), dribbling: s(), tackling: s(),
+            speed: s(), strength: s(), stamina: s(),
+            vision: s(), positioning: s(), composure: s(),
+            goalkeeping: pos === "GK" ? s() : 2, 
+            agility: s(), ballControl: s(), anticipation: s(),
+            aggression: s(), leadership: s(), jumping: s(), crossing: s(),
+            workrate: s(), flair: s(), decisions: s(), concentration: s(),
+            adaptability: s(), pressure: s()
         }, 
         traits: [], energy: 100, confidence: 50, condition: 100, isStarter: true,
     } as any;
 };
 
-const createTeam = (teamId: number, formation: any = "4-4-2"): Player[] => {
-    // Utilisation de FORMATION_ROLES au lieu de l'ancien objet FORMATIONS
-    const roles = FORMATION_ROLES[formation as keyof typeof FORMATION_ROLES];
+const createTeam = (teamId: number, formationKey: keyof typeof FORMATIONS = "4-4-2"): Player[] => {
+    const counts = FORMATIONS[formationKey];
     const squad: Player[] = [];
     
-    // Création des titulaires
-    roles.forEach(role => {
-        let pos = "MID";
-        if (role === "GK") pos = "GK";
-        else if (["LB", "RB", "CB", "CB_L", "CB_R", "LWB", "RWB"].includes(role)) pos = "DEF";
-        else if (["ST", "ST_L", "ST_R", "LW", "RW"].includes(role)) pos = "FWD";
-        
-        const p = createStandardPlayer(pos, teamId);
-        // Le rôle sera réassigné par le MatchSequencer en fonction de la position dans la liste
-        // Mais on s'assure que la position (GK/DEF/MID/FWD) est cohérente
-        squad.push(p);
-    });
+    // Titulaires
+    for (let i = 0; i < counts.GK; i++) squad.push(createRandomPlayer("GK", teamId));
+    for (let i = 0; i < counts.DEF; i++) squad.push(createRandomPlayer("DEF", teamId));
+    for (let i = 0; i < counts.MID; i++) squad.push(createRandomPlayer("MID", teamId));
+    for (let i = 0; i < counts.FWD; i++) squad.push(createRandomPlayer("FWD", teamId));
 
-    // Subs
+    // Remplaçants (7)
     for (let i = 0; i < 7; i++) {
-        const p = createStandardPlayer(i === 0 ? "GK" : (i < 3 ? "DEF" : (i < 5 ? "MID" : "FWD")), teamId);
+        const p = createRandomPlayer(i === 0 ? "GK" : (i < 3 ? "DEF" : (i < 5 ? "MID" : "FWD")), teamId);
         p.isStarter = false;
         squad.push(p);
     }
-    squad.forEach(p => (p as any).teamFormation = formation);
+    squad.forEach(p => (p as any).teamFormation = formationKey);
     return squad;
 };
 
-describe("Simulation Match Complet (Standard 10/10)", () => {
-    it("Devrait simuler un match équilibré 4-4-2 vs 4-4-2", async () => {
+describe("Simulation Match Complet (Debug Engine)", () => {
+    it("Devrait simuler un match 4-4-2 vs 4-3-3 avec logs complets", async () => {
         console.log(`\n=============================================================================`);
-        console.log(`🧪  MATCH TEST : STANDARD FC vs CLONE UTD (Tout à 10, 4-4-2)`);
+        console.log(`🧪  MATCH TEST : LORIENT FC vs AJACCIO UTD`);
         console.log(`=============================================================================`);
         
         const home = createTeam(1, "4-4-2");
-        const away = createTeam(2, "4-4-2");
+        const away = createTeam(2, "4-3-3");
         
         const res = await simulateMatch(
-            home, away, "STANDARD FC", "CLONE UTD", 1, 2, 
+            home, away, "TOULOUSE FC", "JUVENTUS UTD", 1, 2, 
             DEFAULT_STAFF, DEFAULT_STAFF, 
             3, 3, "NORMAL", "NORMAL", 50, 50, 
-            3, 3, // Mentalité
-            true // Debug
+            3, 3, 
+            true 
         );
         
         res.debugLogs?.forEach(log => console.log(log));
@@ -90,18 +79,10 @@ describe("Simulation Match Complet (Standard 10/10)", () => {
         console.log(`   Cadrés : ${res.stats.homeShotsOnTarget} - ${res.stats.awayShotsOnTarget}`);
         console.log(`   xG : ${res.stats.homeXG.toFixed(2)} - ${res.stats.awayXG.toFixed(2)}`);
         
-        console.log(`\n📍 HISTORIQUE DU BALLON (10 premières minutes) :`);
-        console.log(`   ${res.ballHistory?.slice(0, 10).join(" -> ")} ...`);
-        
-        console.log(`\n🔥 HEATMAP (Top 3 Zones) :`);
-        if (res.heatmap) {
-             const homeZones = res.heatmap.home.map((v, i) => ({ zone: i + 1, val: v })).sort((a,b) => b.val - a.val).slice(0, 3);
-             const awayZones = res.heatmap.away.map((v, i) => ({ zone: i + 1, val: v })).sort((a,b) => b.val - a.val).slice(0, 3);
-             
-             console.log(`   DOM : Zones ${homeZones.map(z => z.zone).join(", ")}`);
-             console.log(`   EXT : Zones ${awayZones.map(z => z.zone).join(", ")}`);
-        }
+        console.log(`\n📍 HISTORIQUE DU BALLON (Zones occupées) :`);
+        const zones = res.ballHistory?.map(m => Math.floor(m / 50) + 3) || [];
+        console.log(`   ${zones.slice(0, 30).join("-")}...`);
         
         console.log(`=============================================================================\n`);
-    }, 30000);
+    }, 60000);
 });

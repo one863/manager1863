@@ -159,6 +159,18 @@
 				"{{player}} bute sur le gardien qui réalise une parade décisive.",
 				"La défense intervient in-extremis devant {{player}} !"
 			],
+			"card": [
+				"Carton jaune pour {{player}} ({{team}}).",
+				"L'arbitre sort le jaune pour {{player}}."
+			],
+			"red_card": [
+				"🟥 ROUGE pour {{player}} ! L'arbitre est catégorique !",
+				"L'équipe {{team}} va finir à dix, {{player}} est expulsé !"
+			],
+			"injury": [
+				"Blessure pour {{player}} qui doit quitter le terrain...",
+				"Coup dur, {{player}} reste au sol et demande le changement."
+			],
 			"ambient": [
 				"La pluie rend le terrain glissant, le jeu devient plus rapide.",
 				"Les Ultras chantent à tue-tête dans le virage Nord.",

@@ -20,6 +20,7 @@ export function getNarrative(
 	}) as any;
 
 	if (!narratives || (Array.isArray(narratives) && narratives.length === 0)) {
+        console.warn(`[Narrative] Missing: narratives.${category}.${subCategory}`);
 		return { content: `[Missing Narrative: ${category}.${subCategory}]` };
 	}
 

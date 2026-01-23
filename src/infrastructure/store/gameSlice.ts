@@ -7,6 +7,7 @@ import { NewsService } from "@/news/service/news-service";
 import { TrainingService } from "@/squad/training/training-service";
 import { create } from "zustand";
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
+import type { MatchResult } from "@/core/engine/core/types";
 
 interface ViewHistory {
     view: string;
@@ -34,7 +35,7 @@ interface GameState {
 	setUserTeam: (teamId: number) => void;
 	deleteSaveAndQuit: () => Promise<void>;
 	refreshUnreadNewsCount: () => Promise<void>;
-	finalizeLiveMatch: () => Promise<void>;
+	finalizeLiveMatch: (finalResult: MatchResult) => Promise<void>; // Changé ici
 	triggerRefresh: () => void;
     pushView: (view: string, params?: any) => void;
     popView: () => ViewHistory | null;
@@ -161,14 +162,25 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 	},
 
-	finalizeLiveMatch: async () => {
+	finalizeLiveMatch: async (finalResult: MatchResult) => {
 		const { currentSaveId, userTeamId, day, season, currentDate } = get();
-		if (!currentSaveId || !userTeamId) return;
+        const liveMatch = useLiveMatchStore.getState().liveMatch;
+        
+		if (!currentSaveId || !userTeamId || !liveMatch) return;
         set({ isProcessing: true });
         try {
+            // 1. Récupérer le match de la DB
+            const match = await db.matches.get(liveMatch.matchId);
+            if (!match) throw new Error("Match not found");
+
+            // 2. SAUVEGARDE RÉELLE VIA LE SERVICE (Gère stats, fatigue, news, etc.)
+            await MatchService.saveMatchResult(match, finalResult, currentSaveId, currentDate, true, true);
+
+            // 3. NETTOYAGE DU LIVE DANS GAME STATE
             await db.gameState.where("saveId").equals(currentSaveId).modify({ liveMatch: null });
             useLiveMatchStore.getState().clearLiveMatch();
 
+            // 4. PROGRESSION AU LENDEMAIN
             const nextDay = day + 1;
             const nextDate = new Date(currentDate);
             nextDate.setDate(nextDate.getDate() + 1);

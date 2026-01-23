@@ -1,9 +1,7 @@
 import { getNarrative } from "@/core/generators/narratives";
 import { clamp } from "@/core/utils/math";
 import { D20, D10, weightedPick, D100 } from "./probabilities"; 
-import { TACTIC_DEFINITIONS } from "./tactics"; 
-import type { MatchResult, PlayerPosition, TacticType, PlayerSideSchema } from "./types";
-import { ENGINE_TUNING } from "./config";
+import type { MatchResult, PlayerPosition, TacticType } from "./types";
 
 export interface PlayerState {
     id: number; lastName: string; pos: PlayerPosition; 
@@ -36,26 +34,27 @@ export interface TeamState {
     subsSlots: number;
 }
 
-function getActionDescription(xG: number, shooter: PlayerState, assister: PlayerState | null, type: "MISS" | "GOAL" | "SAVE"): string {
-    const shooterTag = `[ID:${shooter.id}]`;
-    const assistTag = assister ? ` [AssistID:${assister.id}]` : "";
+function getActionDescription(xG: number, shooter: PlayerState, assister: PlayerState | null, type: "MISS" | "GOAL" | "SAVE" | "PENALTY" | "FK_DIRECT" | "BIG_CHANCE"): string {
+    const playerTag = `[#${shooter.id}:${shooter.pos}]`;
+    
+    if (type === "PENALTY") return `PENALTY ! ${shooter.lastName} ${playerTag} se présente face au gardien...`;
+    if (type === "FK_DIRECT") return `COUP FRANC DIRECT ! ${shooter.lastName} ${playerTag} s'élance...`;
+    
+    if (xG > 0.35) { // Grosse Occasion / Face à face
+        if (type === "GOAL") return `QUELLE OCCASION ! ${shooter.lastName} ${playerTag} se présente seul et ne laisse aucune chance au gardien ! BUT !`;
+        if (type === "SAVE") return `INCROYABLE ARRÊT ! Le gardien remporte son face-à-face contre ${shooter.lastName} ${playerTag} !`;
+        return `L'IMMANQUABLE ! ${shooter.lastName} ${playerTag} rate le cadre alors qu'il était seul !`;
+    }
 
-    if (xG < 0.07) {
-        if (type === "GOAL") return `${shooterTag} BUT INCROYABLE DE ${shooter.lastName} !${assistTag}`;
-        if (type === "SAVE") return `${shooterTag} Frappe lointaine de ${shooter.lastName} captée.`;
-        return `${shooterTag} Tentative lointaine de ${shooter.lastName} qui passe à côté.`;
+    if (xG < 0.08) {
+        if (type === "GOAL") return `BUT SURPRISE DE ${shooter.lastName} ${playerTag} !`;
+        if (type === "SAVE") return `Frappe lointaine de ${shooter.lastName} ${playerTag} captée.`;
+        return `Tentative osée de ${shooter.lastName} ${playerTag} qui s'envole.`;
     }
     
-    if (xG <= 0.15) {
-        const assistText = assister ? `sur un service de ${assister.lastName}` : "sur une action individuelle";
-        if (type === "GOAL") return `${shooterTag} BUT ! ${shooter.lastName} conclut ${assistText}.${assistTag}`;
-        if (type === "SAVE") return `${shooterTag} Belle parade sur une frappe de ${shooter.lastName}.`;
-        return `${shooterTag} Reprise de ${shooter.lastName} qui frôle le poteau.`;
-    }
-
-    if (type === "GOAL") return `${shooterTag} BUT ! ${shooter.lastName} remporte son duel face au gardien !${assistTag}`;
-    if (type === "SAVE") return `${shooterTag} PARADE DÉCISIVE ! Le gardien sauve le tir à bout portant !`;
-    return `${shooterTag} L'IMMANQUABLE ! ${shooter.lastName} rate le cadre seul face au but !`;
+    if (type === "GOAL") return `BUT ! ${shooter.lastName} ${playerTag} conclut victorieusement !`;
+    if (type === "SAVE") return `PARADE ! Le gardien repousse le tir de ${shooter.lastName} ${playerTag} !`;
+    return `L'occasion manquée pour ${shooter.lastName} ${playerTag} !`;
 }
 
 export function handleResolution(
@@ -67,162 +66,109 @@ export function handleResolution(
     homeId: number, 
     baseOverride?: number,
     log?: (msg: string) => void,
-    currentZone?: number,
-    saturationIndex: number = 0,
-    mentalityBoost: number = 0
-) {
-    const isHomeAttacking = att.id === homeId;
-    
-    if (currentZone) {
-        const col = Math.floor((currentZone - 1) / 5) + 1;
-        const relativeCol = isHomeAttacking ? col : 7 - col;
-        if (relativeCol < 5) {
-            log?.(`    [BLOCAGE] Tir refusé : Position trop lointaine (Zone ${currentZone}, Col ${relativeCol} relative).`);
-            return;
-        }
-    }
-
+    isPenalty = false,
+    isFKDirect = false,
+    isBigChance = false
+): "GOAL" | "SAVE" | "MISS" | "CORNER" {
     const shooters = att.starters.filter(p => p.pos !== "GK");
-    if (shooters.length === 0) return;
+    if (shooters.length === 0) return "MISS";
 
-    const posRoll = D10();
-    const baseTheo = baseOverride || (isCounter ? 0.30 : 0.15);
-    let xG = (baseTheo * (posRoll / 10)) + mentalityBoost;
-    
-    const densityPenalty = 1 - (saturationIndex * 0.15);
-    xG = xG * Math.max(0.4, densityPenalty);
-
-    let isGoldenZone = false;
-    let isSilverZone = false; 
-
-    if (currentZone) {
-        const col = Math.floor((currentZone - 1) / 5) + 1;
-        const relativeCol = isHomeAttacking ? col : 7 - col;
-        if (relativeCol === 6) isGoldenZone = true;
-        else if (relativeCol === 5) isSilverZone = true;
-    }
-
-    if (isGoldenZone) xG = Math.max(xG * 1.5, 0.25); 
-    else if (isSilverZone) xG = Math.max(xG, 0.08); 
-    else xG *= 0.5; 
+    // 1. CALCUL xG
+    let xG = isPenalty ? 0.79 : (baseOverride || (isCounter ? 0.25 : 0.15)); // Base augmentée à 0.15
+    if (isFKDirect) xG = 0.10; 
+    if (isBigChance) xG = 0.38; // Standard Grosse Occasion Opta
 
     const shooter = weightedPick(shooters.map(p => {
-        let weight = (p.perf?.n_pla || 5); 
-        if (isGoldenZone || isSilverZone) {
-            if (p.pos === "FWD") weight *= 8;
-            if (p.pos === "MID") weight *= 2;
-        } else {
-            if (p.pos === "MID") weight *= 4;
-            if (p.pos === "FWD") weight *= 2;
-            if (p.stats.shooting > 14) weight *= 2; 
-        }
+        let weight = (p.pos === "FWD" ? 50 : 10);
+        if (isPenalty && p.traits.includes("PENALTY_SPECIALIST")) weight *= 2;
+        if (isFKDirect && p.traits.includes("FREE_KICK_EXPERT")) weight *= 3;
         return { item: p, weight };
-    }));
-    
+    }))!;
+
     const gk = def.starters.find(p => p.pos === "GK") || def.starters[0];
-    if (!shooter) return;
-
-    const others = att.starters.filter(p => p.id !== shooter.id && p.pos !== "GK");
-    const assister = others.length > 0 ? weightedPick(others.map(p => ({
-        item: p,
-        weight: (p.perf?.q_pass || 5) + (p.perf?.n_vis || 5) + (p.side !== "C" ? 5 : 0)
-    }))) : null;
-
-    if (att.id === homeId) { res.stats.homeShots++; res.stats.homeXG += xG; } 
-    else { res.stats.awayShots++; res.stats.awayXG += xG; }
-
-    const sTag = `[ID:${shooter.id}]`;
-    const gTag = `[GKID:${gk.id}]`;
-
-    log?.(`    [ACTION] 🎯 ${sTag} ${shooter.lastName} (${shooter.pos}) tente sa chance ! [xG: ${xG.toFixed(2)}] (Fatigue:${saturationIndex.toFixed(1)})`);
-
-    const accuracyThreshold = Math.max(5, 16 - (xG * 20)); 
-    const composureVal = (shooter.perf?.n_com) || 5;
-    const shootingVal = (shooter.perf?.q_shoot) || 10;
-    const accuracyScore = (shootingVal * 0.6) + (composureVal * 0.2) + (D20() * 0.4); 
     
-    if (accuracyScore < accuracyThreshold) {
-        const desc = getActionDescription(xG, shooter, assister, "MISS");
-        res.events.push({ minute: min, type: "MISS", teamId: att.id, description: desc, xg: xG });
-        log?.(`    -> ❌ [HORS CADRE] ${sTag} Score: ${accuracyScore.toFixed(1)} < Seuil: ${accuracyThreshold.toFixed(1)}`);
-        return;
-    }
+    // 2. DUEL
+    let forceAtt = (shooter.perf?.shooting || 10);
+    if (isPenalty) forceAtt += (shooter.perf?.composure || 10);
+    if (isFKDirect) forceAtt = (forceAtt + (shooter.perf?.flair || 10)) * 1.2;
+    if (isBigChance) forceAtt += (shooter.perf?.composure || 5);
 
-    if (att.id === homeId) res.stats.homeShotsOnTarget++; else res.stats.awayShotsOnTarget++;
-    const pS = res.playerStats![shooter.id.toString()];
-    if (pS) pS.shotsOnTarget++;
+    const forceGK = (gk.perf?.goalkeeping || 10) + (isPenalty ? (gk.perf?.agility || 10) : 0); 
+    const skillRatio = forceAtt / (forceAtt + forceGK);
+    
+    // Probabilité finale
+    const goalProb = clamp(xG * (skillRatio * 1.8), 0.02, 0.95);
 
-    const attRoll = D10(); 
-    const defRoll = D10();
-    const forceAtt = ((shooter.perf?.q_shoot || 10) * 1.5) + attRoll;
-    const forceDef = ((gk.stats.goalkeeping || 10) * 1.5) + defRoll;
-    const ratio = forceAtt / (forceDef || 1);
-    let powerFactor = Math.pow(ratio, 3.0); 
-    const goalProb = clamp((xG / 0.40) * powerFactor, 0.01, 0.95);
+    log?.(`Duel ${isPenalty ? '[PEN]' : (isFKDirect ? '[FK]' : (isBigChance ? '[BIG]' : '[TIR]'))}: ${shooter.lastName} (${forceAtt.toFixed(1)}) vs ${gk.lastName} (${forceGK.toFixed(1)}) | xG: ${xG.toFixed(2)} | Prob: ${(goalProb*100).toFixed(1)}%`);
 
-    log?.(`    -> [CADRÉ] ${sTag} vs ${gTag} | Ratio: ${ratio.toFixed(2)} | Prob: ${(goalProb * 100).toFixed(1)}%`);
+    if (att.id === homeId) { res.stats.homeShots++; res.stats.homeXG += xG; } else { res.stats.awayShots++; res.stats.awayXG += xG; }
 
-    let isGoal = false;
-    if (Math.random() < goalProb) isGoal = true;
-
-    if (isGoal) {
-        if (att.id === homeId) res.homeScore++; else res.awayScore++;
-        if (pS) { pS.goals++; pS.duelsWon++; }
-        if (assister) {
-            const aS = res.playerStats![assister.id.toString()];
-            if (aS) aS.assists++;
-        }
-        const desc = getActionDescription(xG, shooter, assister, "GOAL");
-        res.events.push({ minute: min, type: "GOAL", teamId: att.id, scorerName: shooter.lastName, description: desc, xg: xG });
-        log?.(`    -> ⚽ [BUT PENALTY] Scorer:${shooter.id}${assister ? ` Assist:${assister.id}` : ""}`);
+    if (Math.random() < goalProb) {
+        log?.(`Résultat: BUT !`);
+        if (att.id === homeId) { res.homeScore++; res.stats.homeShotsOnTarget++; } else { res.awayScore++; res.stats.awayShotsOnTarget++; }
+        const pS = res.playerStats![shooter.id.toString()];
+        if (pS) { pS.goals++; pS.shotsOnTarget++; pS.xg += xG; }
+        
+        const desc = isPenalty ? `BUT SUR PENALTY ! ${shooter.lastName}` : (isFKDirect ? `COUP FRANC MAGNIFIQUE ! ${shooter.lastName} trompe le gardien.` : getActionDescription(xG, shooter, null, "GOAL"));
+        res.events.push({ minute: min, second: 30, type: "GOAL", teamId: att.id, scorerName: shooter.lastName, description: desc, xg: xG });
+        return "GOAL";
     } else {
-        const gkS = res.playerStats![gk.id.toString()];
-        if (gkS) { gkS.saves++; gkS.duelsWon++; }
-        if (pS) pS.duelsLost++;
-        const desc = getActionDescription(xG, shooter, assister, "SAVE");
-        res.events.push({ minute: min, type: "SHOT", teamId: att.id, description: desc, xg: xG });
-        log?.(`    -> 🧤 [PARADE] Saver:${gk.id} (Shooter:${shooter.id})`);
+        const type = Math.random() < 0.6 ? "SAVE" : "MISS";
+        log?.(`Résultat: ${type === "SAVE" ? "ARRÊT" : "LOUPÉ"}`);
+        if (type === "SAVE") {
+            const gkS = res.playerStats![gk.id.toString()]; if (gkS) gkS.saves++;
+            if (att.id === homeId) res.stats.homeShotsOnTarget++; else res.stats.awayShotsOnTarget++;
+            const pS = res.playerStats![shooter.id.toString()]; if (pS) pS.shotsOnTarget++;
+            if (!isPenalty && Math.random() < 0.35) return "CORNER";
+        }
+        res.events.push({ minute: min, second: 30, type: type === "SAVE" ? "SHOT" : "MISS", teamId: att.id, description: getActionDescription(xG, shooter, null, type as any), xg: xG });
+        return type === "SAVE" ? "SAVE" : "MISS";
     }
 }
 
-export function handleSetPiece(min: number, att: TeamState, def: TeamState, res: MatchResult, homeId: number, log?: (msg: string) => void) {
+export function handleSetPiece(
+    min: number, 
+    att: TeamState, 
+    def: TeamState, 
+    res: MatchResult, 
+    homeId: number, 
+    log?: (msg: string) => void,
+    forcedType?: "CORNER" | "FREE_KICK" | "PENALTY" | "LONG_THROW",
+    zone?: number
+): "GOAL" | "SAVE" | "MISS" | "CORNER" | "SET_PIECE" {
+    if (forcedType === "PENALTY") return handleResolution(min, att, def, res, false, homeId, undefined, log, true);
+
+    const isHome = att.id === homeId;
+    const inAttackingThird = isHome ? (zone! >= 4) : (zone! <= 2);
+    const inExtremeDanger = isHome ? (zone === 5) : (zone === 1);
     const roll = D100();
-    const gk = def.starters.find(p => p.pos === "GK") || def.starters[0];
-
-    if (roll < 2) { 
-        log?.(`    [CPA] 🎯 Penalty obtenu !`);
-        const shooter = att.starters.filter(p => p.pos !== "GK")
-            .sort((a,b) => {
-                const scoreA = (a.stats.shooting) + (a.pos === "FWD" ? 5 : 0);
-                const scoreB = (b.stats.shooting) + (b.pos === "FWD" ? 5 : 0);
-                return scoreB - scoreA;
-            })[0];
-
-        const shootSkill = (shooter.stats.shooting * 1.5) + D10();
-        const gkSkill = (gk.stats.goalkeeping * 1.5) + D10();
-        const prob = clamp(0.75 + ((shootSkill - gkSkill) * 0.02), 0.1, 0.95);
-
-        if (Math.random() < prob) {
-            if (att.id === homeId) res.homeScore++; else res.awayScore++;
-            res.events.push({ minute: min, type: "GOAL", teamId: att.id, scorerName: shooter.lastName, description: `[ID:${shooter.id}] Penalty transformé par ${shooter.lastName}.`, xg: 0.76 });
-            log?.(`    -> ⚽ [BUT PENALTY] Scorer:${shooter.id}`);
-        } else {
-            const gkS = res.playerStats![gk.id.toString()];
-            if (gkS) gkS.saves++;
-            res.events.push({ minute: min, type: "MISS", teamId: att.id, description: `[ID:${shooter.id}] Penalty arrêté par le gardien [GKID:${gk.id}] !`, xg: 0.76 });
-            log?.(`    -> ❌ [PENALTY RATÉ] Shooter:${shooter.id} Saver:${gk.id}`);
-        }
-    } 
-    else {
-        log?.(`    [CPA] 🚩 Corner / Coup Franc !`);
-        const attP = att.starters.reduce((s, p) => s + (p.stats.jumping || 10) + (p.stats.strength || 10), 0) / 11;
-        const defP = def.starters.reduce((s, p) => s + (p.stats.jumping || 10) + (p.stats.strength || 10), 0) / 11;
-        if ((attP * 1.2 + D20()) > (defP * 1.2 + D20())) {
-            log?.(`    -> 💥 Duel aérien gagné`);
-            handleResolution(min, att, def, res, false, homeId, 0.18, log);
-        } else {
-            res.events.push({ minute: min, type: "SET_PIECE", teamId: att.id, description: `Corner repoussé par la défense.` });
-            log?.(`    -> 🛡️ Repoussé`);
-        }
+    
+    // 1. CORNERS
+    if (forcedType === "CORNER") {
+        res.events.push({ minute: min, second: 30, type: "CORNER", teamId: att.id, description: `🚩 CORNER pour ${att.name}` });
+        if (D100() < 3) return handleResolution(min, att, def, res, false, homeId, 0.30, log); 
+        return handleResolution(min, att, def, res, false, homeId, 0.10, log);
     }
+
+    // 2. TOUCHES LONGUES
+    if (forcedType === "LONG_THROW" || (inAttackingThird && roll < 5)) {
+        res.events.push({ minute: min, second: 30, type: "SPECIAL", teamId: att.id, description: `🙌 TOUCHE LONGUE de ${att.name} dans la boîte` });
+        return handleResolution(min, att, def, res, false, homeId, 0.05, log);
+    }
+
+    // 3. COUPS FRANCS
+    if (inExtremeDanger) {
+        if (roll < 20) {
+            return handleResolution(min, att, def, res, false, homeId, undefined, log, false, true);
+        } else {
+            res.events.push({ minute: min, second: 30, type: "FREE_KICK", teamId: att.id, description: `📐 Coup franc indirect pour ${att.name}` });
+            return handleResolution(min, att, def, res, false, homeId, 0.15, log);
+        }
+    } else if (inAttackingThird) {
+        res.events.push({ minute: min, second: 30, type: "FREE_KICK", teamId: att.id, description: `📐 Coup franc lointain pour ${att.name}` });
+        return handleResolution(min, att, def, res, false, homeId, 0.08, log);
+    }
+
+    res.events.push({ minute: min, second: 30, type: "SET_PIECE", teamId: att.id, description: `${att.name} joue court.` });
+    return "SET_PIECE"; 
 }
