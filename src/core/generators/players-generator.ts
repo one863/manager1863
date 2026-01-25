@@ -1,11 +1,10 @@
 import type { Player } from "@/core/db/db";
 import { clamp, randomInt, getRandomElement } from "@/core/utils/math";
-import { ROLES_CONFIG } from "../engine/token-engine/config/roles-config";
 
 const FIRST_NAMES = ["Arthur", "William", "Henry", "George", "Thomas", "John", "Edward", "Charles", "Walter", "Frank"];
 const LAST_NAMES = ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts"];
 
-const VALID_ROLES = Object.keys(ROLES_CONFIG);
+const VALID_ROLES = ["GK", "DC", "DL", "DR", "MC", "ML", "MR", "ST", "LW", "RW"];
 
 function generateSimplifiedStats(role: string, baseSkill: number) {
 	const getStat = (bonus = 0) => clamp(baseSkill + bonus + (Math.random() * 6 - 3), 1, 20);

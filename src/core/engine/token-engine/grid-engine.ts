@@ -1,14 +1,12 @@
-import { GridPosition, Token, MatchSituation, TokenType } from "./types";
+import { GridPosition, Token, MatchSituation, TokenType, ZoneDefinition } from "./types";
 import { TokenPlayer } from "./token-player";
-import { ZoneManager } from "./zone-manager";
+import { ZONES_CONFIG, DEFAULT_ZONE_CONFIG } from "./config/zones-config";
 
 export class GridEngine {
   private players: TokenPlayer[] = [];
-  private zoneManager: ZoneManager;
 
   constructor(players: TokenPlayer[]) {
     this.players = players;
-    this.zoneManager = new ZoneManager();
   }
 
   public getPlayer(id: number): TokenPlayer | undefined {
@@ -21,39 +19,56 @@ export class GridEngine {
     let bag: Token[] = [];
     const zoneKey = `${pos.x},${pos.y}`;
     const opponentTeamId = (possessionTeamId === homeId) ? awayId : homeId;
+    const config: ZoneDefinition = ZONES_CONFIG[zoneKey] || DEFAULT_ZONE_CONFIG;
 
-    // 1. Jetons Système (Équilibrage territorial)
-    const isGoalZone = (pos.x === 0 || pos.x === 5);
-    
-    // Si on est dans la zone de but, le système injecte plus d'interceptions/dégagements
-    const defPressure = isGoalZone ? 10 : 3;
-    for(let i=0; i<defPressure; i++) bag.push({ id: `sys-def-${i}`, type: 'INTERCEPT', ownerId: 0, teamId: opponentTeamId, quality: 5, duration: 3 });
-    for(let i=0; i<5; i++) bag.push({ id: `sys-off-${i}`, type: 'PASS_SHORT', ownerId: 0, teamId: possessionTeamId, quality: 5, duration: 5 });
+    // 1. Jetons Système (Config de zone)
+    config.baseTokens.forEach((pt, index) => {
+        bag.push({
+            id: `sys-${zoneKey}-${index}`,
+            type: pt.type as TokenType,
+            ownerId: 0,
+            teamId: 0, // Neutre par défaut pour le système, ou on pourrait alterner
+            quality: pt.quality || 30,
+            duration: pt.duration || 5
+        });
+    });
 
-    // 2. Jetons Joueurs
+    // 2. Jetons Joueurs filtrés par rôle autorisé dans la zone
     this.players.forEach(p => {
-      let weight = 0;
-      if (p.activeZones.includes(zoneKey)) weight = 1.0;
-      else if (p.reachZones.includes(zoneKey)) weight = 0.5;
+      // Le joueur doit être dans une zone où son rôle est autorisé
+      // On vérifie si son rôle est dans la config de la zone actuelle du ballon
+      if (config.allowedRoles.includes(p.role)) {
+          let weight = 0;
+          if (p.activeZones.includes(zoneKey)) weight = 1.0;
+          else if (p.reachZones.includes(zoneKey)) weight = 0.5;
 
-      if (weight > 0) {
-          const hasBall = (p.teamId === possessionTeamId);
-          const pTokens = hasBall ? p.getOffensiveTokens(weight, pos) : p.getDefensiveTokens(weight);
-          bag.push(...pTokens);
+          if (weight > 0) {
+              const hasBall = (p.teamId === possessionTeamId);
+              const pTokens = hasBall ? p.getOffensiveTokens(weight, pos) : p.getDefensiveTokens(weight);
+              
+              // S'assurer que chaque jeton a le bon ownerId et teamId
+              pTokens.forEach(t => {
+                  t.ownerId = p.id;
+                  t.teamId = p.teamId;
+              });
+
+              bag.push(...pTokens);
+          }
       }
     });
 
-    // 3. Filtrage Spatial Final
+    // 3. Filtrage Spatial Final (Réalisme des tirs)
     bag = bag.filter(t => {
         if (t.type.startsWith('SHOOT') || t.type === 'HEAD_SHOT') {
             const targetX = t.teamId === homeId ? 5 : 0;
             const dx = Math.abs(targetX - pos.x);
+            // Interdit si trop loin ou dans les coins morts
             if (dx > 1 || (dx === 1 && (pos.y === 0 || pos.y === 4))) return false;
         }
         return true;
     });
 
-    if (bag.length === 0) bag.push({ id: 'sys', type: 'NEUTRAL_POSSESSION', ownerId: 0, teamId: 0, quality: 10, duration: 10 });
+    if (bag.length === 0) bag.push({ id: 'sys-fallback', type: 'NEUTRAL_POSSESSION', ownerId: 0, teamId: 0, quality: 10, duration: 10 });
     return this.shuffle(bag);
   }
 

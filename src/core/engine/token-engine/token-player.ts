@@ -4,6 +4,7 @@ export class TokenPlayer {
   public id: number;
   public name: string;
   public teamId: number;
+  public role: string;
   public stats: any;
   public influence: { atk: number; def: number } = { atk: 1, def: 1 };
   public activeZones: string[] = [];
@@ -13,6 +14,7 @@ export class TokenPlayer {
     this.id = data.id;
     this.name = data.name;
     this.teamId = data.teamId;
+    this.role = data.role || "MC";
     this.stats = data.stats;
   }
 

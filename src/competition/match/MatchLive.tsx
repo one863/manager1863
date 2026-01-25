@@ -42,30 +42,15 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentMinute = useComputed(() => Math.floor(currentMatchTime.value / 60));
     const isFinished = useComputed(() => currentMatchTime.value >= maxTime);
 
-    const currentLogIndex = useComputed(() => {
-        const idx = logs.findLastIndex(l => l.time <= currentMatchTime.value);
-        return idx === -1 ? 0 : idx;
-    });
-
-    const upcomingLog = useComputed(() => logs[currentLogIndex.value]);
-    const pastLog = useComputed(() => currentLogIndex.value > 0 ? logs[currentLogIndex.value - 1] : null);
+    const executedLogIndex = useComputed(() => logs.findLastIndex(l => l.time <= currentMatchTime.value));
+    const currentLog = useComputed(() => executedLogIndex.value >= 0 ? logs[executedLogIndex.value] : logs[0]);
     
-    const currentBallPos = useComputed(() => {
-        if (pastLog.value) return pastLog.value.ballPosition;
-        return upcomingLog.value?.ballPosition || { x: 2, y: 2 };
-    });
-
-    const effectiveTeamId = useComputed(() => {
-        if (!pastLog.value) return upcomingLog.value?.teamId;
-        return pastLog.value.possessionChange 
-            ? (pastLog.value.teamId === liveMatch.homeTeam.id ? liveMatch.awayTeam.id : liveMatch.homeTeam.id)
-            : pastLog.value.teamId;
-    });
+    const displayPos = useComputed(() => currentLog.value?.ballPosition || { x: 2, y: 2 });
+    const effectiveTeamId = useComputed(() => currentLog.value?.teamId);
 
     const currentScorers = useComputed(() => {
         const hId = liveMatch.homeTeam?.id;
-        const threshold = pastLog.value?.time ?? -1;
-        const playedLogs = logs.filter(l => l.time <= threshold);
+        const playedLogs = logs.filter(l => l.time <= currentMatchTime.value);
         return {
             h: playedLogs.filter(e => e.teamId === hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) })),
             a: playedLogs.filter(e => e.teamId !== hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) }))
@@ -73,7 +58,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     });
 
     const bagStats = useComputed(() => {
-        const bag = upcomingLog.value?.bag || [];
+        const bag = currentLog.value?.bag || [];
         const total = bag.length || 1;
         const stats: any = { h: { count: 0, types: {} }, a: { count: 0, types: {} }, n: { count: 0, types: {} } };
         bag.forEach(t => {
@@ -86,8 +71,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
     const matchAnalysis = useComputed(() => {
         const hId = liveMatch.homeTeam?.id || 0;
-        const threshold = pastLog.value?.time ?? -1;
-        const playedLogs = logs.filter(l => l.time <= threshold);
+        const playedLogs = logs.filter(l => l.time <= currentMatchTime.value);
         const stats = {
             h: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0, int: 0, fouls: 0, corners: 0 },
             a: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0, int: 0, fouls: 0, corners: 0 }
@@ -99,13 +83,9 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         playedLogs.forEach(l => {
             const side = l.teamId === hId ? 'h' : 'a';
             const isGoal = l.eventSubtype === 'GOAL' || l.type === 'GOAL';
-            
             if (isGoal) { stats[side].goals++; stats[side].shots++; stats[side].onTarget++; }
             else if (l.eventSubtype === 'SAVE') { stats[side].shots++; stats[side].onTarget++; }
             else if (l.eventSubtype === 'SHOT') { stats[side].shots++; }
-            else if (l.eventSubtype === 'FOUL') { stats[side].fouls++; }
-            else if (l.eventSubtype === 'CORNER') { stats[side].corners++; }
-            
             if (l.statImpact) {
                 const si = l.statImpact;
                 if (si.xg) stats[side].xg += si.xg;
@@ -128,27 +108,13 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         return { stats, ratings: Object.values(playerRatings) };
     });
 
-    const barsCount = Math.ceil(maxTime / 120); 
-
     const sampledMomentum = useComputed(() => {
         const history = result.ballHistory || [];
+        const barsCount = Math.ceil(maxTime / 120) || 1;
         const step = Math.max(1, Math.floor(history.length / barsCount));
         const bars = [];
-        for (let i = 0; i < barsCount; i++) {
-            bars.push(history[i * step] || 0);
-        }
+        for (let i = 0; i < barsCount; i++) bars.push(history[i * step] || 0);
         return bars;
-    });
-
-    const matchMarkers = useComputed(() => {
-        const threshold = pastLog.value?.time ?? -1;
-        return logs.filter(l => l.time <= threshold && (l.eventSubtype === 'GOAL' || l.eventSubtype === 'RED_CARD' || l.type === 'GOAL'))
-            .map(l => ({
-                time: l.time,
-                type: (l.eventSubtype === 'GOAL' || l.type === 'GOAL') ? 'GOAL' : 'RED',
-                teamId: l.teamId,
-                pos: (l.time / maxTime) * 100
-            }));
     });
 
     const liveMomentum = useComputed(() => {
@@ -160,17 +126,28 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     useEffect(() => {
         if (!result) return;
         const timer = setInterval(() => {
-            if (!isPaused.value && currentMatchTime.value < maxTime) {
-                currentMatchTime.value += 1;
-            }
+            if (!isPaused.value && currentMatchTime.value < maxTime) currentMatchTime.value += 1;
         }, 30); 
         return () => clearInterval(timer);
     }, [result, maxTime]);
 
-    const handleSkip = () => { 
-        currentMatchTime.value = maxTime;
+    const handleSkip = () => { currentMatchTime.value = maxTime; isPaused.value = true; };
+
+    const handleStepBack = () => {
         isPaused.value = true;
-        updateLiveMatchState({ currentTime: maxTime, isPaused: true, activeTab: activeTab }, currentSaveId || undefined);
+        if (executedLogIndex.value > 0) {
+            currentMatchTime.value = logs[executedLogIndex.value - 1].time;
+        } else {
+            currentMatchTime.value = 0;
+        }
+    };
+
+    const handleStepForward = () => {
+        isPaused.value = true;
+        const nextIdx = executedLogIndex.value + 1;
+        if (nextIdx < logs.length) {
+            currentMatchTime.value = logs[nextIdx].time;
+        }
     };
 
     const handleFinalize = async () => { 
@@ -178,26 +155,12 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         if (onShowReport && liveMatch) onShowReport(liveMatch.matchId); 
     };
 
-    const handleStepBack = () => {
-        isPaused.value = true;
-        const prevIdx = Math.max(0, currentLogIndex.value - 1);
-        currentMatchTime.value = logs[prevIdx].time;
-    };
-
-    const handleStepForward = () => {
-        isPaused.value = true;
-        const nextIdx = Math.min(logs.length - 1, currentLogIndex.value + 1);
-        currentMatchTime.value = logs[nextIdx].time;
-    };
-
 	return (
 		<div className="absolute inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden text-slate-900">
 			<Scoreboard
 				homeTeam={liveMatch.homeTeam} awayTeam={liveMatch.awayTeam}
 				homeScore={useComputed(() => matchAnalysis.value.stats.h.goals)} awayScore={useComputed(() => matchAnalysis.value.stats.a.goals)} 
-                minute={currentMinute} 
-                homeScorers={useComputed(() => currentScorers.value.h)} 
-                awayScorers={useComputed(() => currentScorers.value.a)}
+                minute={currentMinute} homeScorers={useComputed(() => currentScorers.value.h)} awayScorers={useComputed(() => currentScorers.value.a)}
 				possession={liveMomentum} isFinished={isFinished.value} stoppageTime={useSignal(result.stoppageTime || 0)}
 			/>
 
@@ -210,26 +173,15 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Domination</span>
                             </div>
                             <div className="flex-1 flex items-end justify-between gap-[3px] relative">
+                                <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-slate-100 z-0 -translate-y-1/2" />
                                 {sampledMomentum.value.map((val: number, i: number) => {
-                                    const isPast = currentMatchTime.value > 0 && (i / barsCount) < (currentMatchTime.value / maxTime);
+                                    const barsLen = sampledMomentum.value.length;
+                                    const isPast = currentMatchTime.value > 0 && (i / barsLen) < (currentMatchTime.value / maxTime);
                                     if (!isPast) return <div key={i} className="flex-1 h-full bg-slate-50/50" />; 
                                     const height = Math.min(45, Math.abs(val) * 6);
-                                    return (
-                                        <div key={i} className="flex-1 h-full relative">
-                                            <div className={`absolute w-full rounded-full ${val > 0 ? 'bg-blue-500' : 'bg-orange-500'} opacity-80`} style={{ height: `${height}%`, bottom: val > 0 ? '50%' : 'auto', top: val <= 0 ? '50%' : 'auto' }} />
-                                        </div>
-                                    );
+                                    return <div key={i} className="flex-1 h-full relative"><div className={`absolute w-full rounded-full ${val > 0 ? 'bg-blue-500' : 'bg-orange-500'} opacity-80`} style={{ height: `${height}%`, bottom: val > 0 ? '50%' : 'auto', top: val <= 0 ? '50%' : 'auto' }} /></div>;
                                 })}
-                                
-                                <div className="absolute inset-0 pointer-events-none">
-                                    {matchMarkers.value.map((m, i) => (
-                                        <div key={i} className="absolute h-full w-[2px]" style={{ left: `${m.pos}%` }}>
-                                            <div className={`absolute top-0 -translate-x-1/2 w-2 h-2 rounded-full border border-white shadow-sm ${m.type === 'GOAL' ? 'bg-emerald-500' : 'bg-rose-600'}`} />
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
-                            <div className="absolute bottom-1/2 left-0 right-0 h-[1px] bg-slate-100 z-0" />
                         </div>
                     ) : (
                         <div className="absolute inset-0 bg-[#52b788] flex flex-col">
@@ -243,29 +195,15 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                                 <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-10">
                                     {[...Array(30)].map((_, i) => {
                                         const x = i % 6; const y = Math.floor(i / 6);
-                                        const zKey = `${x},${y}`;
-                                        const isBall = currentBallPos.value.x === x && currentBallPos.value.y === y;
-                                        // @ts-ignore
-                                        const inf = pastLog.value?.zoneInfluences?.[zKey] || { homeAtk: 0, homeDef: 0, awayAtk: 0, awayDef: 0 };
+                                        const isBall = displayPos.value.x === x && displayPos.value.y === y;
+                                        const possessionColor = effectiveTeamId.value === liveMatch.homeTeam.id ? 'border-blue-500 bg-blue-500/20' : effectiveTeamId.value === liveMatch.awayTeam.id ? 'border-orange-500 bg-orange-500/20' : 'border-white/5';
                                         
-                                        const isHome = effectiveTeamId.value === liveMatch.homeTeam.id;
-                                        const isAway = effectiveTeamId.value === liveMatch.awayTeam.id;
-                                        const possessionColor = isHome ? 'border-blue-500 bg-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.2)]' : isAway ? 'border-orange-500 bg-orange-500/20 shadow-[inset_0_0_20px_rgba(249,115,22,0.2)]' : 'border-white/5';
+                                        const showToken = currentLog.value && currentLog.value.drawnToken;
 
                                         return (
                                             <div key={i} className={`border flex flex-col items-center justify-center relative transition-colors duration-300 ${isBall ? 'border-4 z-20 ' + possessionColor : 'border-white/5'}`}>
                                                 {isBall && <div className="absolute inset-0 border-2 border-white animate-pulse" />}
-                                                <div className="flex flex-col items-center gap-1 opacity-100">
-                                                    <div className="flex gap-4">
-                                                        <span className="text-[11px] font-black text-blue-900 leading-none">A{inf.homeAtk}</span>
-                                                        <span className="text-[11px] font-black text-orange-900 leading-none">A {inf.awayAtk}</span>
-                                                    </div>
-                                                    <div className="flex gap-4 opacity-40">
-                                                        <span className="text-[9px] font-bold text-blue-800 leading-none italic">D {inf.homeDef}</span>
-                                                        <span className="text-[9px] font-bold text-orange-800 leading-none italic"> D{inf.awayDef}</span>
-                                                    </div>
-                                                </div>
-                                                {isBall && <span className="absolute bottom-1 text-[8px] font-black text-white uppercase bg-black/80 px-1.5 py-0.5 rounded-sm shadow-xl z-30 ring-1 ring-white/20 whitespace-nowrap">{pastLog.value?.drawnToken?.type.split('_').pop()}</span>}
+                                                {isBall && showToken && <span className="absolute bottom-1 text-[8px] font-black text-white uppercase bg-black/80 px-1.5 py-0.5 rounded-sm shadow-xl z-30 ring-1 ring-white/20 whitespace-nowrap">{currentLog.value.drawnToken.type.split('_').pop()}</span>}
                                             </div>
                                         );
                                     })}
@@ -288,42 +226,25 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                         <div className="space-y-2">
                             <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
                                 <div className="flex flex-col gap-1.5 mb-2 border-b border-slate-100 pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
-                                                <Package size={10}/> Next Bag ({bagStats.value.total} tokens) 
-                                                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-1">Last tirage Zone {currentBallPos.value.x},{currentBallPos.value.y}</span>
-                                            </span>
-                                        </div>
-                                        {pastLog.value?.drawnToken && (
-                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${pastLog.value.drawnToken.teamId === liveMatch.homeTeam.id ? 'bg-blue-600' : pastLog.value.drawnToken.teamId === liveMatch.awayTeam.id ? 'bg-orange-600' : 'bg-slate-500'} text-white shadow-sm ring-1 ring-white/20`}>
-                                                {pastLog.value.drawnToken.type}
-                                            </span>
-                                        )}
-                                    </div>
+                                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
+                                        <Package size={10}/> Contenu du sac ({bagStats.value.total} tokens) 
+                                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-1">Zone {displayPos.value.x},{displayPos.value.y}</span>
+                                    </span>
                                     <div className="flex items-start gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
                                         <MessageSquare size={10} className="text-slate-400 mt-0.5 shrink-0" />
-                                        <p className="text-[12px] text-slate-600 leading-tight truncate">"{pastLog.value?.text || "Début du match..."}"</p>
+                                        <p className="text-[12px] text-slate-600 leading-tight font-medium italic">"{currentLog.value?.text}"</p>
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     {['h', 'a', 'n'].map(side => {
                                         const s = bagStats.value.sides[side];
-                                        const textColor = side === 'h' ? 'text-blue-800' : side === 'a' ? 'text-orange-800' : 'text-slate-600';
-                                        const bgColor = side === 'h' ? 'bg-blue-50' : side === 'a' ? 'bg-orange-50' : 'bg-slate-50';
                                         if (s.count === 0) return null;
                                         return (
-                                            <div key={side} className={`p-1.5 rounded-lg ${bgColor} border border-white/50`}>
-                                                <div className="flex items-center gap-1.5 mb-1 opacity-60">
-                                                    <div className={`w-1 h-2 rounded-full ${side === 'h' ? 'bg-blue-500' : side === 'a' ? 'bg-orange-500' : 'bg-slate-400'}`} />
-                                                    <span className="text-[8px] font-black uppercase tracking-tighter">{Math.round(s.count/bagStats.value.total*100)}%</span>
-                                                </div>
+                                            <div key={side} className={`p-1.5 rounded-lg ${side === 'h' ? 'bg-blue-50' : side === 'a' ? 'bg-orange-50' : 'bg-slate-50'} border border-white/50`}>
+                                                <div className="flex items-center gap-1.5 mb-1 opacity-60"><div className={`w-1 h-2 rounded-full ${side === 'h' ? 'bg-blue-500' : side === 'a' ? 'bg-orange-500' : 'bg-slate-400'}`} /><span className="text-[8px] font-black uppercase tracking-tighter">{Math.round(s.count/bagStats.value.total*100)}%</span></div>
                                                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                                                     {Object.entries(s.types).map(([type, count]: [any, any]) => (
-                                                        <div key={type} className="flex flex-col min-w-[60px]">
-                                                            <span className={`text-[11px] font-black uppercase tracking-tight ${textColor}`}>{type}</span>
-                                                            <span className="text-[10px] font-bold text-slate-400">{Math.round(count/bagStats.value.total*100)}%</span>
-                                                        </div>
+                                                        <div key={type} className="flex flex-col min-w-[60px]"><span className={`text-[11px] font-black uppercase tracking-tight ${side === 'h' ? 'text-blue-800' : side === 'a' ? 'text-orange-800' : 'text-slate-600'}`}>{type}</span><span className="text-[10px] font-bold text-slate-400">{Math.round(count/bagStats.value.total*100)}%</span></div>
                                                     ))}
                                                 </div>
                                             </div>
@@ -335,10 +256,15 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                     )}
                     {activeTab === "flux" && (
                         <div className="space-y-2">
-                            {(logs.filter(l => (l.type === 'EVENT' || l.type === 'ACTION') && l.time <= currentMatchTime.value)).slice(-15).reverse().map((l, i) => (
-                                <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in">
-                                    <EventItem event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype, description: l.text } as any} homeTeamId={liveMatch.homeTeam.id} />
+                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-inner mb-2 border-dashed">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Package size={12} className="text-slate-400" />
+                                    <span className="text-[9px] font-black uppercase text-slate-400">Dernière action</span>
                                 </div>
+                                <p className="text-[12px] text-slate-600 font-medium italic">"{currentLog.value?.text}"</p>
+                            </div>
+                            {(logs.filter(l => (l.type === 'EVENT' || l.type === 'ACTION') && l.time <= currentMatchTime.value)).slice(-15).reverse().map((l, i) => (
+                                <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in"><EventItem event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype, description: l.text } as any} homeTeamId={liveMatch.homeTeam.id} /></div>
                             ))}
                         </div>
                     )}
@@ -391,7 +317,6 @@ function PlayerColumn({ team, players, color }: any) {
         if (r >= 6.0) return 'bg-amber-500 text-white';
         return 'bg-rose-500 text-white';
     };
-
     return (
         <div className="flex flex-col gap-1">
             <h4 className={`text-[10px] font-black uppercase text-${color}-600 mb-2 truncate`}>{team.name}</h4>

@@ -52,7 +52,7 @@ async function runSimulation(data: any) {
         );
 
         const allTokenPlayers = [...homeTokenPlayers, ...awayTokenPlayers];
-        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId);
+        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId, homeName, awayName);
 
         const engineResult = engine.simulateMatch();
         const rawEvents = engineResult.events;

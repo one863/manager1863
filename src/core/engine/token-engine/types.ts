@@ -49,22 +49,9 @@ export interface TokenExecutionResult {
 
 export interface GridPosition { x: number; y: number; }
 
-export interface MatchStats {
-    possession: { [teamId: number]: number };
-    possessionPercent?: { [teamId: number]: number };
-    xg: { [teamId: number]: number };
-    passes: { [teamId: number]: { attempted: number; successful: number } };
-    shots: { [teamId: number]: { total: number; onTarget: number; goals: number } };
-    duels: { [teamId: number]: { total: number; won: number } };
-    interceptions: { [teamId: number]: number };
-    fouls: { [teamId: number]: number };
-    corners: { [teamId: number]: number };
-    woodwork: { [teamId: number]: number };
-}
-
 export interface MatchLog {
     time: number;
-    type: 'ACTION' | 'THINKING' | 'EVENT' | 'STAT';
+    type: 'ACTION' | 'THINKING' | 'EVENT' | 'STAT' | 'START';
     eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
     text: string;
     playerName?: string;
@@ -74,25 +61,4 @@ export interface MatchLog {
     drawnToken?: { type: TokenType, teamId: number };
     statImpact?: any;
     zoneInfluences?: Record<string, { homeAtk: number, homeDef: number, awayAtk: number, awayDef: number }>;
-}
-
-export interface TokenPlayerState {
-    id: number;
-    name: string;
-    teamId: number;
-    role: string;
-    stats: { technical: number; finishing: number; defense: number; physical: number; mental: number; goalkeeping: number; };
-    staffModifiers: any;
-}
-
-export type TacticType = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '5-3-2';
-
-export interface TacticTemplate {
-    name: TacticType;
-    roles: {
-        [index: number]: {
-            label: string;
-            zones: GridPosition[];
-        }
-    };
 }
