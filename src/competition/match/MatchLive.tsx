@@ -46,14 +46,17 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentLog = useComputed(() => executedLogIndex.value >= 0 ? logs[executedLogIndex.value] : logs[0]);
     
     const displayPos = useComputed(() => currentLog.value?.ballPosition || { x: 2, y: 2 });
-    const effectiveTeamId = useComputed(() => currentLog.value?.teamId);
+    // Utilise la vraie possession pour la couleur du ballon
+    const effectiveTeamId = useComputed(() => currentLog.value?.possessionTeamId ?? currentLog.value?.teamId);
 
     const currentScorers = useComputed(() => {
         const hId = liveMatch.homeTeam?.id;
         const playedLogs = logs.filter((l: any) => l.time <= currentMatchTime.value);
+        // On ne prend que les logs de but avec un playerName défini et non vide
+        const isValidGoal = (e: any) => (e.eventSubtype === "GOAL" || e.type === "GOAL") && typeof e.playerName === "string" && e.playerName.trim() !== "";
         return {
-            h: playedLogs.filter((e: any) => e.teamId === hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map((e: any) => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) })),
-            a: playedLogs.filter((e: any) => e.teamId !== hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map((e: any) => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) }))
+            h: playedLogs.filter((e: any) => e.teamId === hId && isValidGoal(e)).map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) })),
+            a: playedLogs.filter((e: any) => e.teamId !== hId && isValidGoal(e)).map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }))
         };
     });
 
@@ -214,7 +217,11 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                                                 </div>
                                                 {/* Label d'action flottant */}
                                                 {currentLog.value?.drawnToken && (
-                                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40">
+                                                    <div className={
+                                                        x === 0
+                                                        ? "absolute -top-7 left-3 z-40 text-left"
+                                                        : "absolute -top-7 left-1/2 -translate-x-1/2 z-40"
+                                                    }>
                                                         <div className="bg-slate-900 text-[7px] text-white px-1.5 py-0.5 rounded border border-white/20 font-black uppercase whitespace-nowrap shadow-lg">
                                                             {currentLog.value.drawnToken.type.split('_').pop()}
                                                         </div>
@@ -243,7 +250,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                             <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
                                 <div className="flex flex-col gap-1.5 mb-2 border-b border-slate-100 pb-2">
                                     <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
-                                        <Package size={10}/> Contenu du sac ({bagStats.value.total} tokens) 
+                                        <Package size={10}/> Contenu du bag ({bagStats.value.total} tokens) 
                                         <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-1">Zone {displayPos.value.x},{displayPos.value.y}</span>
                                     </span>
                                     <div className="flex items-start gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
@@ -257,10 +264,10 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                                         if (s.count === 0) return null;
                                         return (
                                             <div key={side} className={`p-1.5 rounded-lg ${side === 'h' ? 'bg-blue-50' : side === 'a' ? 'bg-orange-50' : 'bg-slate-50'} border border-white/50`}>
-                                                <div className="flex items-center gap-1.5 mb-1 opacity-60"><div className={`w-1 h-2 rounded-full ${side === 'h' ? 'bg-blue-500' : side === 'a' ? 'bg-orange-500' : 'bg-slate-400'}`} /><span className="text-[8px] font-black uppercase tracking-tighter">{Math.round(s.count/bagStats.value.total*100)}%</span></div>
+                                                <div className="flex items-center gap-1.5 mb-1 opacity-60"><div className={`w-1 h-2 rounded-full ${side === 'h' ? 'bg-blue-500' : side === 'a' ? 'bg-orange-500' : 'bg-slate-400'}`} /><span className="text-[10px] uppercase tracking-tighter">{Math.round(s.count/bagStats.value.total*100)}%</span></div>
                                                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                                                     {Object.entries(s.types).map(([type, count]: [any, any]) => (
-                                                        <div key={type} className="flex flex-col min-w-[60px]"><span className={`text-[11px] font-black uppercase tracking-tight ${side === 'h' ? 'text-blue-800' : side === 'a' ? 'text-orange-800' : 'text-slate-600'}`}>{type}</span><span className="text-[10px] font-bold text-slate-400">{Math.round(count/bagStats.value.total*100)}%</span></div>
+                                                        <div key={type} className="flex flex-col min-w-[60px]"><span className={`text-[11px] font-black uppercase tracking-tight ${side === 'h' ? 'text-blue-800' : side === 'a' ? 'text-orange-800' : 'text-slate-600'}`}>{type}</span><span className="text-[11px] text-slate-400">{Math.round(count/bagStats.value.total*100)}%</span></div>
                                                     ))}
                                                 </div>
                                             </div>
@@ -320,7 +327,7 @@ function StatRow({ label, h, a }: any) {
     const total = valH + valA || 1;
     return (
         <div className="flex flex-col gap-2">
-            <div className="flex justify-between text-[9px] font-black uppercase text-slate-400"><span>{h}</span><span>{label}</span><span>{a}</span></div>
+            <div className="flex justify-between text-[11px] uppercase text-slate-400"><span>{h}</span><span>{label}</span><span>{a}</span></div>
             <div className="w-full h-1.5 bg-slate-100 rounded-full flex overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(valH/total)*100}%` }} /><div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(valA/total)*100}%` }} /></div>
         </div>
     );
@@ -333,6 +340,7 @@ function PlayerColumn({ team, players, color }: any) {
         if (r >= 6.0) return 'bg-amber-500 text-white';
         return 'bg-rose-500 text-white';
     };
+    // Ajout de l'affichage de la fatigue si disponible dans le rating du joueur
     return (
         <div className="flex flex-col gap-1">
             <h4 className={`text-[10px] font-black uppercase text-${color}-600 mb-2 truncate`}>{team.name}</h4>
@@ -341,6 +349,9 @@ function PlayerColumn({ team, players, color }: any) {
                     <div className="flex flex-col">
                         <span className="text-[9px] font-bold text-slate-600 truncate max-w-[60px]">{p.name}</span>
                         {p.goals > 0 && <span className="text-[8px] text-emerald-500 font-black">⚽ {p.goals}</span>}
+                        {typeof p.fatigue === 'number' && (
+                          <span className="text-[8px] text-rose-500 font-black">Fatigue : {Math.round(p.fatigue)}%</span>
+                        )}
                     </div>
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${getRatingColor(p.rating)}`}>{p.rating.toFixed(1)}</span>
                 </div>

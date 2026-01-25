@@ -1,11 +1,35 @@
+// Définition pour la configuration des zones (utilisé dans ZONES_CONFIG)
+export interface ZoneDefinition {
+  allowedRoles: string[];
+  baseTokens: Partial<Token>[];
+  defenseMultiplier?: number;
+  errorChance?: number;
+}
+
+// Pour usage runtime (zone-manager)
+export interface ZoneData {
+  id: string;
+  baseTokens: Token[];
+  logic: {
+    defenseMultiplier: number;
+    errorChance: number;
+  };
+}
+export interface PlayerStats {
+  technical: number;
+  defense: number;
+  finishing: number;
+  endurance: number;
+  [key: string]: number;
+}
 export type TokenType = 
-  | 'PASS_SHORT' | 'PASS_LONG' | 'PASS_BACK' | 'PASS_SWITCH' | 'DRIBBLE' | 'DRIBBLE_LOST' | 'COMBO_PASS' | 'CROSS' | 'THROUGH_BALL' | 'KEY_PASS' | 'CUT_BACK'
-  | 'SHOOT_GOAL' | 'SHOOT_SAVED' | 'SHOOT_CORNER' | 'SHOOT_OFF_TARGET' | 'SHOOT_WOODWORK'
+  | 'PASS_SHORT' | 'PASS_LONG' | 'PASS_BACK' | 'PASS_SWITCH' | 'DRIBBLE' | 'COMBO_PASS' | 'CROSS' | 'THROUGH_BALL' | 'KEY_PASS' | 'CUT_BACK'
+  | 'SHOOT_GOAL' | 'SHOOT_SAVED' | 'SHOOT_CORNER' | 'SHOOT_OFF_TARGET' | 'SHOOT_WOODWORK' | 'SHOOT_SAVED_CORNER' | 'WOODWORK_OUT'
   | 'HEAD_PASS' | 'HEAD_SHOT' | 'REBOUND' | 'OWN_GOAL'
   | 'TACKLE' | 'INTERCEPT' | 'SAVE' | 'BLOCK' | 'CLEARANCE' | 'BALL_RECOVERY'
   | 'DUEL_WON' | 'DUEL_LOST' | 'PRESSING_SUCCESS'
   | 'PUNCH' | 'CLAIM' | 'SWEEPER_KEEPER'
-  | 'FATIGUE' | 'ERROR' | 'OFFSIDE' | 'FOUL' | 'YELLOW_CARD' | 'RED_CARD' | 'SECOND_YELLOW_CARD' | 'INJURY' | 'STRETCHER'
+  | 'FATIGUE' | 'ERROR' | 'OFFSIDE' | 'FOUL' | 'CARD' | 'FREE_KICK' | 'YELLOW_CARD' | 'RED_CARD' | 'SECOND_YELLOW_CARD' | 'INJURY' | 'STRETCHER'
   | 'CORNER_GOAL' | 'CORNER_CLEARED' | 'CORNER_SHORT' | 'CORNER_OVERCOOKED'
   | 'PENALTY_GOAL' | 'PENALTY_SAVED' | 'PENALTY_MISS'
   | 'GK_SHORT' | 'GK_LONG' | 'GK_BOULETTE'
@@ -27,38 +51,38 @@ export interface Token {
 }
 
 export interface TokenExecutionResult {
-    moveX: number;
-    moveY: number;
-    possessionChange: boolean;
-    isGoal: boolean;
-    isEvent: boolean;
-    eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
-    nextSituation?: MatchSituation;
-    logMessage: string;
-    customDuration?: number;
-    stats?: { 
-        xg?: number; 
-        isPass?: boolean; 
-        isSuccess?: boolean; 
-        isDuel?: boolean; 
-        isInterception?: boolean; 
-        isChanceCreated?: boolean; 
-        isAssist?: boolean;
-    };
+  moveX: number;
+  moveY: number;
+  isGoal: boolean;
+  isEvent: boolean;
+  eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
+  nextSituation?: MatchSituation;
+  logMessage: string;
+  customDuration?: number;
+  stats?: { 
+    xg?: number; 
+    isPass?: boolean; 
+    isSuccess?: boolean; 
+    isDuel?: boolean; 
+    isInterception?: boolean; 
+    isChanceCreated?: boolean; 
+    isAssist?: boolean;
+  };
 }
 
 export interface GridPosition { x: number; y: number; }
 
 export interface MatchLog {
-    time: number;
-    type: 'ACTION' | 'THINKING' | 'EVENT' | 'STAT' | 'START';
-    eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
-    text: string;
-    playerName?: string;
-    teamId?: number;
-    ballPosition?: GridPosition;
-    bag?: { type: TokenType, teamId: number }[];
-    drawnToken?: { type: TokenType, teamId: number };
-    statImpact?: any;
-    zoneInfluences?: Record<string, { homeAtk: number, homeDef: number, awayAtk: number, awayDef: number }>;
+  time: number;
+  type: 'ACTION' | 'THINKING' | 'EVENT' | 'STAT' | 'START';
+  eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
+  text: string;
+  playerName?: string;
+  teamId?: number;
+  possessionTeamId?: number; // Ajout : équipe réellement en possession après l'action
+  ballPosition?: GridPosition;
+  bag?: { type: TokenType, teamId: number }[];
+  drawnToken?: { type: TokenType, teamId: number };
+  statImpact?: any;
+  zoneInfluences?: Record<string, { homeAtk: number, homeDef: number, awayAtk: number, awayDef: number }>;
 }

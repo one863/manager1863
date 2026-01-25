@@ -6,10 +6,24 @@ import { validateOrThrow } from "@/core/validation/zod-utils";
 
 export const NewsService = {
 	async addNews(saveId: number, article: Omit<NewsArticle, "id" | "saveId" | "isRead">) {
+		// Log de debug pour traquer la catégorie brute
+		console.warn('[NewsService.addNews] Catégorie brute reçue :', article.category);
+		// Correction automatique de la catégorie
+		const allowed = ["MATCH", "TRANSFER", "CLUB", "LEAGUE"];
+		let category = article.category;
+		if (typeof category === "string") {
+			category = category.toUpperCase();
+			if (!allowed.includes(category)) {
+				category = "CLUB"; // fallback par défaut
+			}
+		} else {
+			// Si la catégorie n'est pas une string, fallback direct
+			category = "CLUB";
+		}
 		// Injecte isRead: false AVANT la validation Zod
 		const validatedArticle = validateOrThrow(
 			CreateNewsArticleSchema,
-			{ ...article, saveId, isRead: false },
+			{ ...article, category: String(category), saveId, isRead: false },
 			"NewsService.addNews",
 		);
 		return await db.news.add(validatedArticle);

@@ -49,7 +49,7 @@ export const ClubService = {
 				title: "TRAVAUX TERMINÉS",
 				content: `Les travaux au stade sont finis. Capacité : ${project.targetCapacity} places.`,
 				category: "CLUB",
-				isRead: false,
+				   // isRead supprimé, injecté automatiquement par NewsService.addNews
 				importance: 3,
 			});
 		}
@@ -123,7 +123,7 @@ export const ClubService = {
 		const finalUpdate = validateOrThrow(
 			UpdateTeamSchema,
 			{
-				budget: team.budget + weeklyBalance,
+				   budget: clamp(team.budget + weeklyBalance, 0, Infinity),
 				pendingIncome: 0,
 			},
 			"ClubService.processWeeklyFinances - budget update",
@@ -137,7 +137,7 @@ export const ClubService = {
 			title: "BILAN FINANCIER",
 			content: `[[badge:budget|BILAN HEBDOMADAIRE]]\n\nBilan de la semaine : \n- Recettes : M ${totalSponsorIncome + ticketIncome} \n- Salaires Staff : M ${totalStaffWage} \n- Salaires Joueurs : M ${totalPlayerWage} \n\nSolde : **M ${weeklyBalance}**`,
 			category: "CLUB",
-			isRead: false,
+			   // isRead supprimé, injecté automatiquement par NewsService.addNews
 			importance: 2,
 		});
 	},
@@ -156,7 +156,7 @@ export const ClubService = {
 				{
 					energy: clamp(player.energy + energyGain, 0, 100),
 					condition: clamp(player.condition + conditionGain, 0, 100),
-					morale: clamp(player.morale + (player.morale < 50 ? 1 : -1), 0, 100),
+					morale: Math.round(clamp(player.morale + (player.morale < 50 ? 1 : -1), 0, 100)),
 					...(isInjured && { injuryDays: player.injuryDays - 1 }),
 				},
 				"ClubService.processDailyPlayerUpdates",
@@ -171,7 +171,7 @@ export const ClubService = {
 					title: "RETOUR DE BLESSURE",
 					content: `${player.firstName} ${player.lastName} est de nouveau disponible.`,
 					category: "CLUB",
-					isRead: false,
+					   // isRead supprimé, injecté automatiquement par NewsService.addNews
 					importance: 1,
 				});
 			}
@@ -233,7 +233,7 @@ export const ClubService = {
 
 		await db.teams.update(teamId, {
 			stadiumUpgradeEndDay: currentDay + 30,
-			budget: team.budget - cost,
+			   budget: clamp(team.budget - cost, 0, Infinity),
 			stadiumProject: { type, targetCapacity: team.stadiumCapacity + 1000, targetName: customName || team.stadiumName }
 		});
 		return { success: true };

@@ -1,6 +1,6 @@
 # 🏟️ Consignes pour Gemini (IDX Project)
 - **Langue :** Parle moi en Français exclusivement dans le chat.
-- **Token-Save :** Gemini doit économiser le maximum de tokens dans ses Réponses qui doivent etre concises, avec des listes à puces. Pas de prose inutile.
+- **Token-Save :** L'IA Agent doit économiser le maximum de tokens dans ses Réponses qui doivent etre concises, avec des listes à puces. Pas de prose inutile.
 - **Code :** Ne pas afficher de gros blocs de code dans le chat. Préférer l'application directe via `write_file`.
 - **Initiatives :** Ne prend pas d'initiatives sauf pour corriger les bugs. Si c'est une évolution, demande moi d'abord. Ne supprime pas de fonctionnalités sans me demander.
 - **Educatif :** Sois patient avec moi pour m'aider à coder.

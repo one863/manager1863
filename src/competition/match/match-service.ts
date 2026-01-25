@@ -183,7 +183,13 @@ export const MatchService = {
 		await db.teams.update(teamId, teamUpdate);
 	},
 
-	async checkSeasonEnd(saveId: number, userLeagueId: number) {
+	/**
+	 * Vérifie la fin de saison et, si demandé, réinitialise les stats des équipes et génère les nouveaux matchs.
+	 * @param saveId
+	 * @param userLeagueId
+	 * @param resetStats Si true, reset les stats et génère les fixtures (début de nouvelle saison)
+	 */
+	async checkSeasonEnd(saveId: number, userLeagueId: number, resetStats = false) {
 		const totalMatches = await db.matches.where("leagueId").equals(userLeagueId).count();
 		const playedMatches = await db.matches.where("leagueId").equals(userLeagueId).and((m) => m.played).count();
 		if (totalMatches === 0 || totalMatches !== playedMatches) return false;
@@ -191,21 +197,23 @@ export const MatchService = {
 		if (!state) return false;
 		const allLeagues = await db.leagues.where("saveId").equals(saveId).toArray();
 		allLeagues.sort((a, b) => a.level - b.level);
-		for (const league of allLeagues) {
-			const teams = await db.teams.where("leagueId").equals(league.id!).toArray();
-			teams.sort((a, b) => (b.points || 0) - (a.points || 0) || (b.goalDifference || 0) - (a.goalDifference || 0));
-			for (let i = 0; i < teams.length; i++) {
-				const t = teams[i];
-				await db.history.add({ saveId, teamId: t.id!, seasonYear: state.season, leagueName: league.name, position: i + 1, points: t.points || 0, goalsFor: t.goalsFor || 0, goalsAgainst: t.goalsAgainst || 0 });
-			}
-		}
-		await db.matches.where("saveId").equals(saveId).delete();
-		for (const league of allLeagues) {
-			const currentTeams = await db.teams.where("leagueId").equals(league.id!).toArray();
-			const teamIds = currentTeams.map((t) => t.id!);
-			for (const t of currentTeams) await db.teams.update(t.id!, { points: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, wins: 0, draws: 0, losses: 0 });
-			await generateSeasonFixtures(saveId, league.id!, teamIds);
-		}
-		return true;
-	},
+		   for (const league of allLeagues) {
+			   const teams = await db.teams.where("leagueId").equals(league.id!).toArray();
+			   teams.sort((a, b) => (b.points || 0) - (a.points || 0) || (b.goalDifference || 0) - (a.goalDifference || 0));
+			   for (let i = 0; i < teams.length; i++) {
+				   const t = teams[i];
+				   await db.history.add({ saveId, teamId: t.id!, seasonYear: state.season, leagueName: league.name, position: i + 1, points: t.points || 0, goalsFor: t.goalsFor || 0, goalsAgainst: t.goalsAgainst || 0 });
+			   }
+		   }
+		   if (resetStats) {
+			   await db.matches.where("saveId").equals(saveId).delete();
+			   for (const league of allLeagues) {
+				   const currentTeams = await db.teams.where("leagueId").equals(league.id!).toArray();
+				   const teamIds = currentTeams.map((t) => t.id!);
+				   for (const t of currentTeams) await db.teams.update(t.id!, { points: 0, matchesPlayed: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, wins: 0, draws: 0, losses: 0 });
+				   await generateSeasonFixtures(saveId, league.id!, teamIds);
+			   }
+		   }
+		   return true;
+	   },
 };

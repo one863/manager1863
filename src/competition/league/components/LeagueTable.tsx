@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
 export default function LeagueTable({
 	initialLeagueId,
 	saveId,
+	currentDay,
 	onSelectTeam, 
-}: { initialLeagueId: number; saveId: number; onSelectTeam?: (id: number) => void }) {
+}: { initialLeagueId: number; saveId: number; currentDay: number; onSelectTeam?: (id: number) => void }) {
 	const { t } = useTranslation();
     const userTeamId = useGameStore((state) => state.userTeamId);
 	const [activeLeagueId, setActiveLeagueId] = useState(initialLeagueId);
@@ -43,7 +44,7 @@ export default function LeagueTable({
 				.where("leagueId")
 				.equals(activeLeagueId)
 				.toArray();
-			
+            
 			leagueTeams.sort((a, b) => {
 				const pointsDiff = (b.points || 0) - (a.points || 0);
 				if (pointsDiff !== 0) return pointsDiff;
@@ -54,7 +55,7 @@ export default function LeagueTable({
 			setTeams(leagueTeams);
 		};
 		loadTeams();
-	}, [activeLeagueId]);
+	}, [activeLeagueId, currentDay]);
 
     const handlePrevLeague = () => {
         const currentIndex = leagues.findIndex(l => l.id === activeLeagueId);

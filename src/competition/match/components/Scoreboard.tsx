@@ -1,4 +1,4 @@
-import type { Team } from "@/core/db/db";
+import type { Team } from "@/core/types";
 import { type Signal, useSignalEffect } from "@preact/signals";
 import { useSignal } from "@preact/signals";
 import { TeamCrest, getTeamColors } from "@/ui/components/Common/TeamCrest";
@@ -75,7 +75,7 @@ export default function Scoreboard({
 					<div className="flex flex-col items-start min-w-0 pr-1">
                         <div className="flex items-center gap-2 mb-1 w-full">
                             <div className="w-9 h-9 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100 shadow-sm overflow-hidden shrink-0">
-                                <TeamCrest primary={homeColors.primary} secondary={homeColors.secondary} name={homeTeam.name} size="xs" />
+								<TeamCrest primary={homeColors.primary} secondary={homeColors.secondary} name={homeTeam.name} size="sm" />
                             </div>
                             <span className="text-[13px] font-black text-gray-900 truncate uppercase leading-tight">{homeTeam.name}</span>
                         </div>
@@ -109,7 +109,7 @@ export default function Scoreboard({
                         <div className="flex items-center gap-2 mb-1 justify-end w-full">
                             <span className="text-[13px] font-black text-gray-900 truncate uppercase leading-tight text-right">{awayTeam.name}</span>
                             <div className="w-9 h-9 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100 shadow-sm overflow-hidden shrink-0">
-                                <TeamCrest primary={awayColors.primary} secondary={awayColors.secondary} name={awayTeam.name} size="xs" />
+								<TeamCrest primary={awayColors.primary} secondary={awayColors.secondary} name={awayTeam.name} size="sm" />
                             </div>
                         </div>
                         <div className="min-h-8 w-full">

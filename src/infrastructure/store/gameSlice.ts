@@ -149,6 +149,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 if (userTeam) {
                     const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId);
                     if (seasonEnded) {
+                        // On affiche le classement final, puis on reset au passage effectif à la nouvelle saison (voir ci-dessous)
+                        await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId, true);
                         await updateGameState(currentSaveId, userTeamId, 1, season + 1, nextDate);
                         set({ day: 1, season: season + 1, currentDate: nextDate, lastUpdate: Date.now() });
                     } else {
@@ -189,7 +191,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             if (userTeam) {
                 const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId);
-                if (seasonEnded) { finalDay = 1; finalSeason = season + 1; }
+                if (seasonEnded) {
+                    await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId, true);
+                    finalDay = 1; finalSeason = season + 1;
+                }
             }
 
             await updateGameState(currentSaveId, userTeamId, finalDay, finalSeason, nextDate);

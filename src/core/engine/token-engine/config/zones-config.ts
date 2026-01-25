@@ -17,30 +17,78 @@ export const ZONES_CONFIG: Record<string, ZoneDefinition> = {
     "3,4": { allowedRoles: ["DR", "MR"], baseTokens: [...sys('PASS_SHORT', 3), ...sys('PASS_LONG', 3), ...sys('DRIBBLE', 2), ...sys('INTERCEPT', 2)] },
 
     // --- AILES : Centres ---
-    "0,0": { allowedRoles: ["DL", "GK"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "1,0": { allowedRoles: ["DL", "ML"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "0,4": { allowedRoles: ["DR", "GK"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "1,4": { allowedRoles: ["DR", "MR"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "4,0": { allowedRoles: ["ML", "ST"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "5,0": { allowedRoles: ["ML", "ST"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "4,4": { allowedRoles: ["MR", "ST"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
-    "5,4": { allowedRoles: ["MR", "ST"], baseTokens: [...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3)] },
+    // Zones ailes : plus de centres, touches, interceptions, fautes/cartons/coups francs
+    "0,0": { allowedRoles: ["DL", "GK"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2),
+        ...sys('CROSS', 4), ...sys('THROW_IN_SAFE', 2),
+        ...sys('INTERCEPT', 3), ...sys('FOUL', 1), ...sys('CARD', 0.5), ...sys('FREE_KICK', 0.5)
+    ] },
+    "1,0": { allowedRoles: ["DL", "ML"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2),
+        ...sys('CROSS', 4), ...sys('THROW_IN_SAFE', 2),
+        ...sys('INTERCEPT', 3), ...sys('FOUL', 1), ...sys('CARD', 0.5), ...sys('FREE_KICK', 0.5)
+    ] },
+    "0,4": { allowedRoles: ["DR", "GK"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2),
+        ...sys('CROSS', 4), ...sys('THROW_IN_SAFE', 2),
+        ...sys('INTERCEPT', 3), ...sys('FOUL', 1), ...sys('CARD', 0.5), ...sys('FREE_KICK', 0.5)
+    ] },
+    "1,4": { allowedRoles: ["DR", "MR"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2),
+        ...sys('CROSS', 4), ...sys('THROW_IN_SAFE', 2),
+        ...sys('INTERCEPT', 3), ...sys('FOUL', 1), ...sys('CARD', 0.5), ...sys('FREE_KICK', 0.5)
+    ] },
+    "4,0": { allowedRoles: ["ML", "ST", "DL", "DC", "MC"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3),
+        ...sys('INTERCEPT', 2), ...sys('TACKLE', 1), ...sys('BLOCK', 1)
+    ] },
+    "5,0": { allowedRoles: ["ML", "ST", "DL", "DC", "MC"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3),
+        ...sys('INTERCEPT', 2), ...sys('TACKLE', 1), ...sys('BLOCK', 1)
+    ] },
+    "4,4": { allowedRoles: ["MR", "ST", "DR", "DC", "MC"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3),
+        ...sys('INTERCEPT', 2), ...sys('TACKLE', 1), ...sys('BLOCK', 1)
+    ] },
+    "5,4": { allowedRoles: ["MR", "ST", "DR", "DC", "MC"], baseTokens: [
+        ...sys('DRIBBLE', 3), ...sys('PASS_SHORT', 2), ...sys('PASS_BACK', 2), ...sys('CROSS', 3),
+        ...sys('INTERCEPT', 2), ...sys('TACKLE', 1), ...sys('BLOCK', 1)
+    ] },
 
     // --- ZONES DEVANT LA SURFACE ---
     "1,1": { allowedRoles: ["DC", "MC"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('CLEARANCE', 2), ...sys('INTERCEPT', 3)] },
     "1,2": { allowedRoles: ["DC", "GK"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('CLEARANCE', 2), ...sys('INTERCEPT', 3)] },
     "1,3": { allowedRoles: ["DC", "MC"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('CLEARANCE', 2), ...sys('INTERCEPT', 3)] },
-    "4,1": { allowedRoles: ["MC", "ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('CLEARANCE', 2), ...sys('INTERCEPT', 3)] },
-    "4,2": { allowedRoles: ["MC", "ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('CLEARANCE', 2), ...sys('INTERCEPT', 3)] },
-    "4,3": { allowedRoles: ["MC", "ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('CLEARANCE', 2), ...sys('INTERCEPT', 3)] },
+    "4,1": { allowedRoles: ["MC", "ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('INTERCEPT', 3)] },
+    "4,2": { allowedRoles: ["MC", "ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('INTERCEPT', 3)] },
+    "4,3": { allowedRoles: ["MC", "ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 4), ...sys('PASS_SHORT', 2), ...sys('INTERCEPT', 3)] },
 
     // --- SURFACES ---
-    "0,1": { allowedRoles: ["GK", "DC", "DL"], baseTokens: [...sys('SHOOT_OFF_TARGET', 5), ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 4)], defenseMultiplier: 2.0 },
-    "0,2": { allowedRoles: ["GK", "DC"], baseTokens: [...sys('SHOOT_OFF_TARGET', 5), ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 4)], defenseMultiplier: 1.8 },
-    "0,3": { allowedRoles: ["GK", "DC", "DR"], baseTokens: [...sys('SHOOT_OFF_TARGET', 5), ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 4)], defenseMultiplier: 2.0 },
-    "5,1": { allowedRoles: ["ST", "ML"], baseTokens: [...sys('SHOOT_OFF_TARGET', 5), ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 4)], defenseMultiplier: 2.0 },
-    "5,2": { allowedRoles: ["ST"], baseTokens: [...sys('SHOOT_OFF_TARGET', 5), ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 4)], defenseMultiplier: 1.8 },
-    "5,3": { allowedRoles: ["ST", "MR"], baseTokens: [...sys('SHOOT_OFF_TARGET', 5), ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 4)], defenseMultiplier: 2.0 },
+    // Zones de surface corrigées : autoriser attaquants ET défenseurs, et ajouter des jetons offensifs
+    "0,1": { allowedRoles: ["GK", "DC", "DL", "ST", "MC", "ML", "MR"], baseTokens: [
+        ...sys('SHOOT_GOAL', 2), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('SHOOT_OFF_TARGET', 3), ...sys('WOODWORK_OUT', 1),
+        ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('CLEARANCE', 3), ...sys('BLOCK', 2), ...sys('INTERCEPT', 2)
+    ], defenseMultiplier: 2.0 },
+    "0,2": { allowedRoles: ["GK", "DC", "ST", "MC", "ML", "MR"], baseTokens: [
+        ...sys('SHOOT_GOAL', 2), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('SHOOT_OFF_TARGET', 3), ...sys('WOODWORK_OUT', 1),
+        ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('CLEARANCE', 3), ...sys('BLOCK', 2), ...sys('INTERCEPT', 2)
+    ], defenseMultiplier: 1.8 },
+    "0,3": { allowedRoles: ["GK", "DC", "DR", "ST", "MC", "ML", "MR"], baseTokens: [
+        ...sys('SHOOT_GOAL', 2), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('SHOOT_OFF_TARGET', 3), ...sys('WOODWORK_OUT', 1),
+        ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('CLEARANCE', 3), ...sys('BLOCK', 2), ...sys('INTERCEPT', 2)
+    ], defenseMultiplier: 2.0 },
+    "5,1": { allowedRoles: ["ST", "ML", "GK", "DC", "DL", "MC", "MR"], baseTokens: [
+        ...sys('SHOOT_GOAL', 2), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('SHOOT_OFF_TARGET', 3), ...sys('WOODWORK_OUT', 1),
+        ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('CLEARANCE', 3), ...sys('BLOCK', 2), ...sys('INTERCEPT', 2)
+    ], defenseMultiplier: 2.0 },
+    "5,2": { allowedRoles: ["ST", "GK", "DC", "MC", "ML", "MR"], baseTokens: [
+        ...sys('SHOOT_GOAL', 2), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('SHOOT_OFF_TARGET', 3), ...sys('WOODWORK_OUT', 1),
+        ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('CLEARANCE', 3), ...sys('BLOCK', 2), ...sys('INTERCEPT', 2)
+    ], defenseMultiplier: 1.8 },
+    "5,3": { allowedRoles: ["ST", "MR", "GK", "DC", "DR", "MC", "ML"], baseTokens: [
+        ...sys('SHOOT_GOAL', 2), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('SHOOT_OFF_TARGET', 3), ...sys('WOODWORK_OUT', 1),
+        ...sys('TACKLE', 3), ...sys('SHOOT_SAVED', 1), ...sys('SHOOT_SAVED_CORNER', 1), ...sys('CLEARANCE', 3), ...sys('BLOCK', 2), ...sys('INTERCEPT', 2)
+    ], defenseMultiplier: 2.0 },
 };
 
 export const DEFAULT_ZONE_CONFIG: ZoneDefinition = {

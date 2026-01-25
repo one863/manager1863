@@ -45,3 +45,40 @@ Le composant `PlayerAvatar` est l'élément visuel le plus "vivant" de l'UI.
 * **Loading :** Skeleton screens (zones grises animées) respectant la forme des futures cartes.
 * **Transition :** Fondu enchaîné léger entre les onglets via Tailwind `transition-opacity`.
 * **Empty States :** Illustrations filaires grises quand une liste est vide (ex: "Aucun scout en mission").
+
+# Dimensions Officielles Terrain de Football (Normes FIFA Pro)
+
+Les dimensions ci-dessous correspondent aux exigences de la FIFA pour les matchs internationaux et professionnels.
+
+---
+
+## 1. Dimensions du Terrain
+Pour les compétitions de haut niveau, la FIFA impose des dimensions fixes.
+
+| Élément | Dimension |
+| :--- | :--- |
+| **Longueur (Ligne de touche)** | 105 m |
+| **Largeur (Ligne de but)** | 68 m |
+| **Surface totale** | 7 140 m² |
+
+---
+
+## 2. Marquages de la Surface de Réparation
+* **Surface de réparation :** 16,50 m de large (à l'intérieur du terrain) sur 40,32 m de long.
+* **Surface de but (5,5 m) :** 5,50 m de large sur 18,32 m de long.
+* **Point de penalty :** Situé à 11 m de la ligne de but.
+* **Rayon du cercle central :** 9,15 m.
+* **Arc de cercle (surface) :** Rayon de 9,15 m à partir du point de penalty.
+
+---
+
+## 3. Dimensions des Buts
+* **Largeur :** 7,32 m (entre les poteaux).
+* **Hauteur :** 2,44 m (sous la barre transversale).
+* **Épaisseur des poteaux :** Max 12 cm (doit être égale à la largeur de la ligne de but).
+
+---
+
+## 4. Zones de Dégagement (Sécurité)
+* **Derrière la ligne de but :** 5 m recommandés.
+* **Sur les côtés :** 3 m à 4 m recommandés.

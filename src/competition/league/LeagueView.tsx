@@ -112,6 +112,7 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 					<LeagueTable 
 						initialLeagueId={leagueId} 
 						saveId={Number(currentSaveId)} 
+						currentDay={currentDay}
 						onSelectTeam={onSelectTeam} 
 					/>
 				) : (

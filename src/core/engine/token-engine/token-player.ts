@@ -1,12 +1,13 @@
-import { Token, TokenType, GridPosition } from "./types";
+import { Token, TokenType, GridPosition, PlayerStats } from "./types";
 
 export class TokenPlayer {
   public id: number;
   public name: string;
   public teamId: number;
   public role: string;
-  public stats: any;
+  public stats: PlayerStats;
   public influence: { atk: number; def: number } = { atk: 1, def: 1 };
+  public fatigue: number = 0; // 0 = frais, 100 = épuisé
   public activeZones: string[] = [];
   public reachZones: string[] = [];
 
@@ -15,7 +16,13 @@ export class TokenPlayer {
     this.name = data.name;
     this.teamId = data.teamId;
     this.role = data.role || "MC";
-    this.stats = data.stats;
+    this.stats = {
+      technical: data.stats?.technical ?? 10,
+      defense: data.stats?.defense ?? 10,
+      finishing: data.stats?.finishing ?? 10,
+      endurance: data.stats?.endurance ?? 10,
+      ...data.stats
+    };
   }
 
   public setBaseInfluence(atk: number, def: number) {
@@ -38,48 +45,68 @@ export class TokenPlayer {
     const dist = Math.sqrt(Math.pow(ballX - centerX, 2) + Math.pow(ballY - centerY, 2));
     const factor = Math.max(0.2, 1.2 - dist * 0.2);
 
-    this.influence.atk = (this.stats.technical || 10) * factor;
-    this.influence.def = (this.stats.defense || 10) * factor;
+    // Influence réduite par la fatigue (exponentiel doux)
+    const fatigueFactor = 1 - Math.min(1, this.fatigue / 120);
+    this.influence.atk = (this.stats.technical || 10) * factor * fatigueFactor;
+    this.influence.def = (this.stats.defense || 10) * factor * fatigueFactor;
   }
 
-  public getOffensiveTokens(weight: number, pos: GridPosition): Token[] {
+  // Appeler cette méthode après chaque action impliquant le joueur
+  public applyFatigue(actionType: TokenType) {
+    // Barème simple, à ajuster selon le réalisme souhaité
+    let cost = 0.5; // coût de base
+    if (actionType.startsWith('DRIBBLE')) cost = 1.5;
+    else if (actionType.startsWith('SHOOT')) cost = 2.0;
+    else if (actionType === 'TACKLE' || actionType === 'INTERCEPT') cost = 1.2;
+    else if (actionType === 'SPRINT') cost = 2.5;
+    // Plus d'autres cas si besoin
+
+    // L'endurance réduit l'accumulation de fatigue
+    const endurance = this.stats.endurance || 10;
+    this.fatigue += cost * (12 / Math.max(5, endurance));
+    // Clamp
+    if (this.fatigue > 100) this.fatigue = 100;
+  }
+
+  // Récupération de fatigue (ex: à la mi-temps ou lors d'arrêts)
+  public recoverFatigue(amount: number = 5) {
+    this.fatigue = Math.max(0, this.fatigue - amount);
+  }
+
+  public getOffensiveTokens(weight: number, pos: GridPosition, homeTeamId: number, awayTeamId: number): Token[] {
     const tokens: Token[] = [];
     const tech = this.influence.atk * weight;
     const finishing = (this.stats.finishing || 10) * weight;
-    
-    // Déduction du camp adverse
-    const isHomeTeam = this.teamId === 1; // Hypothèse simplifiée
+    // Correction : déterminer la direction cible selon l'ID d'équipe
+    const isHomeTeam = this.teamId === homeTeamId;
     const targetX = isHomeTeam ? 5 : 0;
     const isInFinalThird = Math.abs(targetX - pos.x) <= 1;
 
     // 1. DILUTION MASSIVE (Standard Opta)
     // On multiplie les passes pour réduire le poids relatif des tirs/buts
-    const shortCount = Math.max(5, Math.round(tech * 1.5)); // ~30 jetons pour tech=20
-    const backCount = Math.max(2, Math.round(tech / 4));
-    
+    const shortCount = Math.min(10, Math.max(3, Math.round(tech * 1.0)));
+    const backCount = Math.min(3, Math.max(1, Math.round(tech / 5)));
     for (let i = 0; i < shortCount; i++) tokens.push(this.createToken('PASS_SHORT', 10));
     for (let i = 0; i < backCount; i++) tokens.push(this.createToken('PASS_BACK', 8));
 
     if (!isInFinalThird) {
-        const longCount = Math.max(1, Math.round(tech / 4));
-        for (let i = 0; i < longCount; i++) tokens.push(this.createToken('PASS_LONG', 12));
+      const longCount = Math.min(3, Math.max(1, Math.round(tech / 6)));
+      for (let i = 0; i < longCount; i++) tokens.push(this.createToken('PASS_LONG', 12));
     }
 
     // 2. DRIBBLES (Risque/Récompense)
-    const dribbleCount = Math.max(0, Math.round(tech / 8));
+    const dribbleCount = Math.min(3, Math.max(0, Math.round(tech / 10)));
     for (let i = 0; i < dribbleCount; i++) {
-        tokens.push(this.createToken('DRIBBLE', 15));
-        tokens.push(this.createToken('DRIBBLE_LOST', 10)); 
+      tokens.push(this.createToken('DRIBBLE', 15));
     }
-    
+
     // 3. TIRS (Loi de la Finition Équilibrée)
     if (isInFinalThird && finishing > 5) {
-        // Pour 1 but, on veut statistiquement beaucoup plus de tirs ratés ou arrêtés
-        tokens.push(this.createToken('SHOOT_GOAL', 20));       // 1 jeton BUT
-        for(let i=0; i<4; i++) tokens.push(this.createToken('SHOOT_SAVED', 15)); // 4 jetons ARRÊT
-        for(let i=0; i<8; i++) tokens.push(this.createToken('SHOOT_OFF_TARGET', 10)); // 8 jetons RATÉ
+      tokens.push(this.createToken('SHOOT_GOAL', 20));
+      for(let i=0; i<2; i++) tokens.push(this.createToken('SHOOT_SAVED', 15));
+      for(let i=0; i<4; i++) tokens.push(this.createToken('SHOOT_OFF_TARGET', 10));
     }
-    
+
     return tokens;
   }
 
