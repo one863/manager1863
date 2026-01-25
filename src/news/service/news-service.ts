@@ -1,11 +1,18 @@
 import { getNarrative } from "@/core/generators/narratives";
 import { type NewsArticle, db } from "@/core/db/db";
 import { getRandomElement, probability, clamp } from "@/core/utils/math";
+import { CreateNewsArticleSchema } from "@/core/domain";
+import { validateOrThrow } from "@/core/validation/zod-utils";
 
 export const NewsService = {
 	async addNews(saveId: number, article: Omit<NewsArticle, "id" | "saveId" | "isRead">) {
-		const newsItem: NewsArticle = { ...article, saveId, isRead: false };
-		return await db.news.add(newsItem);
+		// Injecte isRead: false AVANT la validation Zod
+		const validatedArticle = validateOrThrow(
+			CreateNewsArticleSchema,
+			{ ...article, saveId, isRead: false },
+			"NewsService.addNews",
+		);
+		return await db.news.add(validatedArticle);
 	},
 
 	async getLatestNews(saveId: number, limit = 5, currentDay?: number) {
@@ -88,13 +95,13 @@ export const NewsService = {
                     await db.players.update(p.id!, { morale: clamp(p.morale + 2, 0, 100) });
                 }
 
-				await this.addNews(saveId, {
-					day, date,
-					title: narrative.title || "Jour de Match",
-					content: narrative.content + "\n\n[[badge:positive|+2% Moral d'équipe]]",
-					type: "PRESS",
-					importance: 2
-				});
+				   await this.addNews(saveId, {
+					   day, date,
+					   title: narrative.title || "Jour de Match",
+					   content: narrative.content + "\n\n[[badge:positive|+2% Moral d'équipe]]",
+					   category: "MATCH",
+					   importance: 2
+				   });
 			}
 		}
 	},
@@ -114,13 +121,13 @@ export const NewsService = {
             morale: clamp(bestPlayer.morale + 10, 0, 100)
         });
 
-		await this.addNews(saveId, {
-			day, date,
-			title: narrative.title || "Point Entraînement",
-			content: narrative.content + `\n\n[[badge:positive|+0.5 Forme]] [[badge:positive|+10 Moral]] pour **${bestPlayer.lastName}**`,
-			type: "CLUB",
-			importance: 1
-		});
+		   await this.addNews(saveId, {
+			   day, date,
+			   title: narrative.title || "Point Entraînement",
+			   content: narrative.content + `\n\n[[badge:positive|+0.5 Forme]] [[badge:positive|+10 Moral]] pour **${bestPlayer.lastName}**`,
+			   category: "CLUB",
+			   importance: 1
+		   });
 	},
 
 	async generateRandomEvent(saveId: number, day: number, date: Date, teamId: number) {
@@ -184,13 +191,13 @@ export const NewsService = {
             }
         }
 
-		await this.addNews(saveId, {
-			day, date,
-			title,
-			content,
-			type: "CLUB",
-			importance
-		});
+		   await this.addNews(saveId, {
+			   day, date,
+			   title,
+			   content,
+			   category: "CLUB",
+			   importance
+		   });
 	},
 
 	async generateMatchNews(saveId: number, date: Date, homeTeamId: number, awayTeamId: number, homeScore: number, awayScore: number) {
@@ -222,14 +229,14 @@ export const NewsService = {
 			stadium: homeT.stadiumName || "le stade",
 		});
 
-		await this.addNews(saveId, {
-			day: state?.day || 0,
-			date,
-			title: narrative.title || "Résultat du match",
-			content: narrative.content,
-			type: "PRESS",
-			importance: isWin ? 2 : 1,
-		});
+		   await this.addNews(saveId, {
+			   day: state?.day || 0,
+			   date,
+			   title: narrative.title || "Résultat du match",
+			   content: narrative.content,
+			   category: "MATCH",
+			   importance: isWin ? 2 : 1,
+		   });
 	},
 
 	async generateSundayBoardReport(saveId: number, date: Date, teamId: number, forcedDay?: number) {
@@ -240,6 +247,6 @@ export const NewsService = {
 		const pos = teams.findIndex((t) => t.id === teamId) + 1;
 		const state = await db.gameState.where("saveId").equals(saveId).first();
 		const narrative = getNarrative("board", "sundayReport", { position: pos, budget: team.budget, confidence: team.confidence, team: `[[team:${teamId}|${team.name}]]`, goal: team.seasonGoal || "Non défini" });
-		await this.addNews(saveId, { day: forcedDay || state?.day || 0, date, title: narrative.title || "Bilan du Conseil d'Administration", content: narrative.content + `\n\n[[badge:budget|M ${team.budget} Budget]] [[badge:positive|${team.confidence}% Confiance]]`, type: "BOARD", importance: 2 });
+		await this.addNews(saveId, { day: forcedDay || state?.day || 0, date, title: narrative.title || "Bilan du Conseil d'Administration", content: narrative.content + `\n\n[[badge:budget|M ${team.budget} Budget]] [[badge:positive|${team.confidence}% Confiance]]`, category: "CLUB", importance: 2 });
 	},
 };

@@ -2,6 +2,8 @@ import { db } from "@/core/db/db";
 import { clamp, randomInt } from "@/core/utils/math";
 import { NewsService } from "@/news/service/news-service";
 import type { Sponsor } from "@/core/types";
+import { UpdatePlayerSchema, UpdateTeamSchema } from "@/core/domain";
+import { validateOrThrow } from "@/core/validation/zod-utils";
 
 export const ClubService = {
 	async processDailyUpdates(
@@ -21,20 +23,23 @@ export const ClubService = {
 			team.stadiumUpgradeEndDay <= currentDay &&
 			team.stadiumProject
 		) {
-			const project = team.stadiumProject;
-			const updateData: any = {
-				stadiumUpgradeEndDay: undefined,
-				stadiumProject: undefined,
-			};
-
-			if (project.type === "UPGRADE") {
-				updateData.stadiumLevel = (team.stadiumLevel || 1) + 1;
-				updateData.stadiumCapacity = project.targetCapacity;
-			} else if (project.type === "NEW_STADIUM") {
-				updateData.stadiumLevel = 1;
-				updateData.stadiumCapacity = project.targetCapacity;
-				updateData.stadiumName = project.targetName;
-			}
+			const updateData = validateOrThrow(
+				UpdateTeamSchema,
+				{
+					stadiumUpgradeEndDay: undefined,
+					stadiumProject: undefined,
+					...(project.type === "UPGRADE" && {
+						stadiumLevel: (team.stadiumLevel || 1) + 1,
+						stadiumCapacity: project.targetCapacity,
+					}),
+					...(project.type === "NEW_STADIUM" && {
+						stadiumLevel: 1,
+						stadiumCapacity: project.targetCapacity,
+						stadiumName: project.targetName,
+					}),
+				},
+				"ClubService.processDailyUpdates - stadium project",
+			);
 
 			await db.teams.update(teamId, updateData);
 
@@ -43,7 +48,8 @@ export const ClubService = {
 				date: currentDate,
 				title: "TRAVAUX TERMINÉS",
 				content: `Les travaux au stade sont finis. Capacité : ${project.targetCapacity} places.`,
-				type: "CLUB",
+				category: "CLUB",
+				isRead: false,
 				importance: 3,
 			});
 		}
@@ -103,23 +109,35 @@ export const ClubService = {
 		});
 
 		if (activeSponsors.length !== currentSponsors.length) {
-			await db.teams.update(teamId, { sponsors: activeSponsors });
+			const teamUpdate = validateOrThrow(
+				UpdateTeamSchema,
+				{ sponsors: activeSponsors },
+				"ClubService.processWeeklyFinances - sponsors cleanup",
+			);
+			await db.teams.update(teamId, teamUpdate);
 		}
 
 		const ticketIncome = team.pendingIncome || 0;
 		const weeklyBalance = totalSponsorIncome + ticketIncome - totalWage;
 
-		await db.teams.update(teamId, { 
-			budget: team.budget + weeklyBalance,
-			pendingIncome: 0
-		});
+		const finalUpdate = validateOrThrow(
+			UpdateTeamSchema,
+			{
+				budget: team.budget + weeklyBalance,
+				pendingIncome: 0,
+			},
+			"ClubService.processWeeklyFinances - budget update",
+		);
+
+		await db.teams.update(teamId, finalUpdate);
 
 		await NewsService.addNews(saveId, {
 			day,
 			date,
 			title: "BILAN FINANCIER",
 			content: `[[badge:budget|BILAN HEBDOMADAIRE]]\n\nBilan de la semaine : \n- Recettes : M ${totalSponsorIncome + ticketIncome} \n- Salaires Staff : M ${totalStaffWage} \n- Salaires Joueurs : M ${totalPlayerWage} \n\nSolde : **M ${weeklyBalance}**`,
-			type: "CLUB",
+			category: "CLUB",
+			isRead: false,
 			importance: 2,
 		});
 	},
@@ -128,32 +146,35 @@ export const ClubService = {
 		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
 		for (const player of players) {
 			const isInjured = player.injuryDays > 0;
-			
+
 			// Si blessé, récupération BEAUCOUP plus lente (ou nulle)
 			const energyGain = isInjured ? 1 : 5;
-			const conditionGain = isInjured ? 0.2 : 2; 
+			const conditionGain = isInjured ? 0.2 : 2;
 
-			const updateData: any = {
-				energy: clamp(player.energy + energyGain, 0, 100),
-				condition: clamp(player.condition + conditionGain, 0, 100),
-				morale: clamp(player.morale + (player.morale < 50 ? 1 : -1), 0, 100)
-			};
-
-			if (isInjured) {
-				updateData.injuryDays = player.injuryDays - 1;
-				if (updateData.injuryDays === 0) {
-					await NewsService.addNews(saveId, {
-						day,
-						date,
-						title: "RETOUR DE BLESSURE",
-						content: `${player.firstName} ${player.lastName} est de nouveau disponible.`,
-						type: "CLUB",
-						importance: 1,
-					});
-				}
-			}
+			const updateData = validateOrThrow(
+				UpdatePlayerSchema,
+				{
+					energy: clamp(player.energy + energyGain, 0, 100),
+					condition: clamp(player.condition + conditionGain, 0, 100),
+					morale: clamp(player.morale + (player.morale < 50 ? 1 : -1), 0, 100),
+					...(isInjured && { injuryDays: player.injuryDays - 1 }),
+				},
+				"ClubService.processDailyPlayerUpdates",
+			);
 
 			await db.players.update(player.id!, updateData);
+
+			if (isInjured && updateData.injuryDays === 0) {
+				await NewsService.addNews(saveId, {
+					day,
+					date,
+					title: "RETOUR DE BLESSURE",
+					content: `${player.firstName} ${player.lastName} est de nouveau disponible.`,
+					category: "CLUB",
+					isRead: false,
+					importance: 1,
+				});
+			}
 		}
 	},
 
@@ -163,7 +184,7 @@ export const ClubService = {
 		const isWin = myScore > oppScore;
 		const goalDiff = myScore - oppScore;
 
-		const repChange = isWin ? 1 + clamp(goalDiff, 0, 3) : (myScore === oppScore ? 0 : -1);
+		const repChange = isWin ? 1 + clamp(goalDiff, 0, 3) : myScore === oppScore ? 0 : -1;
 		const newReputation = clamp(team.reputation + repChange, 1, 100);
 
 		let ticketIncome = 0;
@@ -172,11 +193,17 @@ export const ClubService = {
 			ticketIncome = Math.round(attendance * (0.15 + team.reputation / 1000));
 		}
 
-		await db.teams.update(teamId, {
-			reputation: newReputation,
-			confidence: clamp(team.confidence + (isWin ? 5 : -5), 0, 100),
-			pendingIncome: (team.pendingIncome || 0) + ticketIncome,
-		});
+		const teamUpdate = validateOrThrow(
+			UpdateTeamSchema,
+			{
+				reputation: newReputation,
+				confidence: clamp(team.confidence + (isWin ? 5 : -5), 0, 100),
+				pendingIncome: (team.pendingIncome || 0) + ticketIncome,
+			},
+			"ClubService.updateDynamicsAfterMatch",
+		);
+
+		await db.teams.update(teamId, teamUpdate);
 
 		// Decrement suspensions for THIS team
 		await this.processSuspensions(saveId, teamId);
@@ -188,9 +215,12 @@ export const ClubService = {
 		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
 		for (const player of players) {
 			if (player.suspensionMatches > 0) {
-				await db.players.update(player.id!, {
-					suspensionMatches: player.suspensionMatches - 1
-				});
+				const playerUpdate = validateOrThrow(
+					UpdatePlayerSchema,
+					{ suspensionMatches: player.suspensionMatches - 1 },
+					"ClubService.processSuspensions",
+				);
+				await db.players.update(player.id!, playerUpdate);
 			}
 		}
 	},

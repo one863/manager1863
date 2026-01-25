@@ -30,26 +30,26 @@ function generateSimplifiedStats(role: string, baseSkill: number) {
 	return stats;
 }
 
+
 export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial<Player> {
-    let role = forcedRole || getRandomElement(VALID_ROLES);
-    if (role === "DEF") role = "DC";
-    if (role === "MID") role = "MC";
-    if (role === "FWD") role = "ST";
+	let role = forcedRole || getRandomElement(VALID_ROLES);
+	if (role === "DEF") role = "DC";
+	if (role === "MID") role = "MC";
+	if (role === "FWD") role = "ST";
 
 	const age = randomInt(16, 36);
 	const stats = generateSimplifiedStats(role, targetAvgSkill);
-    
-    // Calcul de la note moyenne (Skill)
+	// Calcul de la note moyenne (Skill)
 	const skill = Object.values(stats).reduce((a: any, b: any) => Number(a) + Number(b), 0) / 6;
 
-    // --- LOGIQUE DE POTENTIEL ---
-    let potentialBonus = Math.random() * 4 + 1; // Standard: +1 à +5 points
-    const randCrack = Math.random();
-    if (randCrack > 0.9) potentialBonus += 4; // Crack: +5 à +9 points
-    else if (age > 30) potentialBonus = Math.max(0, potentialBonus - 3); // Déclin après 30 ans
-    
-    const potential = clamp(skill + potentialBonus, skill, 20);
+	// --- LOGIQUE DE POTENTIEL ---
+	let potentialBonus = Math.random() * 4 + 1; // Standard: +1 à +5 points
+	const randCrack = Math.random();
+	if (randCrack > 0.9) potentialBonus += 4; // Crack: +5 à +9 points
+	else if (age > 30) potentialBonus = Math.max(0, potentialBonus - 3); // Déclin après 30 ans
+	const potential = clamp(skill + potentialBonus, skill, 20);
 
+	// Champs obligatoires pour conformité Zod
 	return {
 		firstName: getRandomElement(FIRST_NAMES),
 		lastName: getRandomElement(LAST_NAMES),
@@ -61,13 +61,20 @@ export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial
 		potential,
 		stats,
 		energy: 100,
-		morale: 60 + Math.random() * 30, // Confiance initiale aléatoire (60-90)
+		morale: Math.floor(60 + Math.random() * 31), // 60-90, entier
 		condition: 100,
 		marketValue: Math.round(Math.pow(skill, 2.7) * 1000 + (potential - skill) * 500),
 		wage: Math.round(Math.pow(skill, 2) * 10),
-        dna: "0-0-0-0-0",
+		dna: "0-0-0-0-0",
 		traits: [],
-		seasonStats: { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 }
+		seasonStats: { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 },
+		isStarter: false,
+		playedThisWeek: false,
+		lastRatings: [],
+		joinedDay: 1,
+		joinedSeason: 1,
+		injuryDays: 0,
+		suspensionMatches: 0,
 	};
 }
 

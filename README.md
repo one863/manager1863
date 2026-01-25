@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**1863 Football Manager** is a retro-style football management simulation game designed for mobile devices (via Capacitor) and web browsers.
+**1863 Football Manager** is a football management simulation game designed for mobile devices PWA (via Capacitor) and web browsers.
 
 The "1863" brand evokes the heritage of football, referencing the year the Football Association was founded, though the game itself is set in a modern simulation environment with fictional leagues and players.
 

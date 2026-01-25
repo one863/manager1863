@@ -10,10 +10,9 @@ export class ZoneManager {
 
     private initializeZones() {
         for (let x = 0; x < 6; x++) {
-            for (let y = 0; y < 5; y++) {
+            for (let y = 0; y < 5; y++) { // 5 lignes pour correspondre à la config des zones
                 const id = `${x},${y}`;
                 const config = ZONES_CONFIG[id] || DEFAULT_ZONE_CONFIG;
-                
                 this.zones.set(id, {
                     id,
                     baseTokens: this.mapConfigToTokens(id, config.baseTokens),

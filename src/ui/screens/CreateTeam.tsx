@@ -1,5 +1,6 @@
 import { db } from "@/core/db/db";
 import { generateWorld } from "@/core/generators/world-generator";
+import { generateSeasonFixtures } from "@/core/generators/league-templates";
 import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { ArrowLeft, Check, Globe, Shield, User, RefreshCw } from "lucide-preact";
 import { useState, useMemo, useCallback } from "preact/hooks";
@@ -57,26 +58,53 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 				season: 1,
 			});
 
-			const { userTeamId } = await generateWorld(saveId as number, trimmedTeamName);
-			await db.teams.update(userTeamId, {
-				primaryColor,
-				secondaryColor,
-				colors: [primaryColor, secondaryColor],
-                // @ts-ignore
-                logoType: logoType
+			// Génération du monde (en mémoire)
+			const { leagues, teams, players, staff, userTeamId } = await generateWorld(saveId as number, trimmedTeamName);
+
+
+			// Transaction Dexie pour insérer toutes les entités et générer les matchs
+			await db.transaction('rw', [db.leagues, db.teams, db.players, db.staff, db.gameState, db.matches], async () => {
+				if (leagues.length > 0) await db.leagues.bulkAdd(leagues);
+				if (teams.length > 0) await db.teams.bulkAdd(teams);
+				if (players.length > 0) await db.players.bulkAdd(players);
+				if (staff.length > 0) await db.staff.bulkAdd(staff);
+
+				// Génération des matchs pour chaque ligue (attente de toutes les promesses)
+				const fixturePromises = leagues.map(league => {
+					const leagueTeams = teams.filter(t => t.leagueId === league.id).map(t => t.id);
+					return generateSeasonFixtures(saveId as number, league.id, leagueTeams);
+				});
+				await Promise.all(fixturePromises);
+
+				// DEBUG: Vérification des matchs insérés
+				const insertedMatches = await db.matches.where("saveId").equals(saveId as number).toArray();
+				// eslint-disable-next-line no-console
+				console.log(`[DEBUG] ${insertedMatches.length} matchs insérés pour la partie ${saveId}`, insertedMatches.slice(0, 5));
+
+				// Mise à jour des couleurs/logo de l'équipe utilisateur
+				await db.teams.update(userTeamId, {
+					primaryColor,
+					secondaryColor,
+					colors: [primaryColor, secondaryColor],
+					// @ts-ignore
+					logoType: logoType
+				});
+
+				// Ajout de l'état de jeu initial
+				const startDate = new Date();
+				await db.gameState.add({
+					saveId: saveId as number,
+					currentDate: startDate,
+					season: 1,
+					day: 1,
+					userTeamId,
+					isGameOver: false,
+					version: 1
+				});
 			});
 
+			// Initialisation du store et passage à la suite
 			const startDate = new Date();
-			await db.gameState.add({
-				saveId: saveId as number,
-				currentDate: startDate,
-				season: 1,
-				day: 1,
-				userTeamId,
-				isGameOver: false,
-                version: 1
-			});
-
 			await initializeGame(saveId as number, startDate, userTeamId, managerFullName, trimmedTeamName);
 			onGameCreated();
 		} catch (e) {

@@ -53,7 +53,11 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 					teamsMap[t.id!] = t;
 				});
 				setTeamsData(teamsMap);
-				
+
+				// DEBUG: Afficher les matchs récupérés et le mapping par round
+				// eslint-disable-next-line no-console
+				console.log('[DEBUG LeagueView] leagueMatches:', leagueMatches);
+
 				// Grouper par journée
 				const rounds: Record<number, any[]> = {};
 				let highestRound = 1;
@@ -63,7 +67,10 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
 					rounds[roundNum].push(m);
 					if (roundNum > highestRound) highestRound = roundNum;
 				});
-				
+
+				// eslint-disable-next-line no-console
+				console.log('[DEBUG LeagueView] rounds:', rounds);
+
 				setMatchesByRound(rounds);
 				setMaxRound(highestRound);
 

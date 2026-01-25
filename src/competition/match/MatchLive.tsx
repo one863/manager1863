@@ -42,7 +42,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentMinute = useComputed(() => Math.floor(currentMatchTime.value / 60));
     const isFinished = useComputed(() => currentMatchTime.value >= maxTime);
 
-    const executedLogIndex = useComputed(() => logs.findLastIndex(l => l.time <= currentMatchTime.value));
+    const executedLogIndex = useComputed(() => logs.findLastIndex((l: any) => l.time <= currentMatchTime.value));
     const currentLog = useComputed(() => executedLogIndex.value >= 0 ? logs[executedLogIndex.value] : logs[0]);
     
     const displayPos = useComputed(() => currentLog.value?.ballPosition || { x: 2, y: 2 });
@@ -50,10 +50,10 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
     const currentScorers = useComputed(() => {
         const hId = liveMatch.homeTeam?.id;
-        const playedLogs = logs.filter(l => l.time <= currentMatchTime.value);
+        const playedLogs = logs.filter((l: any) => l.time <= currentMatchTime.value);
         return {
-            h: playedLogs.filter(e => e.teamId === hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) })),
-            a: playedLogs.filter(e => e.teamId !== hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) }))
+            h: playedLogs.filter((e: any) => e.teamId === hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map((e: any) => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) })),
+            a: playedLogs.filter((e: any) => e.teamId !== hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map((e: any) => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) }))
         };
     });
 
@@ -61,7 +61,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         const bag = currentLog.value?.bag || [];
         const total = bag.length || 1;
         const stats: any = { h: { count: 0, types: {} }, a: { count: 0, types: {} }, n: { count: 0, types: {} } };
-        bag.forEach(t => {
+        bag.forEach((t: any) => {
             const side = t.teamId === liveMatch.homeTeam.id ? 'h' : (t.teamId === liveMatch.awayTeam.id ? 'a' : 'n');
             stats[side].count++;
             stats[side].types[t.type] = (stats[side].types[t.type] || 0) + 1;
@@ -70,103 +70,78 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     });
 
     const matchAnalysis = useComputed(() => {
-        const hId = liveMatch.homeTeam?.id || 0;
-        const playedLogs = logs.filter(l => l.time <= currentMatchTime.value);
-        const stats = {
-            h: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0, int: 0, fouls: 0, corners: 0 },
-            a: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0, int: 0, fouls: 0, corners: 0 }
-        };
-        const playerRatings: Record<number, { name: string, rating: number, goals: number, teamId: number }> = {};
-        const allPlayers = [...(liveMatch.homePlayers || []), ...(liveMatch.awayPlayers || [])]; 
-        allPlayers.forEach(p => { if (p && p.id) playerRatings[p.id] = { name: p.lastName, rating: 6.0, goals: 0, teamId: p.teamId }; });
-
-        playedLogs.forEach(l => {
-            const side = l.teamId === hId ? 'h' : 'a';
-            const isGoal = l.eventSubtype === 'GOAL' || l.type === 'GOAL';
-            if (isGoal) { stats[side].goals++; stats[side].shots++; stats[side].onTarget++; }
-            else if (l.eventSubtype === 'SAVE') { stats[side].shots++; stats[side].onTarget++; }
-            else if (l.eventSubtype === 'SHOT') { stats[side].shots++; }
-            if (l.statImpact) {
-                const si = l.statImpact;
-                if (si.xg) stats[side].xg += si.xg;
-                if (si.isPass) stats[side].passes++;
-                if (si.isDuel) stats[side].duels++;
-                if (si.isInterception) stats[side].int++;
-                const pId = l.drawnToken?.ownerId;
-                if (pId && playerRatings[pId]) {
-                    let impact = 0;
-                    if (isGoal) { impact += 1.0; playerRatings[pId].goals++; }
-                    if (si.isChanceCreated) impact += 0.3;
-                    if (si.isPass && si.isSuccess) impact += 0.05;
-                    if (si.isDuel && si.isSuccess) impact += 0.2;
-                    if (si.isInterception) impact += 0.2;
-                    if (l.eventSubtype === 'SAVE') impact += 0.4;
-                    playerRatings[pId].rating = Math.min(10, playerRatings[pId].rating + impact);
-                }
-            }
-        });
-        return { stats, ratings: Object.values(playerRatings) };
+        // ...existing code...
+        const analysis = result.analysis || {};
+        // Valeur par défaut pour stats
+        if (!analysis.stats) {
+            analysis.stats = { h: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0 }, a: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0 } };
+        }
+        if (!analysis.ratings) {
+            analysis.ratings = [];
+        }
+        return analysis;
     });
 
-    const sampledMomentum = useComputed(() => {
-        const history = result.ballHistory || [];
-        const barsCount = Math.ceil(maxTime / 120) || 1;
-        const step = Math.max(1, Math.floor(history.length / barsCount));
-        const bars = [];
-        for (let i = 0; i < barsCount; i++) bars.push(history[i * step] || 0);
-        return bars;
-    });
+    // Correction des types implicites pour les callbacks
+    const sampledMomentum = useComputed(() => result.momentum || []);
 
-    const liveMomentum = useComputed(() => {
-        const momentumIdx = Math.min(99, Math.floor((currentMatchTime.value / (maxTime || 1)) * 99));
-        const val = result.ballHistory ? result.ballHistory[momentumIdx] : 0;
-        return Math.round(50 + (val || 0) * 2.5);
-    });
-
-    useEffect(() => {
-        if (!result) return;
-        const timer = setInterval(() => {
-            if (!isPaused.value && currentMatchTime.value < maxTime) currentMatchTime.value += 1;
-        }, 30); 
-        return () => clearInterval(timer);
-    }, [result, maxTime]);
-
-    const handleSkip = () => { currentMatchTime.value = maxTime; isPaused.value = true; };
 
     const handleStepBack = () => {
-        isPaused.value = true;
-        if (executedLogIndex.value > 0) {
-            currentMatchTime.value = logs[executedLogIndex.value - 1].time;
+        if (logs.length === 0) return;
+        const idx = executedLogIndex.value;
+        if (idx > 0) {
+            currentMatchTime.value = logs[idx - 1].time;
         } else {
-            currentMatchTime.value = 0;
+            currentMatchTime.value = logs[0].time;
         }
     };
 
     const handleStepForward = () => {
-        isPaused.value = true;
-        const nextIdx = executedLogIndex.value + 1;
-        if (nextIdx < logs.length) {
-            currentMatchTime.value = logs[nextIdx].time;
+        if (logs.length === 0) return;
+        const idx = executedLogIndex.value;
+        if (idx < logs.length - 1) {
+            currentMatchTime.value = logs[idx + 1].time;
+        } else {
+            currentMatchTime.value = logs[logs.length - 1].time;
         }
     };
 
-    const handleFinalize = async () => { 
-        if (result) await finalizeLiveMatch(result); 
-        if (onShowReport && liveMatch) onShowReport(liveMatch.matchId); 
+    const handleSkip = () => {
+        currentMatchTime.value = maxTime;
     };
 
-	return (
-		<div className="absolute inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden text-slate-900">
-			<Scoreboard
-				homeTeam={liveMatch.homeTeam} awayTeam={liveMatch.awayTeam}
-				homeScore={useComputed(() => matchAnalysis.value.stats.h.goals)} awayScore={useComputed(() => matchAnalysis.value.stats.a.goals)} 
+    const handleFinalize = () => {
+        finalizeLiveMatch(result);
+        if (onShowReport) {
+            onShowReport(liveMatch.matchId);
+        }
+    };
+
+    useEffect(() => {
+        if (!isPaused.value) {
+            const interval = setInterval(() => {
+                if (currentMatchTime.value < maxTime) {
+                    currentMatchTime.value += 1;
+                } else {
+                    isPaused.value = true;
+                }
+            }, 100);
+            return () => clearInterval(interval);
+        }
+    }, [isPaused.value, maxTime]);
+
+    return (
+        <div className="absolute inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden text-slate-900">
+            <Scoreboard
+                homeTeam={liveMatch.homeTeam} awayTeam={liveMatch.awayTeam}
+                homeScore={useComputed(() => matchAnalysis.value.stats.h.goals)} awayScore={useComputed(() => matchAnalysis.value.stats.a.goals)} 
                 minute={currentMinute} homeScorers={useComputed(() => currentScorers.value.h)} awayScorers={useComputed(() => currentScorers.value.a)}
-				possession={liveMomentum} isFinished={isFinished.value} stoppageTime={useSignal(result.stoppageTime || 0)}
-			/>
+                possession={sampledMomentum} isFinished={isFinished.value} stoppageTime={useSignal(result.stoppageTime || 0)}
+            />
 
             <div className="flex-1 flex flex-col overflow-hidden px-4 pt-4 gap-3">
-                <div className={`bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden relative transition-all duration-300 ${activeTab === '2d' ? 'flex-[1.2] min-h-[180px]' : 'h-32 flex-none'}`}>
-                    {activeTab !== "2d" ? (
+                {activeTab !== "2d" ? (
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden relative transition-all duration-300 h-32 flex-none">
                         <div className="p-4 flex-1 flex flex-col justify-center relative">
                             <div className="flex items-center gap-2 mb-2">
                                 <TrendingUp size={14} className="text-slate-400" />
@@ -183,35 +158,76 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                                 })}
                             </div>
                         </div>
-                    ) : (
-                        <div className="absolute inset-0 bg-[#52b788] flex flex-col">
-                            <div className="flex-1 relative overflow-hidden">
-                                <div className="absolute inset-0 flex pointer-events-none opacity-10">{[...Array(10)].map((_, i) => <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-black' : ''}`} />)}</div>
-                                <div className="absolute inset-2 border-2 border-white/40 pointer-events-none" />
-                                <div className="absolute inset-y-[15%] left-0 w-[18%] border-2 border-l-0 border-white/30 pointer-events-none rounded-r-lg" />
-                                <div className="absolute inset-y-[15%] right-0 w-[18%] border-2 border-r-0 border-white/30 pointer-events-none rounded-l-lg" />
-                                <div className="absolute inset-y-0 left-1/2 w-[2px] bg-white/40" />
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-2 border-white/40 rounded-full" />
-                                <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-10">
-                                    {[...Array(30)].map((_, i) => {
-                                        const x = i % 6; const y = Math.floor(i / 6);
-                                        const isBall = displayPos.value.x === x && displayPos.value.y === y;
-                                        const possessionColor = effectiveTeamId.value === liveMatch.homeTeam.id ? 'border-blue-500 bg-blue-500/20' : effectiveTeamId.value === liveMatch.awayTeam.id ? 'border-orange-500 bg-orange-500/20' : 'border-white/5';
-                                        
-                                        const showToken = currentLog.value && currentLog.value.drawnToken;
-
-                                        return (
-                                            <div key={i} className={`border flex flex-col items-center justify-center relative transition-colors duration-300 ${isBall ? 'border-4 z-20 ' + possessionColor : 'border-white/5'}`}>
-                                                {isBall && <div className="absolute inset-0 border-2 border-white animate-pulse" />}
-                                                {isBall && showToken && <span className="absolute bottom-1 text-[8px] font-black text-white uppercase bg-black/80 px-1.5 py-0.5 rounded-sm shadow-xl z-30 ring-1 ring-white/20 whitespace-nowrap">{currentLog.value.drawnToken.type.split('_').pop()}</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                    </div>
+                ) : (
+                    <div className="relative w-full max-w-2xl mx-auto aspect-[105/68] bg-emerald-600 border-[3px] border-white/50 shadow-2xl overflow-hidden rounded-3xl">
+                        {/* Pelouse : Bandes de tonte verticales */}
+                        <div className="absolute inset-0 flex z-0">
+                            {[...Array(10)].map((_, i) => (
+                                <div key={i} className={`h-full flex-1 ${i % 2 === 0 ? 'bg-black/5' : ''}`} />
+                            ))}
                         </div>
-                    )}
-                </div>
+                        {/* --- Marquages FIFA --- */}
+                        {/* Ligne médiane */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/60 -translate-x-1/2 z-10" />
+                        {/* Cercle central */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18%] aspect-square border-2 border-white/60 rounded-full flex items-center justify-center z-10">
+                            <div className="w-1.5 h-1.5 bg-white rounded-full" /> {/* Point d'engagement */}
+                        </div>
+                        {/* Surface de réparation GAUCHE (Home) */}
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-[62%] w-[16%] border-2 border-l-0 border-white/60 z-10">
+                            {/* Surface de but */}
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-[35%] w-[33%] border-2 border-l-0 border-white/60" />
+                            {/* Point de pénalty */}
+                            <div className="absolute right-[25%] top-1/2 -translate-y-1/2 w-1 h-1 bg-white rounded-full" />
+                            {/* Arc de cercle (Lunette) */}
+                            <div className="absolute top-1/2 -right-[28%] -translate-y-1/2 h-[32%] w-[28%] border-2 border-l-0 border-white/60 rounded-r-full" />
+                        </div>
+                        {/* Surface de réparation DROITE (Away) */}
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[62%] w-[16%] border-2 border-r-0 border-white/60 z-10">
+                            {/* Surface de but */}
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[35%] w-[33%] border-2 border-r-0 border-white/60" />
+                            {/* Point de pénalty */}
+                            <div className="absolute left-[25%] top-1/2 -translate-y-1/2 w-1 h-1 bg-white rounded-full" />
+                            {/* Arc de cercle (Lunette) */}
+                            <div className="absolute top-1/2 -left-[28%] -translate-y-1/2 h-[32%] w-[28%] border-2 border-r-0 border-white/60 rounded-l-full" />
+                        </div>
+                        {/* Buts (Filets symboliques) */}
+                        <div className="absolute top-1/2 left-[-4px] -translate-y-1/2 w-1 h-[12%] bg-white/80 rounded-sm shadow-[0_0_8px_white] z-20" />
+                        <div className="absolute top-1/2 right-[-4px] -translate-y-1/2 w-1 h-[12%] bg-white/80 rounded-sm shadow-[0_0_8px_white] z-20" />
+                        {/* --- Grille Logique du Moteur (6 colonnes x 5 lignes) --- */}
+                        <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-30">
+                            {[...Array(30)].map((_, i) => {
+                                const x = i % 6; 
+                                const y = Math.floor(i / 6);
+                                const isBall = displayPos.value.x === x && displayPos.value.y === y;
+                                const possessionColor = effectiveTeamId.value === liveMatch.homeTeam.id ? 'bg-blue-500' : 'bg-orange-500';
+                                return (
+                                    <div key={i} className="relative flex items-center justify-center border border-white/5 hover:bg-white/5 transition-colors">
+                                        {isBall && (
+                                            <div className="relative flex items-center justify-center scale-110">
+                                                {/* Effet d'aura pulsante sous le ballon */}
+                                                <div className={`absolute w-10 h-10 ${possessionColor} opacity-30 rounded-full animate-ping`} />
+                                                {/* Le Ballon / Token */}
+                                                <div className={`w-5 h-5 ${possessionColor} rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,0,0,0.3)] z-30 flex items-center justify-center`}>
+                                                    <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                                                </div>
+                                                {/* Label d'action flottant */}
+                                                {currentLog.value?.drawnToken && (
+                                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40">
+                                                        <div className="bg-slate-900 text-[7px] text-white px-1.5 py-0.5 rounded border border-white/20 font-black uppercase whitespace-nowrap shadow-lg">
+                                                            {currentLog.value.drawnToken.type.split('_').pop()}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex bg-slate-200/50 rounded-xl p-1 border border-slate-200 shadow-sm">
                     {[ {id: "flux", icon: <MapPin size={12}/>}, {id: "2d", icon: <Package size={12}/>}, {id: "stats", icon: <BarChart3 size={12}/>}, {id: "players", icon: <Users size={12}/>}].map(t => (
@@ -263,7 +279,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                                 </div>
                                 <p className="text-[12px] text-slate-600 font-medium italic">"{currentLog.value?.text}"</p>
                             </div>
-                            {(logs.filter(l => (l.type === 'EVENT' || l.type === 'ACTION') && l.time <= currentMatchTime.value)).slice(-15).reverse().map((l, i) => (
+                            {(logs.filter((l: any) => (l.type === 'EVENT' || l.type === 'ACTION') && l.time <= currentMatchTime.value)).slice(-15).reverse().map((l: any, i: any) => (
                                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in"><EventItem event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype, description: l.text } as any} homeTeamId={liveMatch.homeTeam.id} /></div>
                             ))}
                         </div>
@@ -279,8 +295,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                     )}
                     {activeTab === "players" && (
                         <div className="grid grid-cols-2 gap-4">
-                            <PlayerColumn team={liveMatch.homeTeam} players={matchAnalysis.value.ratings.filter(r => r.teamId === liveMatch.homeTeam.id)} color="blue" />
-                            <PlayerColumn team={liveMatch.awayTeam} players={matchAnalysis.value.ratings.filter(r => r.teamId === liveMatch.awayTeam.id)} color="orange" />
+                            <PlayerColumn team={liveMatch.homeTeam} players={matchAnalysis.value.ratings.filter((r: any) => r.teamId === liveMatch.homeTeam.id)} color="blue" />
+                            <PlayerColumn team={liveMatch.awayTeam} players={matchAnalysis.value.ratings.filter((r: any) => r.teamId === liveMatch.awayTeam.id)} color="orange" />
                         </div>
                     )}
                 </div>

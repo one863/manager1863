@@ -1,5 +1,7 @@
 import { db } from "@/core/db/db";
 import { NewsService } from "@/news/service/news-service";
+import { UpdatePlayerSchema, UpdateStaffSchema } from "@/core/domain";
+import { validateOrThrow } from "@/core/validation/zod-utils";
 
 export const TransferService = {
 	getSellingPercentage(skill: number) {
@@ -37,14 +39,17 @@ export const TransferService = {
 
 		const oldTeamId = player.teamId;
 
+		// Validation des updates
+		const playerUpdate = validateOrThrow(
+			UpdatePlayerSchema,
+			{ teamId, morale: 100 },
+			"TransferService.buyPlayer - player update",
+		);
+
 		await db.transaction("rw", db.players, db.teams, async () => {
-			await db.players.update(playerId, { 
-				teamId, 
-				status: "CONTRACTED",
-				morale: 100 
-			});
+			await db.players.update(playerId, playerUpdate);
 			await db.teams.update(teamId, { budget: team.budget - price });
-			
+
 			if (oldTeamId) {
 				const oldTeam = await db.teams.get(oldTeamId);
 				if (oldTeam) {
@@ -53,12 +58,15 @@ export const TransferService = {
 			}
 		});
 
-		await NewsService.createNews(
-			team.saveId,
-			"TRANSFER",
-			`Signature de ${player.firstName} ${player.lastName} à ${team.name} pour ${price.toLocaleString()}€ !`,
-			teamId
-		);
+		await NewsService.addNews(team.saveId, {
+			day: 0,
+			date: new Date(),
+			title: "SIGNATURE DE JOUEUR",
+			content: `Signature de ${player.firstName} ${player.lastName} à ${team.name} pour ${price.toLocaleString()}€ !`,
+			category: "TRANSFER",
+			isRead: false,
+			importance: 3,
+		});
 
 		return { success: true };
 	},
@@ -68,16 +76,25 @@ export const TransferService = {
 		const team = await db.teams.get(teamId);
 
 		if (!staff || !team) return { success: false, error: "Not found" };
-		
-		// Un membre de staff ne coûte rien à l'embauche (pour l'instant), juste le salaire hebdomadaire
-		await db.staff.update(staffId, { teamId });
 
-		await NewsService.createNews(
-			team.saveId,
-			"STAFF",
-			`${staff.firstName} ${staff.lastName} rejoint le staff de ${team.name} en tant que ${staff.role}.`,
-			teamId
+		// Validation de l'update
+		const staffUpdate = validateOrThrow(
+			UpdateStaffSchema,
+			{ teamId },
+			"TransferService.hireStaff",
 		);
+
+		await db.staff.update(staffId, staffUpdate);
+
+		await NewsService.addNews(team.saveId, {
+			day: 0,
+			date: new Date(),
+			title: "ARRIVÉE STAFF",
+			content: `${staff.firstName} ${staff.lastName} rejoint le staff de ${team.name} en tant que ${staff.role}.`,
+			category: "CLUB",
+			isRead: false,
+			importance: 2,
+		});
 
 		return { success: true };
 	},

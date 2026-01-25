@@ -6,6 +6,8 @@ import { ClubService } from "@/club/club-service";
 import { NewsService } from "@/news/service/news-service";
 import { randomInt, clamp } from "@/core/utils/math";
 import i18next from "i18next";
+import { UpdateTeamSchema } from "@/core/domain";
+import { validateOrThrow } from "@/core/validation/zod-utils";
 
 const simulationWorker = new Worker(
 	new URL("../../core/engine/simulation.worker.ts", import.meta.url),
@@ -147,9 +149,38 @@ export const MatchService = {
 	async updateTeamStats(teamId: number, goalsFor: number, goalsAgainst: number) {
 		const team = await db.teams.get(teamId);
 		if (!team) return;
-		let pts = team.points || 0; let wins = team.wins || 0; let draws = team.draws || 0; let losses = team.losses || 0;
-		if (goalsFor > goalsAgainst) { pts += 3; wins += 1; } else if (goalsFor < goalsAgainst) { losses += 1; } else { draws += 1; }
-		await db.teams.update(teamId, { matchesPlayed: (team.matchesPlayed || 0) + 1, points: pts, wins, draws, losses, goalsFor: (team.goalsFor || 0) + goalsFor, goalsAgainst: (team.goalsAgainst || 0) + goalsAgainst, goalDifference: ((team.goalsFor || 0) + goalsFor) - ((team.goalsAgainst || 0) + goalsAgainst) });
+
+		let pts = team.points || 0;
+		let wins = team.wins || 0;
+		let draws = team.draws || 0;
+		let losses = team.losses || 0;
+
+		if (goalsFor > goalsAgainst) {
+			pts += 3;
+			wins += 1;
+		} else if (goalsFor < goalsAgainst) {
+			losses += 1;
+		} else {
+			draws += 1;
+		}
+
+		// Validation avant update
+		const teamUpdate = validateOrThrow(
+			UpdateTeamSchema,
+			{
+				matchesPlayed: (team.matchesPlayed || 0) + 1,
+				points: pts,
+				wins,
+				draws,
+				losses,
+				goalsFor: (team.goalsFor || 0) + goalsFor,
+				goalsAgainst: (team.goalsAgainst || 0) + goalsAgainst,
+				goalDifference: (team.goalsFor || 0) + goalsFor - ((team.goalsAgainst || 0) + goalsAgainst),
+			},
+			"MatchService.updateTeamStats",
+		);
+
+		await db.teams.update(teamId, teamUpdate);
 	},
 
 	async checkSeasonEnd(saveId: number, userLeagueId: number) {

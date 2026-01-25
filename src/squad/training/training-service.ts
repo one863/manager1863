@@ -1,6 +1,8 @@
 import { db, type StaffMember } from "@/core/db/db";
 import { clamp, probability, randomInt } from "@/core/utils/math";
 import { NewsService } from "@/news/service/news-service";
+import { UpdatePlayerSchema } from "@/core/domain";
+import { validateOrThrow } from "@/core/validation/zod-utils";
 
 export type TrainingFocus = "GENERAL" | "PHYSICAL" | "ATTACK" | "DEFENSE" | "GK";
 
@@ -53,7 +55,19 @@ export const TrainingService = {
 				if (!p.playedThisWeek) newFB -= 0.5;
 				newFB = clamp(newFB, 1, 8);
 				const newForm = p.form + (newFB - p.form) * 0.2;
-				await db.players.update(p.id!, { form: newForm, formBackground: newFB, playedThisWeek: false, lastTrainingSkillChange: undefined });
+
+				const playerUpdate = validateOrThrow(
+					UpdatePlayerSchema,
+					{
+						form: newForm,
+						formBackground: newFB,
+						playedThisWeek: false,
+						lastTrainingSkillChange: undefined,
+					},
+					"TrainingService.processDailyUpdates - weekly form update",
+				);
+
+				await db.players.update(p.id!, playerUpdate);
 			}
 		}
 

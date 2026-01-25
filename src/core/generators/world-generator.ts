@@ -1,91 +1,94 @@
-import { db } from "@/core/db/db";
 import { LEAGUE_TEMPLATES, generateSeasonFixtures } from "./league-templates";
 import { generateFullSquad } from "./squad-generator";
 import { getRandomElement, randomInt } from "@/core/utils/math";
 import { generateStaff } from "./staff-generator";
 
 const TEAM_COLORS = [
-	["#E11D48", "#FFFFFF"], ["#2563EB", "#FFFFFF"], ["#059669", "#FFFFFF"], ["#F59E0B", "#000000"],
-	["#7C3AED", "#FFFFFF"], ["#000000", "#FFFFFF"], ["#DB2777", "#FFFFFF"], ["#EA580C", "#FFFFFF"],
-	["#0D9488", "#FFFFFF"], ["#4B5563", "#FFFFFF"], ["#DC2626", "#FCD34D"], ["#1E40AF", "#FCD34D"],
+  ["#E11D48", "#FFFFFF"], ["#2563EB", "#FFFFFF"], ["#059669", "#FFFFFF"], ["#F59E0B", "#000000"],
+  ["#7C3AED", "#FFFFFF"], ["#000000", "#FFFFFF"], ["#DB2777", "#FFFFFF"], ["#EA580C", "#FFFFFF"],
+  ["#0D9488", "#FFFFFF"], ["#4B5563", "#FFFFFF"], ["#DC2626", "#FCD34D"], ["#1E40AF", "#FCD34D"]
 ];
+export function generateWorld(saveId: number, userTeamName: string) {
+	const leagues: any[] = [];
+	const teams: any[] = [];
+	const players: any[] = [];
+	const staff: any[] = [];
+	let userTeamId: number | null = null;
 
-export async function generateWorld(saveId: number, userTeamName: string) {
-	const leagues = [];
 	for (const tpl of LEAGUE_TEMPLATES) {
-		const id = await db.leagues.add({
+		const leagueId = leagues.length + 1; // simple auto-increment
+		leagues.push({
+			id: leagueId,
 			saveId,
 			name: tpl.name,
 			level: tpl.level,
 			promotionSpots: tpl.promotionSpots,
 			relegationSpots: tpl.relegationSpots,
+			teamNames: tpl.teamNames,
+			teamsCount: tpl.teamsCount,
+			reputation: tpl.reputation,
 		});
-		leagues.push({ ...tpl, id });
-	}
 
-	let userTeamId: number | null = null;
-
-	for (const league of leagues) {
-		const teamNames = [...league.teamNames];
-		while (teamNames.length < league.teamsCount) {
-			teamNames.push(`Club ${league.name.substring(0, 3)} ${teamNames.length + 1}`);
+		const teamNames = [...tpl.teamNames];
+		while (teamNames.length < tpl.teamsCount) {
+			teamNames.push(`Club ${tpl.name.substring(0, 3)} ${teamNames.length + 1}`);
 		}
 
 		let playerTeamIndex = -1;
-		if (league.level === LEAGUE_TEMPLATES.length) { 
+		if (tpl.level === LEAGUE_TEMPLATES.length) {
 			playerTeamIndex = randomInt(0, teamNames.length - 1);
 			teamNames[playerTeamIndex] = userTeamName;
 		}
 
-		for (let i = 0; i < league.teamsCount; i++) {
+		for (let i = 0; i < tpl.teamsCount; i++) {
 			const isUserTeam = (i === playerTeamIndex && playerTeamIndex !== -1);
-            const colors = getRandomElement(TEAM_COLORS);
-
-			const teamId = await db.teams.add({
+			const colors = getRandomElement(TEAM_COLORS);
+			const teamId = teams.length + 1; // simple auto-increment
+			teams.push({
+				id: teamId,
 				saveId,
-				leagueId: league.id as number,
+				leagueId,
 				name: teamNames[i],
-				reputation: league.reputation,
-				budget: isUserTeam ? 100 : league.reputation * 10,
-				stadiumCapacity: league.reputation * 50,
+				reputation: tpl.reputation,
+				budget: isUserTeam ? 100 : tpl.reputation * 10,
+				stadiumCapacity: tpl.reputation * 50,
 				stadiumName: `${teamNames[i]} Park`,
 				confidence: 50,
 				seasonGoal: isUserTeam ? "PROMOTION" : "MID_TABLE",
-				fanCount: league.reputation * 10,
+				fanCount: tpl.reputation * 10,
 				primaryColor: colors[0],
-                secondaryColor: colors[1],
+				secondaryColor: colors[1],
 				points: 0,
 				matchesPlayed: 0,
 				goalsFor: 0,
 				goalsAgainst: 0,
 				goalDifference: 0,
-                version: 1,
-                tacticType: "4-4-2", // Correction : formation par défaut 4-4-2 pour les jetons
-                formation: "4-4-2"
+				version: 1,
+				tacticType: "4-4-2",
+				formation: "4-4-2"
 			});
-
 			if (isUserTeam) userTeamId = teamId;
 
-			const avgSkill = (12 - league.level * 1.5) + (Math.random() * 2);
-			await generateFullSquad(saveId, teamId as number, avgSkill);
+			const avgSkill = (12 - tpl.level * 1.5) + (Math.random() * 2);
+			const squad = generateFullSquad(saveId, teamId, avgSkill);
+			players.push(...squad);
 
-            const coach = generateStaff(avgSkill, "COACH");
-            const physio = generateStaff(avgSkill, "PHYSICAL_TRAINER");
-            const analyst = generateStaff(avgSkill, "VIDEO_ANALYST");
-            
-            await db.staff.add({ ...coach, saveId, teamId: teamId as number } as any);
-            await db.staff.add({ ...physio, saveId, teamId: teamId as number } as any);
-            await db.staff.add({ ...analyst, saveId, teamId: teamId as number } as any);
+			const coach = generateStaff(avgSkill, "COACH");
+			const physio = generateStaff(avgSkill, "PHYSICAL_TRAINER");
+			const analyst = generateStaff(avgSkill, "VIDEO_ANALYST");
+			staff.push(
+				{ ...coach, saveId, teamId },
+				{ ...physio, saveId, teamId },
+				{ ...analyst, saveId, teamId }
+			);
 		}
 	}
 
 	if (userTeamId === null) throw new Error("User team was not created.");
 
-	for (const league of leagues) {
-		const teams = await db.teams.where("leagueId").equals(league.id as number).toArray();
-		const teamIds = teams.map(t => t.id!);
-		await generateSeasonFixtures(saveId, league.id as number, teamIds);
-	}
+	// Les fixtures ne sont pas générés ici, à faire côté appelant si besoin
+
+	return { leagues, teams, players, staff, userTeamId };
 
 	return { userTeamId };
 }
