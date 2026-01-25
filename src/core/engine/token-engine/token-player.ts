@@ -1,73 +1,108 @@
-import { Token, TokenPlayerState, TokenType, GridPosition } from "./types";
-import { ROLES_CONFIG } from "./config/roles-config";
+import { Token, TokenType, GridPosition } from "./types";
 
 export class TokenPlayer {
-  public id: number; public name: string; public teamId: number; public role: string;
-  public activeZones: string[] = []; public reachZones: string[] = []; 
-  public fatigue: number = 0; public confidence: number = 50; 
-  
-  private baseZones: GridPosition[] = [];
-  private stock: Token[] = [];
-  private stats: TokenPlayerState['stats'];
+  public id: number;
+  public name: string;
+  public teamId: number;
+  public stats: any;
+  public influence: { atk: number; def: number } = { atk: 1, def: 1 };
+  public activeZones: string[] = [];
+  public reachZones: string[] = [];
 
-  constructor(state: TokenPlayerState) {
-    this.id = state.id; this.name = state.name; this.teamId = state.teamId;
-    this.role = state.role; this.stats = state.stats;
-    this.initializeStock();
+  constructor(data: any) {
+    this.id = data.id;
+    this.name = data.name;
+    this.teamId = data.teamId;
+    this.stats = data.stats;
   }
 
-  public setBaseInfluence(zones: GridPosition[]) { this.baseZones = zones; }
-
-  public updateInfluence(_ballX: number, isHome: boolean) {
-    const active = new Set<string>(); const reach = new Set<string>();
-    this.baseZones.forEach(z => {
-        let x = z.x; let y = z.y;
-        if (!isHome) { x = 5 - x; y = 4 - y; }
-        const key = `${x},${y}`; active.add(key);
-        for (let dx = -1; dx <= 1; dx++) {
-            for (let dy = -1; dy <= 1; dy++) {
-                const nx = x + dx; const ny = y + dy;
-                if (nx >= 0 && nx <= 5 && ny >= 0 && ny <= 4) {
-                    const nKey = `${nx},${ny}`; if (!active.has(nKey)) reach.add(nKey);
-                }
-            }
-        }
-    });
-    this.activeZones = Array.from(active); this.reachZones = Array.from(reach);
+  public setBaseInfluence(atk: number, def: number) {
+    this.influence = { atk, def };
   }
 
-  private initializeStock() {
-    const roleDef = ROLES_CONFIG[this.role] || ROLES_CONFIG["MC"];
-    roleDef.baseTokens.forEach(def => {
-        const count = def.type === ('SHOOT' as any) ? def.count * 1.5 : def.count;
-        for (let i = 0; i < Math.max(1, count); i++) {
-            this.stock.push({
-                id: crypto.randomUUID(), type: this.mapOldType(def.type),
-                ownerId: this.id, teamId: this.teamId,
-                quality: 50, duration: 8 + Math.floor(Math.random() * 4)
-            });
-        }
-    });
+  public setTacticalZones(active: GridPosition[], reach: GridPosition[]) {
+    this.activeZones = (active || []).map(z => `${z.x},${z.y}`);
+    this.reachZones = (reach || []).map(z => `${z.x},${z.y}`);
   }
 
-  private mapOldType(type: any): TokenType {
-      if (type === 'SHOOT') return 'SHOOT_GOAL'; // Sera fragmenté dynamiquement si besoin
-      return type as TokenType;
+  public updateInfluence(ballX: number, ballY: number, isHome: boolean) {
+    let centerX = 2, centerY = 2;
+    if (this.activeZones.length > 0) {
+        const parts = this.activeZones[0].split(',');
+        centerX = parseInt(parts[0]);
+        centerY = parseInt(parts[1]);
+    }
+
+    const dist = Math.sqrt(Math.pow(ballX - centerX, 2) + Math.pow(ballY - centerY, 2));
+    const factor = Math.max(0.2, 1.2 - dist * 0.2);
+
+    this.influence.atk = (this.stats.technical || 10) * factor;
+    this.influence.def = (this.stats.defense || 10) * factor;
   }
 
-  public getTokensForBag(intensity: number = 1.0): Token[] {
-    const modifier = 1 + (this.confidence - 50) / 100 - Math.max(0, this.fatigue - 50) / 150;
-    const pullCount = Math.floor((this.fatigue > 70 ? 7 : 12) * intensity);
-    return [...this.stock].sort(() => Math.random() - 0.5).slice(0, Math.max(1, pullCount))
-        .map(t => ({ ...t, quality: Math.min(99, Math.max(1, t.quality * modifier)) }));
+  public getOffensiveTokens(weight: number, pos: GridPosition): Token[] {
+    const tokens: Token[] = [];
+    const tech = this.influence.atk * weight;
+    const finishing = (this.stats.finishing || 10) * weight;
+    
+    // Déduction du camp adverse
+    const isHomeTeam = this.teamId === 1; // Hypothèse simplifiée
+    const targetX = isHomeTeam ? 5 : 0;
+    const isInFinalThird = Math.abs(targetX - pos.x) <= 1;
+
+    // 1. DILUTION MASSIVE (Standard Opta)
+    // On multiplie les passes pour réduire le poids relatif des tirs/buts
+    const shortCount = Math.max(5, Math.round(tech * 1.5)); // ~30 jetons pour tech=20
+    const backCount = Math.max(2, Math.round(tech / 4));
+    
+    for (let i = 0; i < shortCount; i++) tokens.push(this.createToken('PASS_SHORT', 10));
+    for (let i = 0; i < backCount; i++) tokens.push(this.createToken('PASS_BACK', 8));
+
+    if (!isInFinalThird) {
+        const longCount = Math.max(1, Math.round(tech / 4));
+        for (let i = 0; i < longCount; i++) tokens.push(this.createToken('PASS_LONG', 12));
+    }
+
+    // 2. DRIBBLES (Risque/Récompense)
+    const dribbleCount = Math.max(0, Math.round(tech / 8));
+    for (let i = 0; i < dribbleCount; i++) {
+        tokens.push(this.createToken('DRIBBLE', 15));
+        tokens.push(this.createToken('DRIBBLE_LOST', 10)); 
+    }
+    
+    // 3. TIRS (Loi de la Finition Équilibrée)
+    if (isInFinalThird && finishing > 5) {
+        // Pour 1 but, on veut statistiquement beaucoup plus de tirs ratés ou arrêtés
+        tokens.push(this.createToken('SHOOT_GOAL', 20));       // 1 jeton BUT
+        for(let i=0; i<4; i++) tokens.push(this.createToken('SHOOT_SAVED', 15)); // 4 jetons ARRÊT
+        for(let i=0; i<8; i++) tokens.push(this.createToken('SHOOT_OFF_TARGET', 10)); // 8 jetons RATÉ
+    }
+    
+    return tokens;
   }
 
-  public updateMental(impact: 'SUCCESS' | 'FAIL' | 'GOAL_PRO' | 'GOAL_CON') {
-    if (impact === 'SUCCESS') this.confidence = Math.min(100, this.confidence + 1);
-    if (impact === 'FAIL') this.confidence = Math.max(0, this.confidence - 2);
-    if (impact === 'GOAL_PRO') this.confidence = Math.min(100, this.confidence + 15);
-    if (impact === 'GOAL_CON') this.confidence = Math.max(0, this.confidence - 10);
+  public getDefensiveTokens(weight: number): Token[] {
+    const tokens: Token[] = [];
+    const def = this.influence.def * weight;
+
+    // Renforcement du volume défensif pour contrer l'attaque
+    const tackleCount = Math.max(3, Math.round(def / 2)); // ~10 jetons pour def=20
+    const interceptCount = Math.max(2, Math.round(def / 4));
+
+    for (let i = 0; i < tackleCount; i++) tokens.push(this.createToken('TACKLE', 10));
+    for (let i = 0; i < interceptCount; i++) tokens.push(this.createToken('INTERCEPT', 12));
+    
+    return tokens;
   }
 
-  public applyFatigue(amount: number = 1) { this.fatigue += amount; }
+  private createToken(type: TokenType, quality: number): Token {
+    return {
+      id: `${this.id}-${type}-${Math.random()}`,
+      type,
+      ownerId: this.id,
+      teamId: this.teamId,
+      quality: quality,
+      duration: 4
+    };
+  }
 }

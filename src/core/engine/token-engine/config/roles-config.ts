@@ -63,23 +63,23 @@ export const ROLES_CONFIG: Record<string, RoleConfig> = {
     },
     "ST": {
         baseTokens: [
-            { type: 'SHOOT', count: 8, weight: 1.3 },
+            { type: 'SHOOT_GOAL', count: 8, weight: 1.3 },
             { type: 'DRIBBLE', count: 5, weight: 1.0 },
             { type: 'PASS', count: 3, weight: 0.7 },
-            { type: 'ERROR', count: 3, weight: 1.0 }
+            { type: 'SHOOT_OFF_TARGET', count: 3, weight: 1.0 }
         ]
     },
     "LW": {
         baseTokens: [
             { type: 'DRIBBLE', count: 10, weight: 1.3 },
-            { type: 'SHOOT', count: 4, weight: 1.1 },
+            { type: 'SHOOT_GOAL', count: 4, weight: 1.1 },
             { type: 'PASS', count: 5, weight: 0.9 }
         ]
     },
     "RW": {
         baseTokens: [
             { type: 'DRIBBLE', count: 10, weight: 1.3 },
-            { type: 'SHOOT', count: 4, weight: 1.1 },
+            { type: 'SHOOT_GOAL', count: 4, weight: 1.1 },
             { type: 'PASS', count: 5, weight: 0.9 }
         ]
     }

@@ -1,7 +1,7 @@
 import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
 import { useSignal, useComputed } from "@preact/signals";
-import { TrendingUp, Loader2, Play, Pause, FastForward, StepForward, StepBack, Package, MapPin, Users, BarChart3 } from "lucide-preact";
+import { TrendingUp, Loader2, Play, Pause, FastForward, StepForward, StepBack, Package, MapPin, Users, BarChart3, MessageSquare } from "lucide-preact";
 import { useEffect, useState, useRef } from "preact/hooks";
 import EventItem from "./components/EventItem";
 import Scoreboard from "./components/Scoreboard";
@@ -13,19 +13,20 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentSaveId = useGameStore((state) => state.currentSaveId);
     const loadLiveMatchFromDb = useLiveMatchStore((state) => state.loadLiveMatchFromDb);
 
-    // --- DIAGNOSTIC: Log pour voir l'état initial du liveMatch ---
-    // console.log("MatchLive render - liveMatch:", liveMatch);
-    
-    // Charger liveMatch depuis la DB si ce n'est pas déjà fait (ex: au refresh)
+    const hasLoaded = useRef(false);
     useEffect(() => {
-        if (!liveMatch && currentSaveId) {
+        if (!hasLoaded.current && !liveMatch && currentSaveId) {
+            hasLoaded.current = true;
             loadLiveMatchFromDb(currentSaveId);
         }
-    }, [liveMatch, currentSaveId, loadLiveMatchFromDb]);
+    }, [currentSaveId]);
 
-    // Affichage d'un loader tant que liveMatch ou result n'est pas prêt
+    const [initialTime] = useState(liveMatch?.currentTime || 0);
+    const currentMatchTime = useSignal(initialTime);
+	const isPaused = useSignal(liveMatch?.isPaused ?? true); 
+    const [activeTab, setActiveTab] = useState<"flux" | "2d" | "stats" | "players">(liveMatch?.activeTab || "flux");
+
     if (!liveMatch || !liveMatch.result) {
-        // console.log("MatchLive: Loading or result not available.");
         return (
             <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-slate-50 gap-4">
                 <Loader2 className="animate-spin text-slate-400" size={32} />
@@ -34,34 +35,59 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         );
     }
 
-    // Si on arrive ici, liveMatch et liveMatch.result sont définis
-    const result = liveMatch.result; // result est maintenant garanti
-    const logs = result.debugLogs || []; // logs est maintenant garanti
+    const result = liveMatch.result;
+    const logs = result.debugLogs || [];
     const maxTime = logs.length > 0 ? logs[logs.length - 1].time : 5400;
-
-    const currentMatchTime = useSignal(liveMatch.currentTime || 0);
-	const isPaused = useSignal(liveMatch.isPaused ?? true); 
-    const isGoalPause = useSignal(false);
-    const [activeTab, setActiveTab] = useState<"flux" | "2d" | "stats" | "players">(liveMatch.activeTab || "flux");
 
     const currentMinute = useComputed(() => Math.floor(currentMatchTime.value / 60));
     const isFinished = useComputed(() => currentMatchTime.value >= maxTime);
 
+    const currentLogIndex = useComputed(() => {
+        const idx = logs.findLastIndex(l => l.time <= currentMatchTime.value);
+        return idx === -1 ? 0 : idx;
+    });
+
+    const upcomingLog = useComputed(() => logs[currentLogIndex.value]);
+    const pastLog = useComputed(() => currentLogIndex.value > 0 ? logs[currentLogIndex.value - 1] : null);
+    
+    const currentBallPos = useComputed(() => {
+        if (pastLog.value) return pastLog.value.ballPosition;
+        return upcomingLog.value?.ballPosition || { x: 2, y: 2 };
+    });
+
+    const effectiveTeamId = useComputed(() => {
+        if (!pastLog.value) return upcomingLog.value?.teamId;
+        return pastLog.value.possessionChange 
+            ? (pastLog.value.teamId === liveMatch.homeTeam.id ? liveMatch.awayTeam.id : liveMatch.homeTeam.id)
+            : pastLog.value.teamId;
+    });
+
     const currentScorers = useComputed(() => {
-        const hId = liveMatch.homeTeam?.id; // liveMatch est garanti
-        const events = logs.filter(l => l.time <= currentMatchTime.value && l.eventSubtype === "GOAL");
+        const hId = liveMatch.homeTeam?.id;
+        const threshold = pastLog.value?.time ?? -1;
+        const playedLogs = logs.filter(l => l.time <= threshold);
         return {
-            h: events.filter(e => e.teamId === hId).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) })),
-            a: events.filter(e => e.teamId !== hId).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) }))
+            h: playedLogs.filter(e => e.teamId === hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) })),
+            a: playedLogs.filter(e => e.teamId !== hId && (e.eventSubtype === "GOAL" || e.type === "GOAL")).map(e => ({ name: e.playerName || "Joueur", minute: Math.floor(e.time / 60) }))
         };
     });
 
-    const currentLog = useComputed(() => logs.findLast(l => l.time <= currentMatchTime.value));
-    const currentBallPos = useComputed(() => currentLog.value?.ballPosition || { x: 2, y: 2 });
+    const bagStats = useComputed(() => {
+        const bag = upcomingLog.value?.bag || [];
+        const total = bag.length || 1;
+        const stats: any = { h: { count: 0, types: {} }, a: { count: 0, types: {} }, n: { count: 0, types: {} } };
+        bag.forEach(t => {
+            const side = t.teamId === liveMatch.homeTeam.id ? 'h' : (t.teamId === liveMatch.awayTeam.id ? 'a' : 'n');
+            stats[side].count++;
+            stats[side].types[t.type] = (stats[side].types[t.type] || 0) + 1;
+        });
+        return { total, sides: stats };
+    });
 
     const matchAnalysis = useComputed(() => {
-        const hId = liveMatch.homeTeam?.id || 0; // liveMatch est garanti
-        const playedLogs = logs.filter(l => l.time <= currentMatchTime.value);
+        const hId = liveMatch.homeTeam?.id || 0;
+        const threshold = pastLog.value?.time ?? -1;
+        const playedLogs = logs.filter(l => l.time <= threshold);
         const stats = {
             h: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0, int: 0, fouls: 0, corners: 0 },
             a: { goals: 0, shots: 0, onTarget: 0, xg: 0, passes: 0, duels: 0, int: 0, fouls: 0, corners: 0 }
@@ -72,11 +98,14 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
         playedLogs.forEach(l => {
             const side = l.teamId === hId ? 'h' : 'a';
-            if (l.eventSubtype === 'GOAL') { stats[side].goals++; stats[side].shots++; stats[side].onTarget++; }
+            const isGoal = l.eventSubtype === 'GOAL' || l.type === 'GOAL';
+            
+            if (isGoal) { stats[side].goals++; stats[side].shots++; stats[side].onTarget++; }
             else if (l.eventSubtype === 'SAVE') { stats[side].shots++; stats[side].onTarget++; }
             else if (l.eventSubtype === 'SHOT') { stats[side].shots++; }
             else if (l.eventSubtype === 'FOUL') { stats[side].fouls++; }
             else if (l.eventSubtype === 'CORNER') { stats[side].corners++; }
+            
             if (l.statImpact) {
                 const si = l.statImpact;
                 if (si.xg) stats[side].xg += si.xg;
@@ -86,7 +115,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                 const pId = l.drawnToken?.ownerId;
                 if (pId && playerRatings[pId]) {
                     let impact = 0;
-                    if (l.eventSubtype === 'GOAL') { impact += 1.0; playerRatings[pId].goals++; }
+                    if (isGoal) { impact += 1.0; playerRatings[pId].goals++; }
                     if (si.isChanceCreated) impact += 0.3;
                     if (si.isPass && si.isSuccess) impact += 0.05;
                     if (si.isDuel && si.isSuccess) impact += 0.2;
@@ -99,16 +128,39 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         return { stats, ratings: Object.values(playerRatings) };
     });
 
+    const barsCount = Math.ceil(maxTime / 120); 
+
+    const sampledMomentum = useComputed(() => {
+        const history = result.ballHistory || [];
+        const step = Math.max(1, Math.floor(history.length / barsCount));
+        const bars = [];
+        for (let i = 0; i < barsCount; i++) {
+            bars.push(history[i * step] || 0);
+        }
+        return bars;
+    });
+
+    const matchMarkers = useComputed(() => {
+        const threshold = pastLog.value?.time ?? -1;
+        return logs.filter(l => l.time <= threshold && (l.eventSubtype === 'GOAL' || l.eventSubtype === 'RED_CARD' || l.type === 'GOAL'))
+            .map(l => ({
+                time: l.time,
+                type: (l.eventSubtype === 'GOAL' || l.type === 'GOAL') ? 'GOAL' : 'RED',
+                teamId: l.teamId,
+                pos: (l.time / maxTime) * 100
+            }));
+    });
+
     const liveMomentum = useComputed(() => {
         const momentumIdx = Math.min(99, Math.floor((currentMatchTime.value / (maxTime || 1)) * 99));
-        const val = result.ballHistory ? result.ballHistory[momentumIdx] : 0; // result est garanti
+        const val = result.ballHistory ? result.ballHistory[momentumIdx] : 0;
         return Math.round(50 + (val || 0) * 2.5);
     });
 
     useEffect(() => {
-        if (!result) return; // result est garanti
+        if (!result) return;
         const timer = setInterval(() => {
-            if (!isPaused.value && !isGoalPause.value && currentMatchTime.value < maxTime) {
+            if (!isPaused.value && currentMatchTime.value < maxTime) {
                 currentMatchTime.value += 1;
             }
         }, 30); 
@@ -122,9 +174,20 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     };
 
     const handleFinalize = async () => { 
-        console.log("Finalizing match...");
         if (result) await finalizeLiveMatch(result); 
         if (onShowReport && liveMatch) onShowReport(liveMatch.matchId); 
+    };
+
+    const handleStepBack = () => {
+        isPaused.value = true;
+        const prevIdx = Math.max(0, currentLogIndex.value - 1);
+        currentMatchTime.value = logs[prevIdx].time;
+    };
+
+    const handleStepForward = () => {
+        isPaused.value = true;
+        const nextIdx = Math.min(logs.length - 1, currentLogIndex.value + 1);
+        currentMatchTime.value = logs[nextIdx].time;
     };
 
 	return (
@@ -132,45 +195,77 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 			<Scoreboard
 				homeTeam={liveMatch.homeTeam} awayTeam={liveMatch.awayTeam}
 				homeScore={useComputed(() => matchAnalysis.value.stats.h.goals)} awayScore={useComputed(() => matchAnalysis.value.stats.a.goals)} 
-                minute={currentMinute} homeScorers={currentScorers.value.h} awayScorers={currentScorers.value.a}
+                minute={currentMinute} 
+                homeScorers={useComputed(() => currentScorers.value.h)} 
+                awayScorers={useComputed(() => currentScorers.value.a)}
 				possession={liveMomentum} isFinished={isFinished.value} stoppageTime={useSignal(result.stoppageTime || 0)}
 			/>
 
             <div className="flex-1 flex flex-col overflow-hidden px-4 pt-4 gap-3">
-                <div className={`bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden relative transition-all duration-300 ${activeTab === '2d' ? 'flex-[1.2] min-h-[220px]' : 'h-32 flex-none'}`}>
+                <div className={`bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden relative transition-all duration-300 ${activeTab === '2d' ? 'flex-[1.2] min-h-[180px]' : 'h-32 flex-none'}`}>
                     {activeTab !== "2d" ? (
-                        <div className="p-4 flex-1 flex flex-col justify-center">
+                        <div className="p-4 flex-1 flex flex-col justify-center relative">
                             <div className="flex items-center gap-2 mb-2">
                                 <TrendingUp size={14} className="text-slate-400" />
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Domination</span>
                             </div>
-                            <div className="flex-1 flex items-end justify-between gap-[2px]">
-                                {(result.ballHistory || []).map((val: number, i: number) => {
-                                    const isPast = (i / 100) <= (currentMatchTime.value / maxTime);
-                                    if (!isPast) return <div key={i} className="flex-1 h-full" />; 
+                            <div className="flex-1 flex items-end justify-between gap-[3px] relative">
+                                {sampledMomentum.value.map((val: number, i: number) => {
+                                    const isPast = currentMatchTime.value > 0 && (i / barsCount) < (currentMatchTime.value / maxTime);
+                                    if (!isPast) return <div key={i} className="flex-1 h-full bg-slate-50/50" />; 
+                                    const height = Math.min(45, Math.abs(val) * 6);
                                     return (
                                         <div key={i} className="flex-1 h-full relative">
-                                            <div className={`absolute w-full rounded-full ${val > 0 ? 'bg-blue-500' : 'bg-orange-500'}`} style={{ height: `${Math.max(4, Math.abs(val) * 8)}%`, bottom: val > 0 ? '50%' : 'auto', top: val <= 0 ? '50%' : 'auto' }} />
+                                            <div className={`absolute w-full rounded-full ${val > 0 ? 'bg-blue-500' : 'bg-orange-500'} opacity-80`} style={{ height: `${height}%`, bottom: val > 0 ? '50%' : 'auto', top: val <= 0 ? '50%' : 'auto' }} />
                                         </div>
                                     );
                                 })}
+                                
+                                <div className="absolute inset-0 pointer-events-none">
+                                    {matchMarkers.value.map((m, i) => (
+                                        <div key={i} className="absolute h-full w-[2px]" style={{ left: `${m.pos}%` }}>
+                                            <div className={`absolute top-0 -translate-x-1/2 w-2 h-2 rounded-full border border-white shadow-sm ${m.type === 'GOAL' ? 'bg-emerald-500' : 'bg-rose-600'}`} />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
+                            <div className="absolute bottom-1/2 left-0 right-0 h-[1px] bg-slate-100 z-0" />
                         </div>
                     ) : (
                         <div className="absolute inset-0 bg-[#52b788] flex flex-col">
                             <div className="flex-1 relative overflow-hidden">
                                 <div className="absolute inset-0 flex pointer-events-none opacity-10">{[...Array(10)].map((_, i) => <div key={i} className={`flex-1 ${i % 2 === 0 ? 'bg-black' : ''}`} />)}</div>
                                 <div className="absolute inset-2 border-2 border-white/40 pointer-events-none" />
+                                <div className="absolute inset-y-[15%] left-0 w-[18%] border-2 border-l-0 border-white/30 pointer-events-none rounded-r-lg" />
+                                <div className="absolute inset-y-[15%] right-0 w-[18%] border-2 border-r-0 border-white/30 pointer-events-none rounded-l-lg" />
                                 <div className="absolute inset-y-0 left-1/2 w-[2px] bg-white/40" />
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-2 border-white/40 rounded-full" />
                                 <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-10">
                                     {[...Array(30)].map((_, i) => {
                                         const x = i % 6; const y = Math.floor(i / 6);
+                                        const zKey = `${x},${y}`;
                                         const isBall = currentBallPos.value.x === x && currentBallPos.value.y === y;
-                                        const side = currentLog.value?.teamId === liveMatch.homeTeam.id ? 'bg-blue-500/80' : currentLog.value?.teamId === liveMatch.awayTeam.id ? 'bg-orange-500/80' : 'bg-white/40';
+                                        // @ts-ignore
+                                        const inf = pastLog.value?.zoneInfluences?.[zKey] || { homeAtk: 0, homeDef: 0, awayAtk: 0, awayDef: 0 };
+                                        
+                                        const isHome = effectiveTeamId.value === liveMatch.homeTeam.id;
+                                        const isAway = effectiveTeamId.value === liveMatch.awayTeam.id;
+                                        const possessionColor = isHome ? 'border-blue-500 bg-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.2)]' : isAway ? 'border-orange-500 bg-orange-500/20 shadow-[inset_0_0_20px_rgba(249,115,22,0.2)]' : 'border-white/5';
+
                                         return (
-                                            <div key={i} className={`border border-white/5 flex items-center justify-center ${isBall ? side + ' shadow-xl rounded-xl border-2 border-white/30 scale-95' : ''}`}>
-                                                {isBall && <span className="text-[7px] font-black text-white uppercase animate-pulse">{currentLog.value?.drawnToken?.type.split('_').pop()}</span>}
+                                            <div key={i} className={`border flex flex-col items-center justify-center relative transition-colors duration-300 ${isBall ? 'border-4 z-20 ' + possessionColor : 'border-white/5'}`}>
+                                                {isBall && <div className="absolute inset-0 border-2 border-white animate-pulse" />}
+                                                <div className="flex flex-col items-center gap-1 opacity-100">
+                                                    <div className="flex gap-4">
+                                                        <span className="text-[11px] font-black text-blue-900 leading-none">A{inf.homeAtk}</span>
+                                                        <span className="text-[11px] font-black text-orange-900 leading-none">A {inf.awayAtk}</span>
+                                                    </div>
+                                                    <div className="flex gap-4 opacity-40">
+                                                        <span className="text-[9px] font-bold text-blue-800 leading-none italic">D {inf.homeDef}</span>
+                                                        <span className="text-[9px] font-bold text-orange-800 leading-none italic"> D{inf.awayDef}</span>
+                                                    </div>
+                                                </div>
+                                                {isBall && <span className="absolute bottom-1 text-[8px] font-black text-white uppercase bg-black/80 px-1.5 py-0.5 rounded-sm shadow-xl z-30 ring-1 ring-white/20 whitespace-nowrap">{pastLog.value?.drawnToken?.type.split('_').pop()}</span>}
                                             </div>
                                         );
                                     })}
@@ -189,11 +284,60 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                 </div>
 
                 <div className="flex-1 overflow-y-auto pb-24">
+                    {activeTab === "2d" && (
+                        <div className="space-y-2">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+                                <div className="flex flex-col gap-1.5 mb-2 border-b border-slate-100 pb-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
+                                                <Package size={10}/> Next Bag ({bagStats.value.total} tokens) 
+                                                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-1">Last tirage Zone {currentBallPos.value.x},{currentBallPos.value.y}</span>
+                                            </span>
+                                        </div>
+                                        {pastLog.value?.drawnToken && (
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${pastLog.value.drawnToken.teamId === liveMatch.homeTeam.id ? 'bg-blue-600' : pastLog.value.drawnToken.teamId === liveMatch.awayTeam.id ? 'bg-orange-600' : 'bg-slate-500'} text-white shadow-sm ring-1 ring-white/20`}>
+                                                {pastLog.value.drawnToken.type}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-start gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
+                                        <MessageSquare size={10} className="text-slate-400 mt-0.5 shrink-0" />
+                                        <p className="text-[12px] text-slate-600 leading-tight truncate">"{pastLog.value?.text || "Début du match..."}"</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {['h', 'a', 'n'].map(side => {
+                                        const s = bagStats.value.sides[side];
+                                        const textColor = side === 'h' ? 'text-blue-800' : side === 'a' ? 'text-orange-800' : 'text-slate-600';
+                                        const bgColor = side === 'h' ? 'bg-blue-50' : side === 'a' ? 'bg-orange-50' : 'bg-slate-50';
+                                        if (s.count === 0) return null;
+                                        return (
+                                            <div key={side} className={`p-1.5 rounded-lg ${bgColor} border border-white/50`}>
+                                                <div className="flex items-center gap-1.5 mb-1 opacity-60">
+                                                    <div className={`w-1 h-2 rounded-full ${side === 'h' ? 'bg-blue-500' : side === 'a' ? 'bg-orange-500' : 'bg-slate-400'}`} />
+                                                    <span className="text-[8px] font-black uppercase tracking-tighter">{Math.round(s.count/bagStats.value.total*100)}%</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                                    {Object.entries(s.types).map(([type, count]: [any, any]) => (
+                                                        <div key={type} className="flex flex-col min-w-[60px]">
+                                                            <span className={`text-[11px] font-black uppercase tracking-tight ${textColor}`}>{type}</span>
+                                                            <span className="text-[10px] font-bold text-slate-400">{Math.round(count/bagStats.value.total*100)}%</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {activeTab === "flux" && (
                         <div className="space-y-2">
-                            {(logs.filter(l => l.type === 'EVENT' && l.time <= currentMatchTime.value)).slice(-15).reverse().map((l, i) => (
+                            {(logs.filter(l => (l.type === 'EVENT' || l.type === 'ACTION') && l.time <= currentMatchTime.value)).slice(-15).reverse().map((l, i) => (
                                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in">
-                                    <EventItem event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype }} homeTeamId={liveMatch.homeTeam.id} />
+                                    <EventItem event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype, description: l.text } as any} homeTeamId={liveMatch.homeTeam.id} />
                                 </div>
                             ))}
                         </div>
@@ -219,8 +363,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
             <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 p-4 flex items-center justify-between z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
                 <div className="flex items-center gap-2">
                     <button onClick={() => isPaused.value = !isPaused.value} className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-900 shadow-lg active:scale-95 transition-transform">{isPaused.value ? <Play size={20} className="text-white fill-white" /> : <Pause size={20} className="text-white fill-white" />}</button>
-                    <button onClick={() => currentMatchTime.value = Math.max(0, currentMatchTime.value - 30)} className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 active:scale-95 transition-transform"><StepBack size={20} /></button>
-                    <button onClick={() => currentMatchTime.value = Math.min(maxTime, currentMatchTime.value + 30)} className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 active:scale-95 transition-transform"><StepForward size={20} /></button>
+                    <button onClick={handleStepBack} className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 active:scale-95 transition-transform"><StepBack size={20} /></button>
+                    <button onClick={handleStepForward} className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 active:scale-95 transition-transform"><StepForward size={20} /></button>
                     {!isFinished.value && (<button onClick={handleSkip} className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 active:scale-95 transition-transform"><FastForward size={20} className="text-slate-400" /></button>)}
                     {isFinished.value && (<button onClick={handleFinalize} className="px-4 py-2.5 bg-emerald-600 rounded-xl text-[10px] font-black uppercase text-white shadow-lg active:scale-95 transition-transform ml-2">Rapport</button>)}
                 </div>
@@ -235,7 +379,7 @@ function StatRow({ label, h, a }: any) {
     return (
         <div className="flex flex-col gap-2">
             <div className="flex justify-between text-[9px] font-black uppercase text-slate-400"><span>{h}</span><span>{label}</span><span>{a}</span></div>
-            <div className="w-full h-1.5 bg-slate-100 rounded-full flex overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${(valH/total)*100}%` }} /><div className="h-full bg-orange-500 transition-all duration-500" style={{ width: `${(valA/total)*100}%` }} /></div>
+            <div className="w-full h-1.5 bg-slate-100 rounded-full flex overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(valH/total)*100}%` }} /><div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(valA/total)*100}%` }} /></div>
         </div>
     );
 }

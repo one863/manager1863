@@ -21,7 +21,8 @@ export class StatTracker {
             },
             interceptions: { [homeTeamId]: 0, [awayTeamId]: 0 },
             fouls: { [homeTeamId]: 0, [awayTeamId]: 0 },
-            corners: { [homeTeamId]: 0, [awayTeamId]: 0 }
+            corners: { [homeTeamId]: 0, [awayTeamId]: 0 },
+            woodwork: { [homeTeamId]: 0, [awayTeamId]: 0 }
         };
     }
 
@@ -47,17 +48,22 @@ export class StatTracker {
             if (s.isInterception) this.stats.interceptions[teamId]++;
         }
 
-        if (result.eventSubtype === 'SHOT' || result.eventSubtype === 'GOAL' || result.eventSubtype === 'SAVE') {
+        if (result.isGoal) {
             this.stats.shots[teamId].total++;
-            if (result.eventSubtype !== 'SHOT') this.stats.shots[teamId].onTarget++;
+            this.stats.shots[teamId].onTarget++;
+            this.stats.shots[teamId].goals++;
+        } else if (result.eventSubtype === 'SHOT' || result.eventSubtype === 'SAVE' || result.eventSubtype === 'WOODWORK') {
+            this.stats.shots[teamId].total++;
+            if (result.eventSubtype !== 'SHOT' && result.eventSubtype !== 'WOODWORK') {
+                this.stats.shots[teamId].onTarget++;
+            }
+            if (result.eventSubtype === 'WOODWORK') {
+                this.stats.woodwork[teamId]++;
+            }
         }
 
         if (result.eventSubtype === 'FOUL') this.stats.fouls[teamId]++;
         if (result.eventSubtype === 'CORNER') this.stats.corners[teamId]++;
-    }
-
-    public registerGoal(teamId: number) {
-        this.stats.shots[teamId].goals++;
     }
 
     public getFinalStats(): MatchStats {
@@ -70,7 +76,6 @@ export class StatTracker {
         return {
             ...this.stats,
             possessionPercent,
-            // Arrondir les xG
             xg: Object.fromEntries(Object.entries(this.stats.xg).map(([id, val]) => [id, Math.round(val * 100) / 100])) as any
         };
     }

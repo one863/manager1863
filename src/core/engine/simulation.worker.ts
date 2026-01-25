@@ -52,7 +52,7 @@ async function runSimulation(data: any) {
         );
 
         const allTokenPlayers = [...homeTokenPlayers, ...awayTokenPlayers];
-        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId, hTactic, aTactic);
+        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId);
 
         const engineResult = engine.simulateMatch();
         const rawEvents = engineResult.events;
@@ -103,7 +103,7 @@ async function runSimulation(data: any) {
             homeScore: homeScore,
             awayScore: awayScore,
             events: formattedEvents,
-            debugLogs: engineResult.fullJournal.map(l => ({ 
+            debugLogs: engineResult.fullJournal.map((l: any) => ({ 
                 time: l.time,
                 type: l.type,
                 text: l.text,
@@ -111,7 +111,10 @@ async function runSimulation(data: any) {
                 teamId: l.teamId,
                 ballPosition: l.ballPosition,
                 bag: l.bag,
-                drawnToken: l.drawnToken 
+                drawnToken: l.drawnToken,
+                zoneInfluences: l.zoneInfluences,
+                eventSubtype: l.eventSubtype,
+                statImpact: l.statImpact
             })),
             ballHistory: engineResult.ballHistory,
             stats: engineResult.stats,

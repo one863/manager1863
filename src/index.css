@@ -39,12 +39,10 @@ select {
 	scrollbar-width: none;
 }
 
-@layer components {
-	.text-label {
-		@apply text-[10px] font-black uppercase tracking-[0.15em] text-ink;
-	}
-	
-	.card-1863 {
-		@apply bg-white border border-slate-200 rounded-2xl shadow-sm;
-	}
+.text-label {
+	@apply text-[10px] font-black uppercase tracking-[0.15em] text-ink;
+}
+
+.card-1863 {
+	@apply bg-white border border-slate-200 rounded-2xl shadow-sm;
 }

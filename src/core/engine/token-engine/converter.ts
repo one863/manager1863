@@ -1,16 +1,16 @@
 import { Player, StaffMember } from "../../core/types";
 import { TokenPlayer } from "./token-player";
-import { TACTIC_TEMPLATES } from "./tactics-data";
+import { ROLE_ZONES, FORMATION_ROLES } from "./config/formations-config";
 import { TokenPlayerState, StaffModifiers } from "./types";
 
 function getStaffModifiers(staff: StaffMember[]): StaffModifiers {
     const modifiers: StaffModifiers = { technicalBonus: 0, tacticalBonus: 0, disciplineBonus: 0, staminaBonus: 0 };
+    if (!staff) return modifiers;
     staff.forEach(m => {
-        if (m.role === "COACH") {
-            // Utilisation des stats de staff si disponibles
+        if (m && m.role === "COACH") {
             modifiers.technicalBonus = Math.max(modifiers.technicalBonus, m.stats?.coaching || 0);
             modifiers.tacticalBonus = Math.max(modifiers.tacticalBonus, m.stats?.management || 0);
-        } else if (m.role === "PHYSICAL_TRAINER") {
+        } else if (m && m.role === "PHYSICAL_TRAINER") {
             modifiers.staminaBonus = Math.max(modifiers.staminaBonus, m.stats?.medical || 0);
         }
     });
@@ -24,31 +24,35 @@ export function createTokenPlayers(
     tacticKey: string, 
     isHome: boolean
 ): TokenPlayer[] {
-    const tactic = TACTIC_TEMPLATES[tacticKey] || TACTIC_TEMPLATES["4-4-2"];
-    const starters = players.filter(p => p.isStarter).slice(0, 11);
+    const formationRoles = FORMATION_ROLES[tacticKey] || FORMATION_ROLES["4-4-2"];
+    // On s'assure que players existe et on filtre les potentiels undefined
+    const validPlayers = (players || []).filter(p => p && p.isStarter);
+    const starters = validPlayers.slice(0, 11);
     const staffModifiers = getStaffModifiers(staff);
     
     return starters.map((p, index) => {
-        const roleData = tactic.roles[index] || tactic.roles[0];
+        const roleKey = formationRoles[index] || "MC";
+        const zones = ROLE_ZONES[roleKey] || ROLE_ZONES["MC"];
+        
         const state: TokenPlayerState = {
             id: p.id!,
             name: `${p.firstName.charAt(0)}. ${p.lastName}`,
             teamId: teamId,
-            role: roleData.label,
-            stats: p.stats,
+            role: roleKey,
+            stats: p.stats || { technical: 10, finishing: 10, defense: 10 },
             staffModifiers: staffModifiers
         };
 
         const tokenPlayer = new TokenPlayer(state);
         
-        // --- INITIALISATION DYNAMIQUE DEPUIS LA DB ---
-        // On inverse la condition (0-100) pour obtenir la fatigue initiale (ex: 90% condition -> 10 fatigue)
-        tokenPlayer.fatigue = 100 - p.condition;
-        // On synchronise la confiance initiale avec le moral de la DB
-        tokenPlayer.confidence = p.morale;
-
-        tokenPlayer.setBaseInfluence(roleData.zones);
-        tokenPlayer.updateInfluence(2, isHome); 
+        // Sécurité sur les zones
+        const active = zones?.active || [];
+        const reach = zones?.reach || [];
+        
+        tokenPlayer.setTacticalZones(active, reach);
+        tokenPlayer.setBaseInfluence(p.stats?.technical || 10, p.stats?.defense || 10);
+        tokenPlayer.updateInfluence(2, 2, isHome); 
+        
         return tokenPlayer;
     });
 }

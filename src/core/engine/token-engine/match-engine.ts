@@ -37,6 +37,7 @@ export class TokenMatchEngine {
     this.log('THINKING', "Coup d'envoi imminent...");
     this.currentTime = 1;
     let safety = 0;
+    
     while (this.currentTime < (this.baseDuration + this.accumulatedStoppageTime) && safety++ < 25000) {
       if (!this.halfTimeReached && this.currentTime >= 2700) {
         this.log('EVENT', "MI-TEMPS", { subtype: 'STAT' });
@@ -45,75 +46,137 @@ export class TokenMatchEngine {
       }
       this.step();
     }
+    
     return {
         events: this.logs.filter(l => l.type === 'EVENT' || l.type === 'ACTION'),
         fullJournal: this.logs,
+        debugLogs: this.logs,
         ballHistory: this.sampleMomentum(),
         stats: this.tracker.getFinalStats(),
-        stoppageTime: this.accumulatedStoppageTime
+        stoppageTime: Math.ceil(this.accumulatedStoppageTime / 60)
     };
   }
 
   public step() {
-    this.players.forEach(p => p.updateInfluence(this.ballPosition.x, p.teamId === this.homeTeamId));
+    this.players.forEach(p => p.updateInfluence(this.ballPosition.x, this.ballPosition.y, p.teamId === this.homeTeamId));
     this.recordMomentum();
 
-    const fullBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
-    let filtered = fullBag.filter(t => {
-        if (t.type.startsWith('SHOOT') && this.currentSituation === 'NORMAL') {
-            if (this.ballPosition.y === 0 || this.ballPosition.y === 4 || this.ballPosition.x === 2 || this.ballPosition.x === 3) return false;
-            if (this.possessionTeamId === this.homeTeamId ? this.ballPosition.x < 2 : this.ballPosition.x > 3) return false;
+    const zoneInfluences: Record<string, any> = {};
+    for (let x = 0; x < 6; x++) {
+        for (let y = 0; y < 5; y++) {
+            const zKey = `${x},${y}`;
+            let hAtk = 0; let hDef = 0;
+            let aAtk = 0; let aDef = 0;
+            
+            this.players.forEach(p => {
+                const power = p.activeZones.includes(zKey) ? 1.5 : (p.reachZones.includes(zKey) ? 0.7 : 0);
+                if (power > 0) {
+                    const isHome = p.teamId === this.homeTeamId;
+                    // Territorial Weighting: Atk increases towards opponent goal, Def towards own goal
+                    // Home attacks towards X=5, Away towards X=0
+                    const atkWeight = isHome ? (x / 5) : ((5 - x) / 5);
+                    const defWeight = isHome ? ((5 - x) / 5) : (x / 5);
+
+                    const pAtk = p.influence.atk * power * (0.1 + atkWeight * 0.9);
+                    const pDef = p.influence.def * power * (0.1 + defWeight * 0.9);
+
+                    if (isHome) {
+                        hAtk += pAtk;
+                        hDef += pDef;
+                    } else {
+                        aAtk += pAtk;
+                        aDef += pDef;
+                    }
+                }
+            });
+            zoneInfluences[zKey] = { 
+                homeAtk: Math.round(hAtk), homeDef: Math.round(hDef), 
+                awayAtk: Math.round(aAtk), awayDef: Math.round(aDef) 
+            };
         }
-        return (['TACKLE', 'INTERCEPT'].includes(t.type)) ? t.teamId !== this.possessionTeamId : (t.teamId === this.possessionTeamId || t.teamId === 0);
-    });
+    }
 
-    const token = filtered[Math.floor(Math.random() * filtered.length)] || fullBag[0];
+    const fullBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
+    const token = fullBag[0];
+
+    const bagSummary = fullBag.map(t => ({ type: t.type, teamId: t.teamId, ownerId: t.ownerId }));
+    const drawnTokenSummary = { type: token.type, teamId: token.teamId, ownerId: token.ownerId };
+
+    this.resolveToken(token, bagSummary, drawnTokenSummary, zoneInfluences);
     
-    // --- PASSAGE DES INFOS DU SAC POUR L'UI --- 
-    const bagSummary = filtered.map(t => ({ type: t.type, teamId: t.teamId }));
-    const drawnTokenSummary = { type: token.type, teamId: token.teamId };
-
-    this.resolveToken(token, bagSummary, drawnTokenSummary);
-    if (this.currentSituation !== 'NORMAL' && this.currentSituation !== 'REBOUND_ZONE') this.currentSituation = 'NORMAL';
+    if (this.currentSituation !== 'NORMAL' && this.currentSituation !== 'REBOUND_ZONE' && this.currentSituation !== 'KICK_OFF') {
+        this.currentSituation = 'NORMAL';
+    }
   }
 
-  private resolveToken(token: Token, bagSum: any[], drawnSum: any) {
+  private resolveToken(token: Token, bagSum: any[], drawnSum: any, zoneInfluences: any) {
     const player = this.grid.getPlayer(token.ownerId);
     const pName = player ? player.name : (token.teamId === 0 ? "Système" : "Collectif");
     const logic = TOKEN_LOGIC[token.type];
+    
     if (!logic) { this.currentTime += 5; return; }
 
     const result = logic(token, pName, token.teamId === this.homeTeamId, this.ballPosition);
-    const duration = Math.max(1, result.customDuration || token.duration || 1);
     
-    if (result.isGoal) this.accumulatedStoppageTime += 30;
-    this.tracker.trackAction(token.teamId, result, duration);
-
-    if (result.possessionChange) this.possessionTeamId = this.getOpponentId(this.possessionTeamId);
     if (result.moveX !== 0 || result.moveY !== 0) {
         this.ballPosition.x = Math.max(0, Math.min(5, this.ballPosition.x + result.moveX));
         this.ballPosition.y = Math.max(0, Math.min(4, this.ballPosition.y + result.moveY));
     }
 
-    const type = result.isGoal ? 'GOAL' : (result.eventSubtype || 'ACTION');
-    
-    // --- APPEL DE LOG AVEC TOUTES LES DONNÉES --- 
-    this.log(result.isGoal || result.isEvent ? 'EVENT' : 'ACTION', result.logMessage, { 
-        subtype: type, pName, teamId: token.teamId, 
-        bag: bagSum, drawn: drawnSum, statImpact: result.stats 
-    });
+    if (result.isGoal) {
+        this.accumulatedStoppageTime += 30;
+        this.tracker.trackAction(token.teamId, result, 60);
 
-    if (result.isGoal) this.resetKickOff(this.getOpponentId(token.teamId));
-    else if (['SHOOT_SAVED', 'SHOOT_WOODWORK'].includes(token.type)) this.currentSituation = 'REBOUND_ZONE';
-    else if (result.eventSubtype === 'CORNER' && !token.type.startsWith('CORNER')) this.currentSituation = 'CORNER';
-    else if (token.type === 'SHOOT_OFF_TARGET') this.currentSituation = 'GOAL_KICK';
-    else if (token.type === 'VAR_CHECK') this.currentSituation = 'VAR_ZONE';
+        // 1. LOG DU BUT (Immédiat, ballon au filet)
+        this.log('EVENT', result.logMessage, { 
+            subtype: 'GOAL', pName, teamId: token.teamId, 
+            bag: bagSum, drawn: drawnSum, statImpact: result.stats,
+            zoneInfluences 
+        });
+
+        // 2. LOG DE CÉLÉBRATION (30s plus tard, ballon reste au filet)
+        this.currentTime += 30; 
+        this.log('ACTION', `Célébration du but !`, { 
+            subtype: 'CELEBRATION', pName, teamId: token.teamId,
+            zoneInfluences 
+        });
+
+        // 3. LOG DE MISE EN PLACE (Encore 30s, ballon revient au centre)
+        this.currentTime += 30;
+        this.resetKickOff(this.getOpponentId(token.teamId));
+        return; 
+    }
+
+    this.tracker.trackAction(token.teamId, result, result.customDuration || 5);
+    const duration = Math.max(1, result.customDuration || token.duration || 1);
+    if (result.possessionChange) this.possessionTeamId = this.getOpponentId(this.possessionTeamId);
+    
+    if (this.currentSituation === 'KICK_OFF') {
+        this.currentSituation = 'NORMAL';
+    } else if (result.nextSituation) {
+        this.currentSituation = result.nextSituation;
+    }
+
+    this.log(result.isEvent ? 'EVENT' : 'ACTION', result.logMessage, { 
+        subtype: result.eventSubtype || 'ACTION', pName, teamId: token.teamId, 
+        bag: bagSum, drawn: drawnSum, statImpact: result.stats,
+        zoneInfluences 
+    });
 
     this.currentTime += duration;
   }
 
   private getOpponentId(id: number) { return id === this.homeTeamId ? this.awayTeamId : this.homeTeamId; }
-  private resetKickOff(id: number) { this.ballPosition = { x: 2, y: 2 }; this.possessionTeamId = id; this.currentSituation = 'KICK_OFF'; this.currentTime += 30; }
+  
+  private resetKickOff(id: number) { 
+      this.ballPosition = { x: id === this.homeTeamId ? 2 : 3, y: 2 }; 
+      this.possessionTeamId = id; 
+      this.currentSituation = 'KICK_OFF'; 
+
+      this.log('EVENT', "Préparation du coup d'envoi.", { 
+          subtype: 'KICK_OFF', teamId: id 
+      });
+  }
 
   private recordMomentum() { this.rawMomentum.push((this.ballPosition.x - 2.5) * 4 + (this.possessionTeamId === this.homeTeamId ? 3 : -3)); }
   private sampleMomentum() {
@@ -126,7 +189,8 @@ export class TokenMatchEngine {
           time: this.currentTime, type, text, 
           eventSubtype: opt.subtype, playerName: opt.pName, teamId: opt.teamId, 
           ballPosition: { ...this.ballPosition }, 
-          bag: opt.bag, drawnToken: opt.drawn, statImpact: opt.statImpact 
+          bag: opt.bag, drawnToken: opt.drawn, statImpact: opt.statImpact,
+          zoneInfluences: opt.zoneInfluences
       });
   }
 }
