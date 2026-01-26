@@ -1,19 +1,31 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-:root {
-	/* Thème 1863 - High Contrast & Modern Heritage */
-	--color-paper: 255 255 255; /* #ffffff */
-	--color-paper-dark: 248 250 252; /* #f8fafc (Slate-50) */
-	--color-ink: 15 23 42; /* #0f172a (Slate-900) - Very deep navy/black */
-	--color-ink-light: 51 65 85; /* #334155 (Slate-700) - Even darker for better contrast */
-	--color-accent: 15 23 42; /* #0f172a - Switched accent to deep ink by default */
-	--color-grass: 22 163 74; /* #16a34a (Green-600) */
+@import "tailwindcss";
+
+@theme {
+	--color-paper: #ffffff;
+	--color-paper-dark: #f8fafc;
+	--color-ink: #0f172a;
+	--color-ink-light: #334155;
+	--color-accent: #0f172a;
+	--color-grass: #16a34a;
+	--color-muted: #64748b;
+	--color-border: #e2e8f0;
+	--color-accent-hover: #1e293b;
+	--color-accent-contrast: #ffffff;
+	--color-danger: #ef4444;
+	--color-success: #22c55e;
+	--color-warning: #f59e0b;
 }
 
 body {
-	@apply bg-paper text-ink font-sans transition-colors duration-300 antialiased;
+	color: var(--color-ink);
+	font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+	background-color: var(--color-paper-dark);
+	transition-property: color, background-color, border-color;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 300ms;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 	overscroll-behavior-y: none;
 	-webkit-tap-highlight-color: transparent;
 }
@@ -40,9 +52,16 @@ select {
 }
 
 .text-label {
-	@apply text-[10px] font-black uppercase tracking-[0.15em] text-ink;
+	font-size: 10px;
+	font-weight: 900;
+	text-transform: uppercase;
+	letter-spacing: 0.15em;
+	color: rgb(var(--color-ink));
 }
 
 .card-1863 {
-	@apply bg-white border border-slate-200 rounded-2xl shadow-sm;
+	background-color: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 1rem;
+	box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
 }

@@ -3,22 +3,22 @@ import { EntityService, DexieAdapter } from "./entity-adapter-service";
 import type { Player } from "../ports/interfaces";
 
 // Mock Dexie Table
-class MockTable<T> {
+class MockTable<T extends { id?: number }> {
   private data: T[] = [];
   private idCounter = 1;
 
-  async put(entity: any) {
-    if (!entity.id) entity.id = this.idCounter++;
-    const idx = this.data.findIndex(e => e.id === entity.id);
+  async put(entity: T) {
+    if (!entity.id) (entity as any).id = this.idCounter++;
+    const idx = this.data.findIndex(e => (e as any).id === (entity as any).id);
     if (idx >= 0) this.data[idx] = entity;
     else this.data.push(entity);
-    return entity.id;
+    return (entity as any).id;
   }
-  async bulkPut(entities: any[]) {
+  async bulkPut(entities: T[]) {
     for (const e of entities) await this.put(e);
   }
   async get(id: number) {
-    return this.data.find(e => e.id === id) || null;
+    return this.data.find(e => (e as any).id === id) || null;
   }
   async toArray() {
     return [...this.data];

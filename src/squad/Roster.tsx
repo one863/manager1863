@@ -90,7 +90,7 @@ export default function Roster({ onSelectPlayer }: RosterProps) {
 			</div>
 
 			<div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-				<div className="grid grid-cols-[40px_1fr_35px_35px_35px_50px_45px] gap-1 p-3 bg-gray-50 border-b border-gray-100 text-[9px] uppercase text-gray-400 items-center font-bold">
+				<div className="grid grid-cols-[40px_1fr_35px_35px_35px_50px_45px] gap-1 p-3 bg-gray-50 border-b border-gray-100 text-[9px] uppercase text-gray-600 items-center font-bold">
 					<div onClick={() => handleSort("position")} className="flex items-center justify-center cursor-pointer">
                         Pos <SortIcon column="position" />
                     </div>
@@ -137,7 +137,7 @@ export default function Roster({ onSelectPlayer }: RosterProps) {
                                     <PlayerAvatar dna={player.dna} size={32} />
                                     <div className="truncate">
                                         <p className="text-ink text-[12px] truncate leading-none uppercase font-medium">
-                                            {player.lastName} <span className="text-gray-400 normal-case">{player.firstName[0]}.</span>
+                                            {player.lastName} <span className="text-gray-600 normal-case">{player.firstName[0]}.</span>
                                         </p>
                                     </div>
                                 </div>
@@ -155,7 +155,7 @@ export default function Roster({ onSelectPlayer }: RosterProps) {
                                 </div>
                                 <div className="text-center flex justify-center items-center h-full">
                                     <span className={`text-xs ${
-                                        !hasEnoughMatches ? "text-gray-300" :
+                                        !hasEnoughMatches ? "text-gray-500" :
                                         (player.seasonStats?.avgRating || 0) >= 7.5 ? "text-amber-600 font-medium" :
                                         (player.seasonStats?.avgRating || 0) >= 7.0 ? "text-green-600 font-medium" :
                                         "text-gray-600 font-medium"

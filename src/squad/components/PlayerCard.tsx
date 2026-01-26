@@ -85,11 +85,11 @@ export default function PlayerCard({
 
 	const DataMetric = ({ label, value, sub, color="text-gray-900", icon }: { label: string, value: string | number, sub?: string, color?: string, icon?: any }) => (
 		<div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-			<span className="block text-[9px] text-gray-400 uppercase font-black tracking-wider mb-1">{label}</span>
+			<span className="block text-[9px] text-gray-600 uppercase font-black tracking-wider mb-1">{label}</span>
 			<div className="flex items-center gap-1.5">
-                {icon && <span className="text-gray-400">{icon}</span>}
+                {icon && <span className="text-gray-600">{icon}</span>}
 				<span className={`text-lg font-black tracking-tight ${color}`}>{value}</span>
-				{sub && <span className="text-[10px] text-gray-400 font-bold">{sub}</span>}
+				{sub && <span className="text-[10px] text-gray-600 font-bold">{sub}</span>}
 			</div>
 		</div>
 	);
@@ -98,7 +98,7 @@ export default function PlayerCard({
 		<div className="flex flex-col h-full bg-white animate-fade-in">
 			<div className="bg-white px-4 py-4 border-b flex justify-between items-center sticky top-0 z-10">
 				<div className="flex gap-3 items-center">
-					<button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><ArrowLeft size={24} /></button>
+					<button onClick={onClose} className="text-gray-600 hover:text-gray-600 p-1"><ArrowLeft size={24} /></button>
 					<PlayerAvatar dna={player.dna} size={52} className={`border-2 ${player.injuryDays > 0 ? "border-red-500 grayscale" : "border-gray-100 shadow-sm"}`} />
 					<div>
 						<h2 className="text-lg font-black text-slate-900 leading-none">{player.firstName} {player.lastName}</h2>
@@ -107,19 +107,19 @@ export default function PlayerCard({
 							<span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${getPositionColor(player.position)}`}>
 								{player.role}
 							</span>
-							<span className="text-[10px] font-bold text-slate-400 uppercase">{player.age} ans</span>
+							<span className="text-[10px] font-bold text-slate-600 uppercase">{player.age} ans</span>
 						</div>
 					</div>
 				</div>
 				<div className="text-right">
 					<div className="text-2xl font-black text-slate-900 leading-none">{Math.floor(player.skill)}</div>
-					<div className="text-[8px] text-slate-400 uppercase font-black tracking-widest mt-1">Skill</div>
+					<div className="text-[8px] text-slate-600 uppercase font-black tracking-widest mt-1">Skill</div>
 				</div>
 			</div>
 
 			<div className="flex border-b bg-white">
                 {[{ id: "stats", label: "Profil" }, { id: "data", label: "Stats" }, { id: "history", label: "Carrière" }, { id: "transfer", label: "Contrat" }].map((tab) => (
-					<button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400"}`}>{tab.label}</button>
+					<button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-600"}`}>{tab.label}</button>
 				))}
 			</div>
 
@@ -134,7 +134,7 @@ export default function PlayerCard({
 						</div>
 
 						<div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 shadow-sm space-y-3">
-							<h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Sparkles size={12} className="text-blue-500" /> Caractéristiques Techniques</h3>
+							<h3 className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4 flex items-center gap-2"><Sparkles size={12} className="text-blue-500" /> Caractéristiques Techniques</h3>
 							<StatBar label="Technique" value={player.stats.technical} />
 							<StatBar label="Finition" value={player.stats.finishing} />
 							<StatBar label="Défense" value={player.stats.defense} />

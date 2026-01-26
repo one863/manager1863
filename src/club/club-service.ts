@@ -1,7 +1,7 @@
 import { db } from "@/core/db/db";
 import { clamp, randomInt } from "@/core/utils/math";
 import { NewsService } from "@/news/service/news-service";
-import type { Sponsor } from "@/core/types";
+import type { Sponsor } from "@/core/domain/common/types";
 import { UpdatePlayerSchema, UpdateTeamSchema } from "@/core/domain";
 import { validateOrThrow } from "@/core/validation/zod-utils";
 
@@ -23,6 +23,7 @@ export const ClubService = {
 			team.stadiumUpgradeEndDay <= currentDay &&
 			team.stadiumProject
 		) {
+			const project = team.stadiumProject;
 			const updateData = validateOrThrow(
 				UpdateTeamSchema,
 				{
@@ -41,7 +42,7 @@ export const ClubService = {
 				"ClubService.processDailyUpdates - stadium project",
 			);
 
-			await db.teams.update(teamId, updateData);
+			await db.teams.update(teamId, updateData as any); // Cast pour UpdateSpec<Team>
 
 			await NewsService.addNews(saveId, {
 				day: currentDay,
@@ -49,7 +50,6 @@ export const ClubService = {
 				title: "TRAVAUX TERMINÉS",
 				content: `Les travaux au stade sont finis. Capacité : ${project.targetCapacity} places.`,
 				category: "CLUB",
-				   // isRead supprimé, injecté automatiquement par NewsService.addNews
 				importance: 3,
 			});
 		}
@@ -67,15 +67,16 @@ export const ClubService = {
 			const offers = await this.getSponsorOffers(teamId, team.reputation, currentDate, state.day, state.season);
 			if (offers.length > 0) {
 				const offer = offers[0];
-				await NewsService.addNews(saveId, {
-					day: currentDay,
-					date: currentDate,
-					title: "OFFRE DE PARTENARIAT",
-					content: `La société **${offer.name}** propose un versement hebdomadaire de **M ${offer.income}**.`,
-					type: "SPONSOR",
-					importance: 2,
-					actionData: { type: "SIGN_SPONSOR", offer: offer }
-				});
+				   await NewsService.addNews(saveId, {
+					   day: currentDay,
+					   date: currentDate,
+					   title: "OFFRE DE PARTENARIAT",
+					   content: `La société **${offer.name}** propose un versement hebdomadaire de **M ${offer.income}**.`,
+					   type: "SPONSOR",
+					   category: "CLUB",
+					   importance: 2,
+					   actionData: { type: "SIGN_SPONSOR", offer: offer }
+				   });
 			}
 		}
 
@@ -114,7 +115,7 @@ export const ClubService = {
 				{ sponsors: activeSponsors },
 				"ClubService.processWeeklyFinances - sponsors cleanup",
 			);
-			await db.teams.update(teamId, teamUpdate);
+			await db.teams.update(teamId, teamUpdate as any);
 		}
 
 		const ticketIncome = team.pendingIncome || 0;
@@ -129,7 +130,7 @@ export const ClubService = {
 			"ClubService.processWeeklyFinances - budget update",
 		);
 
-		await db.teams.update(teamId, finalUpdate);
+		await db.teams.update(teamId, finalUpdate as any);
 
 		await NewsService.addNews(saveId, {
 			day,
@@ -162,9 +163,9 @@ export const ClubService = {
 				"ClubService.processDailyPlayerUpdates",
 			);
 
-			await db.players.update(player.id!, updateData);
+			await db.players.update(player.id!, updateData as any);
 
-			if (isInjured && updateData.injuryDays === 0) {
+			if (isInjured && (updateData as import("@/core/domain/player/types").Player).injuryDays === 0) {
 				await NewsService.addNews(saveId, {
 					day,
 					date,
@@ -203,7 +204,7 @@ export const ClubService = {
 			"ClubService.updateDynamicsAfterMatch",
 		);
 
-		await db.teams.update(teamId, teamUpdate);
+		await db.teams.update(teamId, teamUpdate as any);
 
 		// Decrement suspensions for THIS team
 		await this.processSuspensions(saveId, teamId);
@@ -220,7 +221,7 @@ export const ClubService = {
 					{ suspensionMatches: player.suspensionMatches - 1 },
 					"ClubService.processSuspensions",
 				);
-				await db.players.update(player.id!, playerUpdate);
+				await db.players.update(player.id!, playerUpdate as any);
 			}
 		}
 	},
@@ -233,9 +234,9 @@ export const ClubService = {
 
 		await db.teams.update(teamId, {
 			stadiumUpgradeEndDay: currentDay + 30,
-			   budget: clamp(team.budget - cost, 0, Infinity),
+			budget: clamp(team.budget - cost, 0, Infinity),
 			stadiumProject: { type, targetCapacity: team.stadiumCapacity + 1000, targetName: customName || team.stadiumName }
-		});
+		} as any);
 		return { success: true };
 	},
 
@@ -253,7 +254,7 @@ export const ClubService = {
 	async signSponsor(teamId: number, offer: Sponsor) {
 		const team = await db.teams.get(teamId);
 		if (team && (team.sponsors || []).length < 3) {
-			await db.teams.update(teamId, { sponsors: [...(team.sponsors || []), offer] });
+			await db.teams.update(teamId, { sponsors: [...(team.sponsors || []), offer] } as any);
 		}
 	},
 };

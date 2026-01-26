@@ -80,7 +80,7 @@ export default function TransferMarket({
 			{/* SEARCH & FILTERS HEADER */}
 			<div className="p-4 bg-white border-b border-gray-100 space-y-4">
 				<div className="relative">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
 					<input 
 						type="text" 
 						placeholder={activeTab === "players" ? "Rechercher un joueur..." : "Rechercher un membre du staff..."}
@@ -98,7 +98,7 @@ export default function TransferMarket({
 								key={pos}
 								onClick={() => setFilterPos(pos)}
 								className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors whitespace-nowrap ${
-									filterPos === pos ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-400 border-gray-200"
+									filterPos === pos ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"
 								}`}
 							>
 								{pos === "ALL" ? "TOUS" : pos}
@@ -110,7 +110,7 @@ export default function TransferMarket({
 								key={role}
 								onClick={() => setFilterRole(role)}
 								className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors whitespace-nowrap ${
-									filterRole === role ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-400 border-gray-200"
+									filterRole === role ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200"
 								}`}
 							>
 								{role === "ALL" ? "TOUS" : role === "PHYSICAL_TRAINER" ? "PREP. PHY" : role}
@@ -142,7 +142,7 @@ export default function TransferMarket({
 										<span className="font-black text-blue-600 text-sm">{Math.floor(player.skill)}</span>
 									</div>
 									<div className="flex items-center gap-2 mt-0.5">
-										<span className="text-[10px] font-bold text-gray-400 uppercase">{player.position}</span>
+										<span className="text-[10px] font-bold text-gray-600 uppercase">{player.position}</span>
 										<span className="text-[10px] text-gray-500">{player.age} ans</span>
 									</div>
 								</div>
@@ -173,7 +173,7 @@ export default function TransferMarket({
 										<span className="font-black text-blue-600 text-sm">{Math.floor(staff.skill)}</span>
 									</div>
 									<div className="flex items-center gap-2 mt-0.5">
-										<span className="text-[10px] font-bold text-gray-400 uppercase">
+										<span className="text-[10px] font-bold text-gray-600 uppercase">
 											{staff.role === "PHYSICAL_TRAINER" ? "PREP. PHY" : staff.role.replace("_", " ")}
 										</span>
 										<span className="text-[10px] text-gray-500">{staff.age} ans</span>
@@ -195,7 +195,7 @@ export default function TransferMarket({
 
 function EmptyState({ message }: { message: string }) {
 	return (
-		<div className="flex flex-col items-center justify-center py-20 text-gray-400">
+		<div className="flex flex-col items-center justify-center py-20 text-gray-600">
 			<Filter size={40} className="mb-4 opacity-20" />
 			<p className="text-sm font-bold uppercase tracking-widest opacity-40">{message}</p>
 		</div>

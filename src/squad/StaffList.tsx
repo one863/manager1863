@@ -50,7 +50,7 @@ export default function StaffList({ onSelectStaff }: StaffListProps) {
 			</div>
 
 			<div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-				<div className="grid grid-cols-[auto_1fr_auto_auto] gap-2 p-3 bg-gray-50 border-b border-gray-100 text-[9px] font-black uppercase text-gray-400">
+				<div className="grid grid-cols-[auto_1fr_auto_auto] gap-2 p-3 bg-gray-50 border-b border-gray-100 text-[9px] font-black uppercase text-gray-600">
 					<div className="w-20 text-center">Rôle</div>
 					<div>Nom</div>
 					<div className="w-12 text-center">Traits</div>
@@ -59,7 +59,7 @@ export default function StaffList({ onSelectStaff }: StaffListProps) {
 
 				<div className="divide-y divide-gray-50">
 					{filteredStaff.length === 0 && (
-						<div className="p-8 text-center text-gray-400 italic text-sm">
+						<div className="p-8 text-center text-gray-600 italic text-sm">
 							Aucun staff trouvé
 						</div>
 					)}
@@ -78,7 +78,7 @@ export default function StaffList({ onSelectStaff }: StaffListProps) {
 								<PlayerAvatar dna={staff.dna} size={32} isStaff />
 								<div className="truncate">
 									<p className="font-bold text-ink text-sm truncate">{staff.lastName}</p>
-									<p className="text-[9px] text-gray-400 truncate">{staff.firstName}</p>
+									<p className="text-[9px] text-gray-600 truncate">{staff.firstName}</p>
 								</div>
 							</div>
 							<div className="w-12 flex justify-center gap-0.5">

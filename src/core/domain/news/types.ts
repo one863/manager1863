@@ -6,6 +6,8 @@ export interface NewsArticle extends BaseEntity {
 	title: string;
 	content: string;
 	category: NewsCategory;
+	type?: string; // Pour compatibilité usages (ex: "SPONSOR", "CLUB")
+	actionData?: any; // Pour actions interactives (ex: SIGN_SPONSOR)
 	isRead: boolean;
 	importance: number;
 }

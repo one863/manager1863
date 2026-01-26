@@ -33,7 +33,7 @@ export function Header({
 	const userTeamId = useGameStore((state) => state.userTeamId);
 
 	const liveMatch = useLiveMatchStore((state) => state.liveMatch);
-	const isLiveFinished = liveMatch && liveMatch.currentMinute >= 90;
+	const isLiveFinished = liveMatch && (liveMatch as any).currentMinute >= 90;
 
 	const [hasMatchToday, setHasMatchToday] = useState(false);
 

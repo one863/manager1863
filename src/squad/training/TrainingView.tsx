@@ -60,7 +60,7 @@ export default function Training() {
 		return (
 			<div className="flex flex-col items-center justify-center py-12 animate-pulse">
 				<div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-				<p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t("game.loading")}</p>
+				<p className="text-xs font-bold text-gray-600 uppercase tracking-widest">{t("game.loading")}</p>
 			</div>
 		);
 
@@ -110,7 +110,7 @@ export default function Training() {
 				</div>
 			) : (
 				<div className="space-y-3">
-					<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Programmes disponibles</h3>
+					<h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-1">Programmes disponibles</h3>
 					<div className="grid grid-cols-1 gap-3">
 						<TrainingCard
 							title="Physique"
@@ -149,7 +149,7 @@ function TrainingCard({ title, icon: Icon, desc, onClick }: any) {
 			onClick={onClick}
 			className="bg-white p-4 rounded-xl border border-gray-100 flex items-center gap-4 hover:border-blue-200 hover:shadow-sm transition-all group text-left"
 		>
-			<div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-gray-100">
+			<div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center text-gray-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-gray-100">
 				<Icon size={22} />
 			</div>
 			<div className="flex-1">

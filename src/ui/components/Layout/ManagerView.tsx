@@ -22,7 +22,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 
 	useEffect(() => {
 		if (userTeamId) {
-			db.teams.get(userTeamId).then(setUserTeam);
+			db.teams.get(userTeamId).then((team) => setUserTeam(team || null));
 		}
 	}, [userTeamId]);
 
@@ -64,7 +64,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 		<div className="flex flex-col h-full bg-white animate-fade-in">
 			{/* Header */}
 			<div className="bg-white px-4 py-4 border-b flex items-center gap-3 sticky top-0 z-10">
-				<button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+				<button onClick={onClose} className="text-gray-600 hover:text-gray-600 p-1">
 					<ArrowLeft size={24} />
 				</button>
 				<h2 className="text-lg font-bold text-gray-900">Ma Fiche Manager</h2>
@@ -95,11 +95,11 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 
 							<div className="grid grid-cols-2 gap-4">
 								<div className="bg-white/50 p-3 rounded-xl border border-gray-100">
-									<p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Réputation</p>
+									<p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Réputation</p>
 									<p className="text-lg font-black text-ink">{userTeam?.reputation || 0}%</p>
 								</div>
 								<div className="bg-white/50 p-3 rounded-xl border border-gray-100">
-									<p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Confiance</p>
+									<p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Confiance</p>
 									<p className="text-lg font-black text-ink">{userTeam?.confidence || 0}%</p>
 								</div>
 							</div>
@@ -107,21 +107,21 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 
 						{/* Career Stats */}
 						<div className="space-y-2">
-							<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">Carrière</h3>
+							<h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2">Carrière</h3>
 							<div className="bg-white border border-gray-100 rounded-xl divide-y divide-gray-50">
 								<div className="p-4 flex justify-between items-center">
 									<div className="flex items-center gap-3">
 										<Award size={18} className="text-yellow-500" />
 										<span className="text-sm font-bold text-gray-900">Palmarès</span>
 									</div>
-									<span className="text-xs font-black text-gray-400">0 titres</span>
+									<span className="text-xs font-black text-gray-600">0 titres</span>
 								</div>
 								<div className="p-4 flex justify-between items-center">
 									<div className="flex items-center gap-3">
 										<Database size={18} className="text-blue-500" />
 										<span className="text-sm font-bold text-gray-900">Matchs dirigés</span>
 									</div>
-									<span className="text-xs font-black text-gray-400">{userTeam?.matchesPlayed || 0}</span>
+									<span className="text-xs font-black text-gray-600">{userTeam?.matchesPlayed || 0}</span>
 								</div>
 							</div>
 						</div>
@@ -129,7 +129,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 				) : (
 					<div className="space-y-6">
 						<div className="space-y-2">
-							<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">Général</h3>
+							<h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2">Général</h3>
 							
 							<button 
 								onClick={toggleLanguage}
@@ -160,7 +160,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 
 							<div className="w-full bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between opacity-50">
 								<div className="flex items-center gap-3">
-									<div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+									<div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-600">
 										<Bell size={18} />
 									</div>
 									<span className="text-sm font-bold text-gray-900">Notifications</span>
@@ -172,16 +172,16 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 						</div>
 
 						<div className="space-y-2">
-							<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">Jeu</h3>
+							<h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-2">Jeu</h3>
 							
 							<div className="w-full bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between opacity-50">
 								<div className="flex items-center gap-3">
-									<div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400">
+									<div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-600">
 										<Database size={18} />
 									</div>
 									<span className="text-sm font-bold text-gray-900">Cloud Sync</span>
 								</div>
-								<span className="text-[10px] font-bold text-gray-400">OFF</span>
+								<span className="text-[10px] font-bold text-gray-600">OFF</span>
 							</div>
 						</div>
 
@@ -193,7 +193,7 @@ export default function ManagerView({ onClose, onQuit }: ManagerViewProps) {
 								<LogOut size={18} />
 								Quitter la partie
 							</button>
-							<p className="text-center text-[10px] text-gray-400 mt-4 font-bold uppercase tracking-widest">
+							<p className="text-center text-[10px] text-gray-600 mt-4 font-bold uppercase tracking-widest">
 								Version 1.0.0 (Alpha)
 							</p>
 						</div>

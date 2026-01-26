@@ -1,7 +1,7 @@
 import { generateSeasonFixtures } from "@/core/generators/league-templates";
 import { type Match, type Player, type Team, db } from "@/core/db/db";
 import { FORMATIONS } from "@/core/tactics";
-import type { MatchResult } from "@/core/types";
+import type { MatchResult, MatchEvent } from "@/core/types";
 import { ClubService } from "@/club/club-service";
 import { NewsService } from "@/news/service/news-service";
 import { randomInt, clamp } from "@/core/utils/math";
@@ -82,34 +82,6 @@ export const MatchService = {
 			const matchData = { matchId: userMatch.id, homeTeamId: userMatch.homeTeamId, awayTeamId: userMatch.awayTeamId, homePlayers, awayPlayers, homeName: homeT?.name, awayName: awayT?.name, homeStaff, awayStaff, hTactic: homeT?.tacticType, aTactic: awayT?.tacticType };
             const result = await runMatchInWorker(matchData, i18next.language);
 
-            // Inject kickoff comment at 00:00
-            const kickoffText = i18next.t('narratives.match.kickoff', { team: homeT?.name });
-            const kickoffEvent = {
-                id: 'kickoff-' + userMatch.id,
-                matchId: userMatch.id,
-                minute: 0,
-                second: 0,
-                type: 'highlight',
-                text: kickoffText,
-                description: kickoffText,
-                teamId: userMatch.homeTeamId,
-                isHome: true
-            };
-
-            if (result.events) {
-                result.events.unshift(kickoffEvent);
-            }
-
-            if (result.debugLogs) {
-                result.debugLogs.unshift({
-                    time: 0,
-                    type: 'ACTION',
-                    text: kickoffText,
-                    teamId: userMatch.homeTeamId,
-                    ballPosition: { x: 2, y: 2 }
-                });
-            }
-
             return { matchId: userMatch.id!, homeTeam: homeT, awayTeam: awayT, homePlayers, awayPlayers, result };
 		}
 		return null;
@@ -131,11 +103,27 @@ export const MatchService = {
 		simulationWorker.addEventListener("message", handler);
 	},
 
-	async saveMatchResult(match: Match, result: MatchResult, saveId: number, date: Date, generateNews = true, keepDetails = true) {
+	async saveMatchResult(match: Match, result: MatchResult, saveId: number, date: Date, generateNews = true, _isUserMatch = false) {
         const currentMatch = await db.matches.get(match.id!);
-        if (currentMatch?.played && keepDetails) return;
+        if (currentMatch?.played) return;
 
-        const resultToSave = keepDetails ? result : { ...result, debugLogs: [], ballHistory: [] };
+        // Stocker uniquement : scores, stats, notes (ratings), buteurs
+        // Aucun texte, aucun log, aucun event détaillé
+        const resultToSave = { 
+            matchId: result.matchId,
+            homeTeamId: result.homeTeamId,
+            awayTeamId: result.awayTeamId,
+            homeScore: result.homeScore, 
+            awayScore: result.awayScore, 
+            stats: result.stats,
+            scorers: (result as any).scorers,
+            ratings: (result as any).ratings,
+            stoppageTime: result.stoppageTime,
+            events: [],
+            debugLogs: [],
+            ballHistory: []
+        };
+
 		await db.matches.where("id").equals(match.id!).modify({ homeScore: result.homeScore, awayScore: result.awayScore, played: true, details: resultToSave });
 		await Promise.all([
             this.updateTeamStats(match.homeTeamId, result.homeScore, result.awayScore), 
@@ -178,9 +166,69 @@ export const MatchService = {
 				goalDifference: (team.goalsFor || 0) + goalsFor - ((team.goalsAgainst || 0) + goalsAgainst),
 			},
 			"MatchService.updateTeamStats",
-		);
+		) as Partial<Team>;
 
 		await db.teams.update(teamId, teamUpdate);
+	},
+
+	/**
+	 * Optimise les détails d'un match pour le stockage (supprime les données volumineuses non essentielles)
+	 */
+	optimizeMatchDetailsForStorage(result: MatchResult): MatchResult {
+		return {
+			...result,
+			// Garder les logs mais sans les données volumineuses (zoneInfluences, bag complet)
+			debugLogs: result.debugLogs?.map((log: any) => ({
+				time: log.time,
+				type: log.type,
+				text: log.text,
+				eventSubtype: log.eventSubtype,
+				playerName: log.playerName,
+				teamId: log.teamId,
+				possessionTeamId: log.possessionTeamId,
+				ballPosition: log.ballPosition,
+				// Ne pas inclure: bag, zoneInfluences, drawnToken, statImpact
+			})) || [],
+			// Réduire ballHistory à 50 points au lieu de 100
+			ballHistory: result.ballHistory?.filter((_: any, i: number) => i % 2 === 0) || []
+		};
+	},
+
+	/**
+	 * Nettoie les logs des anciens matchs utilisateur pour réduire la taille de la sauvegarde
+	 * Garde seulement les événements importants (buts, cartons, penalties)
+	 */
+	async cleanupOldUserMatchLogs(saveId: number, userTeamId: number, currentDay: number) {
+		// Ne garder les logs complets que pour les 3 derniers jours
+		const cutoffDay = currentDay - 3;
+		const oldUserMatches = await db.matches
+			.where("saveId").equals(saveId)
+			.and((m) => m.played && m.day < cutoffDay && (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId))
+			.toArray();
+		
+		for (const match of oldUserMatches) {
+			if (match.details?.debugLogs && match.details.debugLogs.length > 10) {
+				// Garder seulement les événements importants (max 20 logs)
+				const importantLogs = match.details.debugLogs.filter((log: any) => 
+					['GOAL', 'CARD', 'PENALTY', 'INJURY', 'SAVE', 'WOODWORK'].includes(log.eventSubtype) || log.type === 'EVENT'
+				).slice(0, 20);
+				await db.matches.update(match.id!, {
+					details: {
+						matchId: match.details.matchId,
+						homeTeamId: match.details.homeTeamId,
+						awayTeamId: match.details.awayTeamId,
+						homeScore: match.details.homeScore,
+						awayScore: match.details.awayScore,
+						stats: match.details.stats,
+						scorers: (match.details as any).scorers,
+						ratings: (match.details as any).ratings,
+						events: match.details.events,
+						debugLogs: importantLogs,
+						ballHistory: []
+					}
+				});
+			}
+		}
 	},
 
 	/**
@@ -206,7 +254,11 @@ export const MatchService = {
 			   }
 		   }
 		   if (resetStats) {
-			   await db.matches.where("saveId").equals(saveId).delete();
+			   // Supprimer uniquement les matchs IA vs IA, garder les matchs de l'utilisateur
+			   const userTeamId = state.userTeamId;
+			   await db.matches.where("saveId").equals(saveId)
+				   .and((m) => m.homeTeamId !== userTeamId && m.awayTeamId !== userTeamId)
+				   .delete();
 			   for (const league of allLeagues) {
 				   const currentTeams = await db.teams.where("leagueId").equals(league.id!).toArray();
 				   const teamIds = currentTeams.map((t) => t.id!);

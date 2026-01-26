@@ -44,3 +44,9 @@ public/workbox-*.js
 
 # Optional: IDE configuration
 .idx/
+
+# Local DB
+*.db
+
+# Test coverage
+coverage/

@@ -56,7 +56,7 @@ export function BottomSheet({
 				{/* Header */}
 				<div className="px-4 pb-3 flex items-center justify-between border-b border-slate-100 shrink-0">
 					<h3 className="text-lg font-bold text-slate-800">{title}</h3>
-					<Button variant="ghost" size="sm" onClick={onClose} className="rounded-full p-1 h-8 w-8">
+					<Button variant="ghost" onClick={onClose} className="rounded-full p-1 h-8 w-8">
 						<X size={20} className="text-slate-500" />
 					</Button>
 				</div>

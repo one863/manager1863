@@ -6,7 +6,7 @@ export async function repairSaveData(saveId: number) {
 	if (!state) return;
 
 	// Si la version est déjà à jour, on ne fait rien
-	if (state.version === CURRENT_DATA_VERSION) return;
+	if ((state as any).version === CURRENT_DATA_VERSION) return;
 
 	console.log(`[Migration] Mise à jour de la sauvegarde ${saveId} vers la version ${CURRENT_DATA_VERSION}`);
 
@@ -32,20 +32,25 @@ export async function repairSaveData(saveId: number) {
 				await db.staff.update(s.id!, {
 					skill: s.skill * 1.8,
 					stats: {
-						management: s.stats.management * 1.8,
-						training: s.stats.training * 1.8,
-						tactical: s.stats.tactical * 1.8,
-						physical: s.stats.physical * 1.8,
-						goalkeeping: s.stats.goalkeeping * 1.8,
-						strategy: (s.stats as any).strategy * 1.8
-					}
+						management: (s.stats as any).management * 1.8 || 10,
+						training: (s.stats as any).training * 1.8 || 10,
+						tactical: (s.stats as any).tactical * 1.8 || 10,
+						physical: (s.stats.physical || 10) * 1.8,
+						goalkeeping: (s.stats.goalkeeping || 5) * 1.8,
+						coaching: ((s.stats as any).strategy || 10) * 1.8,
+						medical: ((s.stats as any).medical || 10) * 1.8,
+						discipline: ((s.stats as any).discipline || 10) * 1.8,
+						conditioning: ((s.stats as any).conditioning || 10) * 1.8,
+						recovery: ((s.stats as any).recovery || 10) * 1.8,
+						reading: ((s.stats as any).reading || 10) * 1.8
+					} as any
 				});
 			}
 		}
 
 		// 3. Validation de la version
 		if (state.id !== undefined) {
-			await db.gameState.update(state.id, { version: CURRENT_DATA_VERSION });
+			await db.gameState.update(state.id, { version: CURRENT_DATA_VERSION } as any);
 		}
 	});
 }

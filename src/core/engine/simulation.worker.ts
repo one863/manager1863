@@ -57,9 +57,21 @@ async function runSimulation(data: any) {
         const engineResult = engine.simulateMatch();
         const rawEvents = engineResult.events;
 
+        // Calculer les scores à partir des logs (comme dans MatchLive.tsx)
+        // pour être cohérent avec l'affichage live et éviter les incohérences
+        const debugLogs = engineResult.fullJournal || engineResult.debugLogs || [];
+        const homeScore = debugLogs.filter((l: any) => 
+            l.teamId === homeTeamId && 
+            l.eventSubtype === 'GOAL' && 
+            l.playerName  // Évite de compter "Célébration du but !"
+        ).length;
+        const awayScore = debugLogs.filter((l: any) => 
+            l.teamId === awayTeamId && 
+            l.eventSubtype === 'GOAL' && 
+            l.playerName
+        ).length;
+
         const goalEvents: any[] = [];
-        const homeScore = engineResult.stats.shots[homeTeamId].goals;
-        const awayScore = engineResult.stats.shots[awayTeamId].goals;
 
         const formattedEvents = rawEvents.map((evt: any) => {
             const isHome = evt.teamId === homeTeamId;
@@ -119,6 +131,7 @@ async function runSimulation(data: any) {
             ballHistory: engineResult.ballHistory,
             stats: engineResult.stats,
             scorers: goalEvents,
+            ratings: engineResult.analysis?.ratings || [],
             stoppageTime: 4
         };
 

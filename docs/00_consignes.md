@@ -1,4 +1,4 @@
-# 🏟️ Consignes pour Gemini (IDX Project)
+# 🏟️ Consignes pour l'IA AGent
 - **Langue :** Parle moi en Français exclusivement dans le chat.
 - **Token-Save :** L'IA Agent doit économiser le maximum de tokens dans ses Réponses qui doivent etre concises, avec des listes à puces. Pas de prose inutile.
 - **Code :** Ne pas afficher de gros blocs de code dans le chat. Préférer l'application directe via `write_file`.

@@ -59,20 +59,49 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 			});
 
 			// Génération du monde (en mémoire)
-			const { leagues, teams, players, staff, userTeamId } = await generateWorld(saveId as number, trimmedTeamName);
+			const { leagues, teams, players, staff, userTeamIndex } = await generateWorld(saveId as number, trimmedTeamName);
 
+			let finalUserTeamId: number | null = null;
 
 			// Transaction Dexie pour insérer toutes les entités et générer les matchs
 			await db.transaction('rw', [db.leagues, db.teams, db.players, db.staff, db.gameState, db.matches], async () => {
-				if (leagues.length > 0) await db.leagues.bulkAdd(leagues);
-				if (teams.length > 0) await db.teams.bulkAdd(teams);
-				if (players.length > 0) await db.players.bulkAdd(players);
-				if (staff.length > 0) await db.staff.bulkAdd(staff);
+				// Insérer les leagues et récupérer leurs vrais IDs
+				const leagueIds = await db.leagues.bulkAdd(leagues, { allKeys: true });
+				
+				// Mettre à jour les teams avec les vrais leagueIds
+				const teamsWithLeagueIds = teams.map(team => {
+					const { leagueIndex, ...rest } = team as any;
+					return { ...rest, leagueId: leagueIds[leagueIndex] };
+				});
+				
+				// Insérer les teams et récupérer leurs vrais IDs
+				const teamIds = await db.teams.bulkAdd(teamsWithLeagueIds, { allKeys: true });
+				
+				// Récupérer l'ID de l'équipe utilisateur grâce à son index
+				finalUserTeamId = teamIds[userTeamIndex] as number;
+				
+				// Mettre à jour les players avec les vrais teamIds
+				const playersWithTeamIds = players.map(player => {
+					const { teamIndex, ...rest } = player as any;
+					return { ...rest, teamId: teamIds[teamIndex] };
+				});
+				
+				// Mettre à jour le staff avec les vrais teamIds
+				const staffWithTeamIds = staff.map(s => {
+					const { teamIndex, ...rest } = s as any;
+					return { ...rest, teamId: teamIds[teamIndex] };
+				});
+				
+				// Insérer players et staff
+				if (playersWithTeamIds.length > 0) await db.players.bulkAdd(playersWithTeamIds);
+				if (staffWithTeamIds.length > 0) await db.staff.bulkAdd(staffWithTeamIds);
 
 				// Génération des matchs pour chaque ligue (attente de toutes les promesses)
-				const fixturePromises = leagues.map(league => {
-					const leagueTeams = teams.filter(t => t.leagueId === league.id).map(t => t.id);
-					return generateSeasonFixtures(saveId as number, league.id, leagueTeams);
+				const fixturePromises = leagueIds.map((leagueId, idx) => {
+					const leagueTeamIds = teamIds.filter((_, teamIdx) => 
+						teamsWithLeagueIds[teamIdx].leagueId === leagueId
+					);
+					return generateSeasonFixtures(saveId as number, leagueId as number, leagueTeamIds as number[]);
 				});
 				await Promise.all(fixturePromises);
 
@@ -82,7 +111,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 				console.log(`[DEBUG] ${insertedMatches.length} matchs insérés pour la partie ${saveId}`, insertedMatches.slice(0, 5));
 
 				// Mise à jour des couleurs/logo de l'équipe utilisateur
-				await db.teams.update(userTeamId, {
+				await db.teams.update(finalUserTeamId, {
 					primaryColor,
 					secondaryColor,
 					colors: [primaryColor, secondaryColor],
@@ -92,20 +121,25 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 
 				// Ajout de l'état de jeu initial
 				const startDate = new Date();
+				// Validation que finalUserTeamId existe
+				if (!finalUserTeamId) {
+					throw new Error("Impossible de créer l'équipe utilisateur");
+				}
+
 				await db.gameState.add({
 					saveId: saveId as number,
 					currentDate: startDate,
 					season: 1,
 					day: 1,
-					userTeamId,
+					userTeamId: finalUserTeamId,
 					isGameOver: false,
-					version: 1
+					liveMatch: null
 				});
 			});
 
 			// Initialisation du store et passage à la suite
 			const startDate = new Date();
-			await initializeGame(saveId as number, startDate, userTeamId, managerFullName, trimmedTeamName);
+			await initializeGame(saveId as number, startDate, finalUserTeamId!, managerFullName, trimmedTeamName);
 			onGameCreated();
 		} catch (e) {
 			console.error("World generation failed", e);
@@ -116,7 +150,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 
 	const ColorPicker = ({ label, selected, onChange }: { label: string, selected: string, onChange: (c: string) => void }) => (
 		<div className="space-y-3">
-			<label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+			<label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 {label}
             </label>
 			<div className="grid grid-cols-5 gap-2">
@@ -143,7 +177,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 				<div className="flex items-center gap-4 mb-10">
 					<button 
 						onClick={onCancel}
-						className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-ink transition-all"
+						className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-ink transition-all"
 					>
 						<ArrowLeft size={20} />
 					</button>
@@ -151,7 +185,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 						<h1 className="text-xl font-black tracking-tight uppercase leading-none">
 							{t("create.title", "Nouveau Club")}
 						</h1>
-						<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+						<p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1">
 							Création de votre club
 						</p>
 					</div>
@@ -167,7 +201,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
                             <h2 className="text-2xl font-black italic tracking-tighter truncate leading-tight mb-2">
                                 {teamName || "Nom du Club"}
                             </h2>
-                            <div className="flex items-center gap-2 text-slate-400">
+                            <div className="flex items-center gap-2 text-slate-600">
                                 <User size={12} />
                                 <span className="text-[10px] font-bold uppercase tracking-tight truncate">
                                     {managerFirstName && managerLastName ? `${managerFirstName} ${managerLastName}` : "Fondateur"}
@@ -191,7 +225,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
                     {/* Inputs Section */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Prénom</label>
+                            <label className="text-[10px] font-black uppercase text-slate-600 ml-1">Prénom</label>
                             <input
                                 type="text"
                                 value={managerFirstName}
@@ -201,7 +235,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
                             />
                         </div>
                         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nom</label>
+                            <label className="text-[10px] font-black uppercase text-slate-600 ml-1">Nom</label>
                             <input
                                 type="text"
                                 value={managerLastName}
@@ -213,7 +247,7 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
                     </div>
 
                     <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nom du club</label>
+                        <label className="text-[10px] font-black uppercase text-slate-600 ml-1">Nom du club</label>
                         <input
                             type="text"
                             value={teamName}

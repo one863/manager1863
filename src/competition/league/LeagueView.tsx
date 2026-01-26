@@ -176,7 +176,7 @@ export default function LeagueView({ onSelectMatch, onSelectTeam }: LeagueViewPr
                                                     <span className="max-w-[80px] text-center leading-tight">{homeTeam?.name || "Dom."}</span>
                                                 </button>
                                                 
-                                                <div className={`w-14 text-center font-mono font-black py-2 rounded-xl text-xs shrink-0 ${match.played ? (isUserMatch ? 'bg-accent text-white shadow-sm' : 'bg-gray-100 text-ink') : 'bg-white text-slate-300 border border-slate-100 italic'}`}>
+                                                <div className={`w-14 text-center font-mono font-black py-2 rounded-xl text-xs shrink-0 ${match.played ? (isUserMatch ? 'bg-accent text-white shadow-sm' : 'bg-gray-100 text-ink') : 'bg-white text-slate-500 border border-slate-100 italic'}`}>
                                                     {match.played ? `${match.homeScore} - ${match.awayScore}` : "vs"}
                                                 </div>
                                                 

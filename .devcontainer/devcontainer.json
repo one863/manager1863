@@ -11,7 +11,7 @@
 			"onAutoForward": "notify"
 		}
 	},
-	"postCreateCommand": "npm install",
+	"postCreateCommand": "npm install && npm run dev &",
 	"customizations": {
 		"vscode": {
 			"extensions": [

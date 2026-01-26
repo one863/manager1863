@@ -1,23 +1,34 @@
-// Ce fichier sert principalement à l'affichage UI des positions sur le terrain.
-// Pour le moteur de simulation, voir src/core/engine/token-engine/tactics-data.ts
+// Ce fichier génère les données d'affichage UI à partir de formations-config.ts
+// Source unique : src/core/engine/token-engine/config/formations-config.ts
 
-export const FORMATIONS: Record<string, { positions: { x: number; y: number; role: string }[] }> = {
-    "4-4-2": {
-        positions: [
-            { x: 0, y: 2, role: "GK" },
-            { x: 1, y: 0, role: "DL" }, { x: 1, y: 1, role: "DC" }, { x: 1, y: 3, role: "DC" }, { x: 1, y: 4, role: "DR" },
-            { x: 3, y: 0, role: "ML" }, { x: 3, y: 1, role: "MC" }, { x: 3, y: 3, role: "MC" }, { x: 3, y: 4, role: "MR" },
-            { x: 5, y: 1, role: "ST" }, { x: 5, y: 3, role: "ST" }
-        ]
-    },
-    "4-3-3": {
-        positions: [
-            { x: 0, y: 2, role: "GK" },
-            { x: 1, y: 0, role: "DL" }, { x: 1, y: 1, role: "DC" }, { x: 1, y: 3, role: "DC" }, { x: 1, y: 4, role: "DR" },
-            { x: 3, y: 1, role: "MC" }, { x: 3, y: 2, role: "MC" }, { x: 3, y: 3, role: "MC" },
-            { x: 5, y: 0, role: "LW" }, { x: 5, y: 2, role: "ST" }, { x: 5, y: 4, role: "RW" }
-        ]
-    }
-};
+import { FORMATIONS as ENGINE_FORMATIONS, ROLE_ZONES, getFormationRoles } from "./engine/token-engine/config/formations-config";
+
+/**
+ * Génère les positions visuelles pour une formation à partir des zones du moteur
+ * Utilise la zone active principale de chaque rôle
+ */
+function generateFormationPositions(formationId: string): { x: number; y: number; role: string }[] {
+    const roles = getFormationRoles(formationId);
+    
+    return roles.map(role => {
+        const zones = ROLE_ZONES[role];
+        if (!zones || zones.active.length === 0) {
+            // Fallback au centre
+            return { x: 2, y: 2, role };
+        }
+        // Prend la première zone active comme position principale
+        const mainZone = zones.active[0];
+        return { x: mainZone.x, y: mainZone.y, role };
+    });
+}
+
+// Génère FORMATIONS pour l'UI à partir des données du moteur
+export const FORMATIONS: Record<string, { positions: { x: number; y: number; role: string }[] }> = 
+    Object.fromEntries(
+        Object.keys(ENGINE_FORMATIONS).map(key => [
+            key,
+            { positions: generateFormationPositions(key) }
+        ])
+    );
 
 export type FormationKey = keyof typeof FORMATIONS;

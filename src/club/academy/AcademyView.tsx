@@ -12,7 +12,7 @@ export default function AcademyView() {
 
 	useEffect(() => {
 		if (userTeamId) {
-			db.teams.get(userTeamId).then(setTeam);
+			db.teams.get(userTeamId).then((team) => setTeam(team || null));
 		}
 	}, [userTeamId]);
 

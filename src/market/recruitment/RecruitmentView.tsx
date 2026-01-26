@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import Button from "@/ui/components/Common/Button";
 import Card from "@/ui/components/Common/Card";
 import PlayerAvatar from "@/squad/components/PlayerAvatar";
-import { generateStaffMember } from "@/core/generators/staff-generator";
+import { generateStaff as generateStaffMember } from "@/core/generators/staff-generator";
 
 export default function RecruitmentView() {
 	const { t } = useTranslation();
@@ -31,7 +31,9 @@ export default function RecruitmentView() {
             if (allStaff.length === 0) {
                 const newStaff = [];
                 for(let i = 0; i < 10; i++) {
-                    newStaff.push(generateStaffMember(currentSaveId, undefined, 5) as StaffMember);
+                    const staffData = generateStaffMember(5, undefined) as StaffMember;
+                    staffData.saveId = currentSaveId;
+                    newStaff.push(staffData);
                 }
                 await db.staff.bulkAdd(newStaff);
                 allStaff = await db.staff
@@ -82,7 +84,7 @@ export default function RecruitmentView() {
 				{candidates.length === 0 && !loading && (
 					<div className="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-200">
 						<Briefcase size={48} className="mx-auto text-gray-200 mb-2" />
-						<p className="text-sm text-gray-400 italic font-serif">Aucun candidat disponible pour le moment</p>
+						<p className="text-sm text-gray-600 italic font-serif">Aucun candidat disponible pour le moment</p>
 					</div>
 				)}
 
@@ -100,11 +102,11 @@ export default function RecruitmentView() {
 								
 								<div className="flex items-center gap-4 mt-2">
 									<div className="flex flex-col">
-										<span className="text-[9px] font-bold text-gray-400 uppercase">Expertise</span>
+										<span className="text-[9px] font-bold text-gray-600 uppercase">Expertise</span>
 										<span className="text-sm font-black text-ink">{staff.skill}/100</span>
 									</div>
 									<div className="flex flex-col">
-										<span className="text-[9px] font-bold text-gray-400 uppercase">Salaire hebdo.</span>
+										<span className="text-[9px] font-bold text-gray-600 uppercase">Salaire hebdo.</span>
 										<span className="text-sm font-black text-accent">{staff.wage || 500} M</span>
 									</div>
 								</div>

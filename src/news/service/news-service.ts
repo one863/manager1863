@@ -6,11 +6,9 @@ import { validateOrThrow } from "@/core/validation/zod-utils";
 
 export const NewsService = {
 	async addNews(saveId: number, article: Omit<NewsArticle, "id" | "saveId" | "isRead">) {
-		// Log de debug pour traquer la catégorie brute
-		console.warn('[NewsService.addNews] Catégorie brute reçue :', article.category);
 		// Correction automatique de la catégorie
 		const allowed = ["MATCH", "TRANSFER", "CLUB", "LEAGUE"];
-		let category = article.category;
+		let category: string = String(article.category);
 		if (typeof category === "string") {
 			category = category.toUpperCase();
 			if (!allowed.includes(category)) {
@@ -26,7 +24,7 @@ export const NewsService = {
 			{ ...article, category: String(category), saveId, isRead: false },
 			"NewsService.addNews",
 		);
-		return await db.news.add(validatedArticle);
+		return await db.news.add(validatedArticle as any);
 	},
 
 	async getLatestNews(saveId: number, limit = 5, currentDay?: number) {
@@ -65,11 +63,17 @@ export const NewsService = {
 
 	async cleanupOldNews(saveId: number, _currentSeason: number) {
 		const count = await db.news.where("saveId").equals(saveId).count();
-		const MAX_NEWS = 200;
+		const MAX_NEWS = 30;
 		if (count > MAX_NEWS) {
+			// Récupérer toutes les news triées par date (les plus anciennes en premier)
+			const allNews = await db.news.where("saveId").equals(saveId).toArray();
+			allNews.sort((a, b) => {
+				if (a.day !== b.day) return a.day - b.day;
+				return (a.id || 0) - (b.id || 0);
+			});
 			const deleteCount = count - MAX_NEWS;
-			const oldestNews = await db.news.where("saveId").equals(saveId).limit(deleteCount).primaryKeys();
-			await db.news.bulkDelete(oldestNews);
+			const idsToDelete = allNews.slice(0, deleteCount).map(n => n.id!);
+			await db.news.bulkDelete(idsToDelete);
 		}
 	},
 
@@ -131,7 +135,7 @@ export const NewsService = {
 
         // IMPACT : Le joueur vedette gagne en forme et en moral
         await db.players.update(bestPlayer.id!, {
-            form: clamp(bestPlayer.form + 0.5, 1, 10),
+            form: clamp((bestPlayer.form || 5) + 0.5, 1, 10),
             morale: clamp(bestPlayer.morale + 10, 0, 100)
         });
 

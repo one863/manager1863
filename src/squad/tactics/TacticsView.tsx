@@ -114,14 +114,14 @@ export default function Tactics() {
 				<div className="relative">
 					<select 
 						value={formation}
-						onChange={(e) => handleFormationChange(e.target.value as FormationKey)}
+						onChange={(e) => e.target && handleFormationChange((e.target as HTMLSelectElement).value as FormationKey)}
 						className="appearance-none bg-slate-100 font-bold text-sm text-ink py-2 pl-4 pr-8 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent"
 					>
 						{Object.keys(FORMATIONS).map(f => (
 							<option key={f} value={f}>{f}</option>
 						))}
 					</select>
-					<ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+					<ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
 				</div>
 				
 				<div className="text-xs font-bold text-ink-light bg-slate-100 px-3 py-2 rounded-lg">
@@ -205,7 +205,7 @@ export default function Tactics() {
 										<span className="font-bold text-ink text-sm truncate">{player.lastName}</span>
 										<span className="font-black text-ink-light text-xs">{Math.floor(player.skill)}</span>
 									</div>
-									<div className="flex gap-2 text-[10px] text-gray-400">
+									<div className="flex gap-2 text-[10px] text-gray-600">
 										<span className="font-black text-gray-500">{player.position}</span>
 										<span>{player.age} ans</span>
 									</div>

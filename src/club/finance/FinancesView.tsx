@@ -112,7 +112,6 @@ export default function FinancesView() {
 						amount={netWeekly} 
 						size="md" 
 						color={netWeekly >= 0 ? "text-green-700" : "text-red-700"} 
-						prefix={netWeekly > 0 ? "+" : ""}
 					/>
 				</div>
 			</div>

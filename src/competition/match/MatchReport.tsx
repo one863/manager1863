@@ -39,7 +39,20 @@ export default function MatchReport({ matchId, onClose }: any) {
 					const det = m.details as MatchResultType;
 					setDetails(det);
                     const r: Record<string, number> = {};
-                    if (det.playerStats) Object.entries(det.playerStats).forEach(([pid, s]) => { if (s.rating > 0) r[pid] = s.rating; });
+                    // Les ratings sont stockés comme un tableau d'objets {id, rating, ...}
+                    if ((det as any).ratings && Array.isArray((det as any).ratings)) {
+                        (det as any).ratings.forEach((player: any) => {
+                            if (player && player.id && player.rating > 0) {
+                                r[String(player.id)] = player.rating;
+                            }
+                        });
+                    }
+                    // Fallback : vérifier si playerStats existe aussi
+                    if (Object.keys(r).length === 0 && (det as any).playerStats) {
+                        Object.entries((det as any).playerStats).forEach(([pid, s]: [string, any]) => { 
+                            if (s && typeof s === 'object' && s.rating > 0) r[pid] = s.rating; 
+                        });
+                    }
                     setRatings(r);
 				}
 			}
@@ -126,7 +139,7 @@ export default function MatchReport({ matchId, onClose }: any) {
 		<div className="flex flex-col h-full bg-gray-50 animate-fade-in relative overflow-hidden">
 			<div className="bg-white px-4 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
 				<div className="flex items-center gap-3">
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><ArrowLeft size={24} /></button>
+                    <button onClick={onClose} className="text-gray-600 hover:text-gray-600 p-1"><ArrowLeft size={24} /></button>
 				    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-tight">Match Report</h2>
                 </div>
 			</div>
@@ -151,19 +164,19 @@ export default function MatchReport({ matchId, onClose }: any) {
 
                             <div className="w-full flex justify-between border-t border-gray-50 pt-4">
                                 <div className="flex flex-col items-start gap-1 w-1/2 pr-2 border-r border-gray-50">
-                                    {homeGoals.length === 0 && <span className="text-[9px] text-gray-300 italic">Aucun buteur</span>}
+                                    {homeGoals.length === 0 && <span className="text-[9px] text-gray-500 italic">Aucun buteur</span>}
                                     {homeGoals.map((g, i) => (
                                         <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold text-gray-700">
                                             <Goal size={10} className="text-emerald-500" />
-                                            <span>{g.scorerName || 'Joueur'}</span> <span className="text-gray-400 font-normal">({g.minute}')</span>
+                                            <span>{g.scorerName || 'Joueur'}</span> <span className="text-gray-600 font-normal">({g.minute}')</span>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="flex flex-col items-end gap-1 w-1/2 pl-2">
-                                    {awayGoals.length === 0 && <span className="text-[9px] text-gray-300 italic">Aucun buteur</span>}
+                                    {awayGoals.length === 0 && <span className="text-[9px] text-gray-500 italic">Aucun buteur</span>}
                                     {awayGoals.map((g, i) => (
                                         <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold text-gray-700">
-                                            <span>{g.scorerName || 'Joueur'}</span> <span className="text-gray-400 font-normal">({g.minute}')</span>
+                                            <span>{g.scorerName || 'Joueur'}</span> <span className="text-gray-600 font-normal">({g.minute}')</span>
                                             <Goal size={10} className="text-orange-500" />
                                         </div>
                                     ))}
@@ -172,11 +185,11 @@ export default function MatchReport({ matchId, onClose }: any) {
                         </div>
 
                         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
-                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Statistiques</h3>
-                            {details?.stats && (
+                            <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-b border-gray-50 pb-2">Statistiques</h3>
+                            {details?.stats && homeTeam?.id && awayTeam?.id && (
                                 <>
                                     <StatRow label="Possession" h={details.stats.possessionPercent?.[homeTeam.id] || 50} a={details.stats.possessionPercent?.[awayTeam.id] || 50} unit="%" />
-                                    <StatRow label="Passes" h={details.stats.passes?.[homeTeam.id]?.successful || 0} a={details.stats.passes?.[awayTeam.id]?.successful || 0} />
+                                    <StatRow label="Passes" h={(details.stats.passes as any)?.[homeTeam.id]?.successful || 0} a={(details.stats.passes as any)?.[awayTeam.id]?.successful || 0} />
                                     <StatRow label="Tirs" h={details.stats.shots?.[homeTeam.id]?.total || 0} a={details.stats.shots?.[awayTeam.id]?.total || 0} />
                                     <StatRow label="Fautes" h={details.stats.fouls?.[homeTeam.id] || 0} a={details.stats.fouls?.[awayTeam.id] || 0} />
                                 </>
@@ -221,7 +234,7 @@ export default function MatchReport({ matchId, onClose }: any) {
                             return (
                                 <div key={p.id} className="flex items-center p-3 gap-3" onClick={() => setSelectedPlayer(p)}>
                                     <PlayerAvatar dna={p.dna} size={32} />
-                                    <div className="flex-1 min-w-0"><p className="font-bold text-sm text-gray-900 truncate">{p.lastName}</p><p className="text-[10px] text-gray-400 uppercase font-black">{p.position}</p></div>
+                                    <div className="flex-1 min-w-0"><p className="font-bold text-sm text-gray-900 truncate">{p.lastName}</p><p className="text-[10px] text-gray-600 uppercase font-black">{p.position}</p></div>
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border ${getRatingColor(rating)}`}>{rating.toFixed(1)}</div>
                                 </div>
                             );
@@ -243,7 +256,7 @@ const StatRow = ({ label, h, a, unit = "" }: any) => {
         <div className="space-y-1">
             <div className="flex justify-between text-[10px] font-bold text-gray-700 uppercase">
                 <span>{h}{unit}</span>
-                <span className="text-[9px] text-gray-400 tracking-widest">{label}</span>
+                <span className="text-[9px] text-gray-600 tracking-widest">{label}</span>
                 <span>{a}{unit}</span>
             </div>
             <div className="h-1.5 bg-gray-50 rounded-full overflow-hidden flex border border-gray-100">

@@ -1,17 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
 	content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-	theme: {
-		extend: {
-			colors: {
-				paper: "rgb(var(--color-paper) / <alpha-value>)",
-				"paper-dark": "rgb(var(--color-paper-dark) / <alpha-value>)",
-				ink: "rgb(var(--color-ink) / <alpha-value>)",
-				"ink-light": "rgb(var(--color-ink-light) / <alpha-value>)",
-				accent: "rgb(var(--color-accent) / <alpha-value>)",
-				grass: "rgb(var(--color-grass) / <alpha-value>)",
-			},
-			fontFamily: {
+	// Configuration minimale pour Tailwind v4
+	// Les couleurs sont définies dans src/index.css avec @theme
+};
 				serif: ["Georgia", "Cambria", '"Times New Roman"', "Times", "serif"],
 				sans: [
 					'"Instrument Sans"',

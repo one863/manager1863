@@ -1,10 +1,11 @@
 import { db } from "@/core/db/db";
 import type { Player, Team } from "../ports/interfaces";
 import type { SavePort, LoadPort } from "../ports/interfaces";
+import type { Table } from "dexie";
 
 // --- Adapter générique Dexie ---
 export class DexieAdapter<T> implements SavePort<T>, LoadPort<T> {
-  constructor(private readonly table: Dexie.Table<T, number>) {}
+  constructor(private readonly table: Table<T, number>) {}
 
   async save(entity: T): Promise<void> {
     await this.table.put(entity);

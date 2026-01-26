@@ -4,10 +4,10 @@ import type { SavePort, LoadPort } from "../ports/interfaces";
 
 export class DexiePlayerAdapter implements SavePort<Player>, LoadPort<Player> {
   async save(player: Player): Promise<void> {
-    await db.players.put(player);
+    await db.players.put(player as any);
   }
   async saveMany(players: Player[]): Promise<void> {
-    await db.players.bulkPut(players);
+    await db.players.bulkPut(players as any);
   }
   async load(id: number): Promise<Player | null> {
     return (await db.players.get(id)) || null;

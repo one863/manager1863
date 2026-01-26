@@ -1,3 +1,10 @@
+// Type minimal pour Sponsor (corrige l'import dans club-service)
+export interface Sponsor {
+	name: string;
+	income: number;
+	expiryDay: number;
+	expirySeason: number;
+}
 /**
  * Types partagés entre tous les domaines
  */

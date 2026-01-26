@@ -14,7 +14,9 @@ interface StaffCardProps {
 
 export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardProps) {
 	const userTeamId = useGameStore((state) => state.userTeamId);
-	const gameState = useGameStore((state) => state.gameState);
+	const currentSaveId = useGameStore((state) => state.currentSaveId);
+	const currentDay = useGameStore((state) => state.day || 1);
+	const currentSeason = useGameStore((state) => state.season || 1);
 	const triggerRefresh = useGameStore((state) => state.triggerRefresh);
 	const [activeTab, setActiveTab] = useState<"stats" | "contract" | "history">("stats");
 	const [showConfirmHire, setShowConfirmHire] = useState(false);
@@ -23,8 +25,6 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 	if (!staff) return null;
 
 	const isUserStaff = staff.teamId === userTeamId;
-    const currentDay = gameState?.day || 1;
-	const currentSeason = gameState?.season || 1;
 	const daysInClub = isUserStaff ? (currentSeason - staff.joinedSeason) * 35 + (currentDay - staff.joinedDay) : 0;
 
 	const handleHire = async () => {
@@ -73,7 +73,7 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 			{/* Header */}
 			<div className="bg-white px-4 py-4 border-b flex justify-between items-center sticky top-0 z-10">
 				<div className="flex gap-3 items-center">
-					<button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+					<button onClick={onClose} className="text-gray-600 hover:text-gray-600 p-1">
 						<ArrowLeft size={24} />
 					</button>
 					<PlayerAvatar dna={staff.dna} size={48} isStaff />
@@ -89,7 +89,7 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 				</div>
 				<div className="text-right">
 					<div className="text-2xl font-black text-gray-900">{Math.floor(staff.skill)}</div>
-					<div className="text-[9px] text-gray-400 uppercase font-bold tracking-tight">Potentiel</div>
+					<div className="text-[9px] text-gray-600 uppercase font-bold tracking-tight">Potentiel</div>
 				</div>
 			</div>
 
@@ -106,16 +106,36 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 				{activeTab === "stats" && (
 					<div className="space-y-4">
 						<div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-							<h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-								<Award size={14} className="text-blue-500" /> Compétences
+							<h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+								<Award size={14} className="text-blue-500" /> Compétences Principales
 							</h3>
-                            <StatBar label="Coaching" value={staff.stats.coaching} />
-                            <StatBar label="Médical" value={staff.stats.medical} />
-                            <StatBar label="Gestion" value={staff.stats.management} />
+							{staff.role === "COACH" && (
+								<>
+									<StatBar label="Coaching" value={staff.stats.coaching} />
+									<StatBar label="Tactique" value={staff.stats.tactical} />
+									<StatBar label="Discipline" value={staff.stats.discipline} />
+									<StatBar label="Entraînement" value={staff.stats.training} />
+								</>
+							)}
+							{staff.role === "PHYSICAL_TRAINER" && (
+								<>
+									<StatBar label="Condition" value={staff.stats.conditioning} />
+									<StatBar label="Récupération" value={staff.stats.recovery} />
+									<StatBar label="Physique" value={staff.stats.physical || 10} />
+									<StatBar label="Médical" value={staff.stats.medical} />
+								</>
+							)}
+							{staff.role === "VIDEO_ANALYST" && (
+								<>
+									<StatBar label="Lecture" value={staff.stats.reading} />
+									<StatBar label="Tactique" value={staff.stats.tactical} />
+									<StatBar label="Gestion" value={staff.stats.management} />
+								</>
+							)}
 						</div>
 
 						<div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-							<span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Confiance</span>
+							<span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest block mb-1">Confiance</span>
 							<p className="font-bold text-gray-900">{staff.confidence}%</p>
 						</div>
 
@@ -135,7 +155,7 @@ export default function StaffCard({ staff, onClose, onStaffAction }: StaffCardPr
 				{activeTab === "contract" && (
 					<div className="space-y-4">
 						<div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-							<span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Salaire Hebdo</span>
+							<span className="text-[10px] font-bold text-gray-600 uppercase block mb-1">Salaire Hebdo</span>
 							<p className="text-xl font-bold text-gray-900">M {staff.wage}</p>
 						</div>
 

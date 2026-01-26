@@ -11,7 +11,7 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
     const isAway = event.teamId !== homeTeamId;
     // @ts-ignore
 	const isSuspense = event.type === "SUSPENSE";
-	const displayMinute = event.minute > 90 ? `90+${event.minute - 90}` : `${event.minute}`;
+	const displayMinute = event.minute && event.minute > 90 ? `90+${event.minute - 90}` : `${event.minute || 0}`;
 
     const GreenBall = () => (
         <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm border border-emerald-600 inline-flex mr-2 shrink-0">
@@ -49,14 +49,14 @@ export default function EventItem({ event, homeTeamId }: EventItemProps) {
 
 	return (
 		<div className={`flex gap-3 animate-fade-in py-2 border-b border-gray-50 items-start transition-colors px-2 rounded-lg ${getBgColor()} ${isGoal ? 'relative z-10 border-l-4 ' + (isAway ? 'border-l-orange-500' : 'border-l-blue-500') : ''}`}>
-			<div className={`font-mono text-[10px] w-8 shrink-0 py-0.5 text-center font-black rounded border ${isGoal ? (isAway ? 'bg-orange-600 text-white border-orange-600' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-gray-400 border-gray-100'}`}>
+			<div className={`font-mono text-[10px] w-8 shrink-0 py-0.5 text-center font-black rounded border ${isGoal ? (isAway ? 'bg-orange-600 text-white border-orange-600' : 'bg-blue-600 text-white border-blue-600') : 'bg-white text-gray-600 border-gray-100'}`}>
 				{displayMinute}
 			</div>
 
 			<div className="flex-1 text-left">
 				<div className={`text-[12px] leading-tight flex items-center flex-wrap ${isGoal ? "text-gray-900 font-black" : "text-gray-600 font-medium"}`}>
 					{getIcon()}
-					<span>{event.description}</span>
+					<span>{(event.description || '').replace(/undefined|Collectif/g, "L'équipe")}</span>
 					{event.xg && (
 						<span className="ml-2 text-[9px] font-bold text-blue-500 opacity-60 italic">({event.xg.toFixed(2)} xG)</span>
 					)}

@@ -25,7 +25,7 @@ export default function LeagueTable({
 			const initialLeague = allLeagues.find(l => l.id === activeLeagueId);
             if (initialLeague) {
                 setActiveLeagueName(initialLeague.name);
-            } else if (allLeagues.length > 0) {
+            } else if (allLeagues.length > 0 && allLeagues[0].id) {
                 setActiveLeagueId(allLeagues[0].id);
                 setActiveLeagueName(allLeagues[0].name);
             }

@@ -259,7 +259,7 @@ export default function NewsView({ onNavigate, onSelectPlayer, onSelectTeam, onC
                     }
                     icon={
                         <div className="w-10 h-10 bg-paper-dark rounded-xl flex items-center justify-center border-2 border-accent/10 shadow-sm">
-                            {getIcon(selectedArticle.type)}
+                            {selectedArticle?.type && getIcon(selectedArticle.type)}
                         </div>
                     }
                     headerRight={
@@ -361,7 +361,7 @@ export default function NewsView({ onNavigate, onSelectPlayer, onSelectTeam, onC
 								shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors
 								${article.isRead ? "bg-ink/5 text-ink/40" : "bg-accent/10 text-accent"}
 							`}>
-								{getIcon(article.type)}
+								{article?.type && getIcon(article.type)}
 							</div>
 
 							<div className="flex-1 min-w-0">

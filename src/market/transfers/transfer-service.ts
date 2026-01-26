@@ -1,4 +1,4 @@
-import { db } from "@/core/db/db";
+import { db, type Player, type Team, type StaffMember } from "@/core/db/db";
 import { NewsService } from "@/news/service/news-service";
 import { UpdatePlayerSchema, UpdateStaffSchema } from "@/core/domain";
 import { validateOrThrow } from "@/core/validation/zod-utils";
@@ -44,7 +44,7 @@ export const TransferService = {
 			UpdatePlayerSchema,
 			{ teamId, morale: 100 },
 			"TransferService.buyPlayer - player update",
-		);
+		) as Partial<Player>;
 
 		await db.transaction("rw", db.players, db.teams, async () => {
 			await db.players.update(playerId, playerUpdate);
@@ -64,7 +64,6 @@ export const TransferService = {
 			title: "SIGNATURE DE JOUEUR",
 			content: `Signature de ${player.firstName} ${player.lastName} à ${team.name} pour ${price.toLocaleString()}€ !`,
 			category: "TRANSFER",
-			isRead: false,
 			importance: 3,
 		});
 
@@ -82,7 +81,7 @@ export const TransferService = {
 			UpdateStaffSchema,
 			{ teamId },
 			"TransferService.hireStaff",
-		);
+		) as Partial<StaffMember>;
 
 		await db.staff.update(staffId, staffUpdate);
 
@@ -92,7 +91,6 @@ export const TransferService = {
 			title: "ARRIVÉE STAFF",
 			content: `${staff.firstName} ${staff.lastName} rejoint le staff de ${team.name} en tant que ${staff.role}.`,
 			category: "CLUB",
-			isRead: false,
 			importance: 2,
 		});
 
@@ -116,12 +114,14 @@ export const TransferService = {
             await db.teams.update(teamId, { budget: team.budget - severancePay });
         });
 
-        await NewsService.createNews(
-            team.saveId,
-            "STAFF",
-            `${staff.firstName} ${staff.lastName} a été licencié de son poste de ${staff.role} à ${team.name}.`,
-            teamId
-        );
+        await NewsService.addNews(team.saveId, {
+			day: 0,
+			date: new Date(),
+			title: "DÉPART STAFF",
+			content: `${staff.firstName} ${staff.lastName} a été licencié de son poste de ${staff.role} à ${team.name}.`,
+			category: "CLUB",
+			importance: 2,
+		});
 
         return { success: true };
     },
@@ -138,18 +138,19 @@ export const TransferService = {
 		await db.transaction("rw", db.players, db.teams, async () => {
 			await db.players.update(playerId, { 
 				teamId: 0, // Free agent
-				status: "FREE",
 				isStarter: false
-			});
+			} as Partial<Player>);
 			await db.teams.update(teamId, { budget: team.budget + sellValue });
 		});
 
-		await NewsService.createNews(
-			team.saveId,
-			"TRANSFER",
-			`${player.firstName} ${player.lastName} quitte ${team.name} !`,
-			teamId
-		);
+		await NewsService.addNews(team.saveId, {
+			day: 0,
+			date: new Date(),
+			title: "DÉPART JOUEUR",
+			content: `${player.firstName} ${player.lastName} quitte ${team.name} !`,
+			category: "TRANSFER",
+			importance: 3,
+		});
 
 		return { success: true };
 	}

@@ -29,15 +29,20 @@ It offers a nostalgic yet modern user experience, focusing on quick, engaging ga
 
 ## Development Setup
 
-1.  **Install Dependencies:**
+1.  **Install Dependencies :**
     ```bash
     npm install
     ```
 
-2.  **Run Development Server:**
-    ```bash
-    npm run dev
-    ```
+2.  **Démarrer le serveur de développement :**
+    - Dans Codespaces, Vite démarre automatiquement à l'ouverture du conteneur.
+    - Sinon, lance manuellement :
+      ```bash
+      npm run dev
+      # ou
+      npm start
+      ```
+    - Ou via la tâche VS Code "Démarrer Vite" (F1 > "Run Task").
 
 3.  **Build for Production:**
     ```bash

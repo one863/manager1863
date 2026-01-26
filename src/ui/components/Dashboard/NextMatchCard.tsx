@@ -30,7 +30,7 @@ export default function NextMatchCard({
 	if (!nextMatch) {
 		return (
 			<div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
-				<p className="text-xs font-bold uppercase tracking-widest text-gray-400">Aucun match prévu</p>
+				<p className="text-xs font-bold uppercase tracking-widest text-gray-600">Aucun match prévu</p>
 			</div>
 		);
 	}
@@ -100,11 +100,11 @@ export default function NextMatchCard({
 		<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
 			{/* Header */}
 			<div className="flex justify-between items-center mb-8">
-				<div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+				<div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-600">
 					<Trophy size={14} className="text-accent" />
 					<span>Journée {matchDayNumber > 0 ? matchDayNumber : 1}</span>
 				</div>
-				<div className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${daysUntil === 0 ? "bg-red-50 text-red-600 animate-pulse" : "bg-gray-50 text-gray-400"}`}>
+				<div className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${daysUntil === 0 ? "bg-red-50 text-red-600 animate-pulse" : "bg-gray-50 text-gray-600"}`}>
 					{daysUntil === 0 ? "JOUR DE MATCH" : `J-${daysUntil}`}
 				</div>
 			</div>
@@ -123,7 +123,7 @@ export default function NextMatchCard({
 
 				{/* VS */}
 				<div className="flex flex-col items-center gap-1.5 px-2">
-					<div className="text-[10px] font-black text-gray-300">VS</div>
+					<div className="text-[10px] font-black text-gray-500">VS</div>
 				</div>
 
 				{/* Opponent */}

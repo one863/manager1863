@@ -16,10 +16,11 @@ export async function resetAndInitializeGameData(saveId: number, userTeamName: s
 
   // Génère et insère les nouvelles données
   const { leagues, teams, players, staff } = generateWorld(saveId, userTeamName);
-  await db.leagues.bulkAdd(leagues);
-  await db.teams.bulkAdd(teams);
-  await db.players.bulkAdd(players);
-  await db.staff.bulkAdd(staff);
+  
+  if (leagues && leagues.length > 0) await db.leagues.bulkAdd(leagues);
+  if (teams && teams.length > 0) await db.teams.bulkAdd(teams);
+  if (players && players.length > 0) await db.players.bulkAdd(players);
+  if (staff && staff.length > 0) await db.staff.bulkAdd(staff);
 }
 
 // Exemple d'utilisation :

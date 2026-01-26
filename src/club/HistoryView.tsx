@@ -56,7 +56,7 @@ export default function HistoryView() {
 					<Trophy className="text-amber-500" size={28} />
 					Le Musée du Club
 				</h2>
-				<p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
+				<p className="text-[10px] font-black text-gray-600 uppercase tracking-widest leading-none">
                     Archives historiques & Palmarès
                 </p>
 			</header>
@@ -78,7 +78,7 @@ export default function HistoryView() {
 									<div>
 										<h4 className="text-sm font-black text-ink uppercase tracking-tight">{record.leagueName}</h4>
 										<div className="flex items-center gap-2 mt-1">
-											<span className="text-xs font-black text-gray-400">Position :</span>
+											<span className="text-xs font-black text-gray-600">Position :</span>
 											<span className={`text-xs font-black ${record.position === 1 ? "text-amber-600" : "text-ink"}`}>
 												{record.position}
                                                 {record.position === 1 ? "er" : "ème"}
@@ -87,7 +87,7 @@ export default function HistoryView() {
 									</div>
 									<div className="text-right">
 										<div className="text-lg font-black text-ink leading-none">{record.points}</div>
-										<div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Points</div>
+										<div className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Points</div>
 									</div>
 								</div>
 
@@ -97,7 +97,7 @@ export default function HistoryView() {
                                             <Target size={16} />
                                         </div>
                                         <div>
-                                            <p className="text-[8px] font-black text-gray-400 uppercase leading-none mb-1">Meilleur Buteur</p>
+                                            <p className="text-[8px] font-black text-gray-600 uppercase leading-none mb-1">Meilleur Buteur</p>
                                             <p className="text-[10px] font-bold text-ink truncate max-w-[80px]">{record.topScorerName}</p>
                                         </div>
 									</div>
@@ -106,7 +106,7 @@ export default function HistoryView() {
                                             <Star size={16} fill="currentColor" />
                                         </div>
                                         <div>
-                                            <p className="text-[8px] font-black text-gray-400 uppercase leading-none mb-1">Buts</p>
+                                            <p className="text-[8px] font-black text-gray-600 uppercase leading-none mb-1">Buts</p>
                                             <p className="text-[10px] font-bold text-ink">{record.topScorerGoals}</p>
                                         </div>
 									</div>

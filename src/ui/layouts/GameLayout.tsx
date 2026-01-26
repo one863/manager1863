@@ -191,8 +191,8 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 			{(saveStatus === "saving" || isProcessing) && (
 				<div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-50/80 backdrop-blur-sm transition-all duration-300">
 					<div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center max-w-[80%] text-center">
-						<Loader2 size={32} className="text-slate-400 animate-spin mb-4" />
-						<p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+						<Loader2 size={32} className="text-slate-600 animate-spin mb-4" />
+						<p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
 							Sauvegarde en cours...
 						</p>
 					</div>
@@ -205,8 +205,8 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 function ViewLoader() {
 	return (
 		<div className="flex flex-col items-center justify-center h-full">
-			<Loader2 size={32} className="text-slate-400 animate-spin mb-2" />
-			<p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+			<Loader2 size={32} className="text-slate-600 animate-spin mb-2" />
+			<p className="text-slate-600 text-[10px] font-black uppercase tracking-widest">
 				Chargement...
 			</p>
 		</div>

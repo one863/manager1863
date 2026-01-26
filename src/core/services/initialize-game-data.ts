@@ -10,10 +10,11 @@ export async function initializeGameData(saveId: number, userTeamName: string) {
   if (leaguesCount > 0) return; // Données déjà présentes
 
   const { leagues, teams, players, staff } = generateWorld(saveId, userTeamName);
-  await db.leagues.bulkAdd(leagues);
-  await db.teams.bulkAdd(teams);
-  await db.players.bulkAdd(players);
-  await db.staff.bulkAdd(staff);
+  
+  if (leagues && leagues.length > 0) await db.leagues.bulkAdd(leagues);
+  if (teams && teams.length > 0) await db.teams.bulkAdd(teams);
+  if (players && players.length > 0) await db.players.bulkAdd(players);
+  if (staff && staff.length > 0) await db.staff.bulkAdd(staff);
 }
 
 // Exemple d'utilisation dans un composant React :

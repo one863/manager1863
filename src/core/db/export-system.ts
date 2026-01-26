@@ -3,6 +3,7 @@ import { db } from "./db";
 
 /**
  * Exporte l'intégralité d'un slot de sauvegarde en format JSON.
+ * Optimise les données pour réduire la taille de la sauvegarde.
  */
 export async function exportSaveToJSON(saveId: number): Promise<string> {
 	const players = await db.players.where("saveId").equals(saveId).toArray();
@@ -17,11 +18,45 @@ export async function exportSaveToJSON(saveId: number): Promise<string> {
 
 	if (!gameState) throw new Error("Sauvegarde introuvable");
 
+	// Optimiser les matchs pour l'export : réduire la taille des détails
+	const optimizedMatches = matches.map(m => {
+		if (!m.details) return m;
+		
+		// Pour les matchs joués, ne garder que l'essentiel dans l'export
+		const optimizedDetails = {
+			matchId: m.details.matchId,
+			homeTeamId: m.details.homeTeamId,
+			awayTeamId: m.details.awayTeamId,
+			homeScore: m.details.homeScore,
+			awayScore: m.details.awayScore,
+			events: m.details.events,
+			stats: m.details.stats,
+			scorers: (m.details as any).scorers,
+			stoppageTime: m.details.stoppageTime,
+			// Réduire les logs : garder seulement les événements importants
+			debugLogs: m.details.debugLogs?.filter((log: any) => 
+				['GOAL', 'CARD', 'PENALTY', 'INJURY'].includes(log.eventSubtype) || 
+				(log.type === 'EVENT' && log.eventSubtype)
+			).map((log: any) => ({
+				time: log.time,
+				type: log.type,
+				text: log.text,
+				eventSubtype: log.eventSubtype,
+				playerName: log.playerName,
+				teamId: log.teamId
+			})) || [],
+			// Réduire ballHistory pour l'export
+			ballHistory: m.details.ballHistory?.slice(0, 50) || []
+		};
+		
+		return { ...m, details: optimizedDetails };
+	});
+
 	const fullData = {
 		gameState,
 		teams,
 		players,
-		matches,
+		matches: optimizedMatches,
 		leagues,
 		news,
 		history,
@@ -81,7 +116,8 @@ export async function importSaveFromJSON(
 			);
 			await db.saveSlots.put({
 				id: targetSlotId,
-				name: userTeam ? userTeam.name : "Sans Club",
+				teamName: userTeam ? userTeam.name : "Sans Club",
+				managerName: "Imported",
 				season: validatedData.gameState.season,
 				day: validatedData.gameState.day,
 				lastPlayedDate: new Date(),
@@ -133,9 +169,9 @@ export async function importSaveFromJSON(
 					})),
 				);
 
-			if (validatedData.history.length > 0)
+			if (validatedData.history && validatedData.history.length > 0)
 				await db.history.bulkAdd(
-					validatedData.history.map((h) => ({
+					validatedData.history?.map((h) => ({
 						...h,
 						id: undefined,
 						saveId: targetSlotId,

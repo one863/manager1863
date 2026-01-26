@@ -1,4 +1,5 @@
-import { db, type StaffMember } from "@/core/db/db";
+import { db, type Player, type StaffMember } from "@/core/db/db";
+import type { Stats } from "@/core/domain/common/types";
 import { clamp, probability, randomInt } from "@/core/utils/math";
 import { NewsService } from "@/news/service/news-service";
 import { UpdatePlayerSchema } from "@/core/domain";
@@ -54,7 +55,7 @@ export const TrainingService = {
 				newFB += (4.5 - newFB) * 0.1 + (Math.random() - 0.5) * 2;
 				if (!p.playedThisWeek) newFB -= 0.5;
 				newFB = clamp(newFB, 1, 8);
-				const newForm = p.form + (newFB - p.form) * 0.2;
+				const newForm = (p.form || 5) + (newFB - (p.form || 5)) * 0.2;
 
 				const playerUpdate = validateOrThrow(
 					UpdatePlayerSchema,
@@ -65,7 +66,7 @@ export const TrainingService = {
 						lastTrainingSkillChange: undefined,
 					},
 					"TrainingService.processDailyUpdates - weekly form update",
-				);
+				) as Partial<Player>;
 
 				await db.players.update(p.id!, playerUpdate);
 			}
@@ -85,7 +86,7 @@ export const TrainingService = {
 		let responsibleStaff: StaffMember | undefined = undefined;
 		
 		if (focus === "PHYSICAL") {
-			responsibleStaff = staff.find(s => s.role === "PHYSICAL_TRAINER" && s.stats.physical >= 5);
+			responsibleStaff = staff.find(s => s.role === "PHYSICAL_TRAINER" && (s.stats.physical || 0) >= 5);
 		} else if (focus === "GENERAL") {
 			responsibleStaff = staff.find(s => s.role === "COACH" && s.stats.training >= 5);
 		} else if (focus === "ATTACK") {
@@ -93,13 +94,13 @@ export const TrainingService = {
 		} else if (focus === "DEFENSE") {
 			responsibleStaff = staff.find(s => s.role === "COACH" && s.stats.tactical >= 5.5);
 		} else if (focus === "GK") {
-			responsibleStaff = staff.find(s => s.role === "COACH" && s.stats.goalkeeping >= 5);
+			responsibleStaff = staff.find(s => s.role === "COACH" && (s.stats.goalkeeping || 0) >= 5);
 		}
 
 		if (!responsibleStaff) {
 			await db.teams.update(teamId, { trainingFocus: undefined, trainingEndDay: undefined });
 			await NewsService.addNews(saveId, {
-				day: currentDay, date: currentDate, type: "CLUB", importance: 2,
+				day: currentDay, date: currentDate, type: "CLUB", category: "CLUB", importance: 2,
 				title: "ENTRAÎNEMENT ANNULÉ",
 				content: `Le cycle d'entraînement ${focus} a été annulé : personne dans le staff n'est qualifié pour le diriger.`
 			});
@@ -108,11 +109,11 @@ export const TrainingService = {
 
 		// Bonus basé sur la stat spécifique du staff
 		let skillBonus = 0;
-		if (focus === "PHYSICAL") skillBonus = responsibleStaff.stats.physical;
-		else if (focus === "GENERAL") skillBonus = responsibleStaff.stats.training;
-		else if (focus === "ATTACK") skillBonus = responsibleStaff.stats.training;
-		else if (focus === "DEFENSE") skillBonus = responsibleStaff.stats.tactical;
-		else if (focus === "GK") skillBonus = responsibleStaff.stats.goalkeeping;
+		if (focus === "PHYSICAL") skillBonus = responsibleStaff.stats.physical || 0;
+		else if (focus === "GENERAL") skillBonus = (responsibleStaff.stats as any).training || (responsibleStaff.stats as any).coaching || 0;
+		else if (focus === "ATTACK") skillBonus = (responsibleStaff.stats as any).training || (responsibleStaff.stats as any).coaching || 0;
+		else if (focus === "DEFENSE") skillBonus = (responsibleStaff.stats as any).tactical || (responsibleStaff.stats as any).coaching || 0;
+		else if (focus === "GK") skillBonus = responsibleStaff.stats.goalkeeping || 0;
 		
 		const staffBonus = (skillBonus / 10) * 0.1;
 
@@ -135,45 +136,44 @@ export const TrainingService = {
 			const oldSkillFloor = Math.floor(player.skill);
 
 			if (focus === "GENERAL") {
-				const keys: (keyof typeof stats)[] = ["speed", "stamina", "playmaking", "technique", "scoring", "defense", "head"];
-				const picked = keys[randomInt(0, keys.length - 1)];
-				(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain, 1, 20.99);
-			} else if (focus === "PHYSICAL") {
-				const picked = probability(0.5) ? "speed" : "stamina";
-				(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain * 1.6, 1, 20.99);
-			} else if (focus === "ATTACK") {
-				const picked = probability(0.6) ? "scoring" : "technique";
-				(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain * 1.6, 1, 20.99);
-				if (picked === "scoring") stats.shooting = stats.scoring;
-			} else if (focus === "DEFENSE") {
-				const picked = probability(0.6) ? "defense" : "head";
-				(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain * 1.6, 1, 20.99);
-				if (picked === "head") stats.strength = stats.head;
-			} else if (focus === "GK") {
-				if (player.position === "GK") {
-					stats.defense = clamp((stats.defense || 1) + baseGain * 2.2, 1, 20.99);
-				}
+			const keys: (keyof Stats)[] = ["technical", "finishing", "defense", "physical", "mental", "goalkeeping"];
+			const picked = keys[randomInt(0, keys.length - 1)];
+			(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain, 1, 20.99);
+		} else if (focus === "PHYSICAL") {
+			const picked = "physical";
+			(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain * 1.6, 1, 20.99);
+		} else if (focus === "ATTACK") {
+			const picked = probability(0.6) ? "finishing" : "technical";
+			(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain * 1.6, 1, 20.99);
+		} else if (focus === "DEFENSE") {
+			const picked = "defense";
+			(stats as any)[picked] = clamp(((stats as any)[picked] || 1) + baseGain * 1.6, 1, 20.99);
+		} else if (focus === "GK") {
+			if (player.position === "GK") {
+				stats.goalkeeping = clamp((stats.goalkeeping || 1) + baseGain * 2.2, 1, 20.99);
 			}
+		}
 
 			// Re-calcul du skill global moyen
 			const relevantStats = Object.values(stats).filter(v => typeof v === 'number') as number[];
 			const avgSkill = relevantStats.reduce((a, b) => a + b, 0) / relevantStats.length;
 			const skillIncreasedLevel = Math.floor(avgSkill) > oldSkillFloor;
 			
-			await db.players.update(player.id!, { 
+			const playerTrainingUpdate: Partial<Player> = { 
 				stats, 
 				skill: avgSkill, 
-				energy: Math.max(0, player.energy - energyCost), 
-				lastTrainingSkillChange: skillIncreasedLevel ? avgSkill - player.skill : undefined 
-			});
+				energy: Math.max(0, player.energy - energyCost)
+				// lastTrainingSkillChange: skillIncreasedLevel ? avgSkill - player.skill : undefined 
+			};
 			
+			await db.players.update(player.id!, playerTrainingUpdate);
 			if (skillIncreasedLevel) progressions.push(`- **[[player:${player.id}|${player.lastName}]]** est passé au niveau **${Math.floor(avgSkill)}**.`);
 		}
 
 		await db.teams.update(teamId, { trainingStartDay: undefined, trainingEndDay: undefined, trainingFocus: undefined });
 		const staffName = `${responsibleStaff.firstName} ${responsibleStaff.lastName}`;
 		await NewsService.addNews(saveId, {
-			day: currentDay, date: currentDate, type: "CLUB", importance: 2,
+			day: currentDay, date: currentDate, type: "CLUB", category: "CLUB", importance: 2,
 			title: "RAPPORT D'ENTRAÎNEMENT",
 			content: `Le cycle ${focus} dirigé par ${staffName} est terminé.\n\n${progressions.join("\n")}`
 		});

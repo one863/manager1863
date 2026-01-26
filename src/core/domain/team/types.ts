@@ -23,6 +23,19 @@ export interface Team extends BaseEntity {
 	tacticType: string;
 	formation: string;
 	version: number;
+
+	// Propriétés additionnelles utilisées dans le code
+	stadiumUpgradeEndDay?: number;
+	stadiumProject?: { type: string; targetCapacity?: number; targetName?: string } | null;
+	trainingFocus?: string;
+	trainingEndDay?: number;
+	trainingStartDay?: number;
+	colors?: string[];
+	sponsorName?: string;
+	managerName?: string;
+	sponsors?: any[];
+	pendingIncome?: number;
+	stadiumLevel?: number;
 }
 
 export interface TeamStats {

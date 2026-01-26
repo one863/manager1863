@@ -24,16 +24,22 @@ export interface MatchResult {
 	ballHistory: BallPosition[];
 	debugLogs?: any[];
 	stoppageTime?: number;
+	scorers?: { minute: number; teamId: number; scorerName: string }[];
+	ratings?: any[];
 }
 
 export interface MatchEvent {
 	timestamp: number;
 	type: string;
 	team: "HOME" | "AWAY";
+	teamId?: number; // Ajout pour compatibilité usages
 	playerId?: number;
 	x?: number;
 	y?: number;
 	description: string;
+	minute?: number;
+	scorerName?: string;
+	xg?: number;
 }
 
 export interface MatchStats {

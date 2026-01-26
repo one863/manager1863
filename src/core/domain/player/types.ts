@@ -38,4 +38,6 @@ export interface Player extends BaseEntity {
 	playedThisWeek: boolean;
 	lastRatings: number[];
 	seasonStats: SeasonStats;
+	form?: number; // Ajouté pour training-service/news-service
+	formBackground?: number; // Ajouté pour training-service
 }

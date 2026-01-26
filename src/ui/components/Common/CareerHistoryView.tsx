@@ -33,14 +33,14 @@ export default function CareerHistoryView({ teamId, playerName }: CareerHistoryP
         loadHistory();
     }, [saveId, teamId, playerName]);
 
-    if (isLoading) return <div className="p-8 text-center animate-pulse text-xs text-gray-400 font-bold uppercase tracking-widest">Chargement de l'historique...</div>;
+    if (isLoading) return <div className="p-8 text-center animate-pulse text-xs text-gray-600 font-bold uppercase tracking-widest">Chargement de l'historique...</div>;
 
     if (history.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 px-6 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                <History size={40} className="text-gray-300 mb-3" />
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-tight">Aucun antécédent</h3>
-                <p className="text-[10px] text-gray-400 mt-1">L'historique sera complété à la fin de chaque saison.</p>
+                <History size={40} className="text-gray-500 mb-3" />
+                <h3 className="text-sm font-bold text-gray-600 uppercase tracking-tight">Aucun antécédent</h3>
+                <p className="text-[10px] text-gray-600 mt-1">L'historique sera complété à la fin de chaque saison.</p>
             </div>
         );
     }
@@ -65,7 +65,7 @@ export default function CareerHistoryView({ teamId, playerName }: CareerHistoryP
                             <h4 className="text-sm font-bold text-gray-900 mt-1">{entry.leagueName}</h4>
                         </div>
                         <div className="text-right">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase block">Position</span>
+                            <span className="text-[10px] font-bold text-gray-600 uppercase block">Position</span>
                             <span className={`text-xl font-black ${entry.position === 1 ? 'text-amber-500' : 'text-gray-900'}`}>
                                 {entry.position}{entry.position === 1 ? 'er' : 'e'}
                             </span>
@@ -74,15 +74,15 @@ export default function CareerHistoryView({ teamId, playerName }: CareerHistoryP
 
                     <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-50">
                         <div className="text-center">
-                            <span className="text-[8px] font-bold text-gray-400 uppercase block mb-0.5">Points</span>
+                            <span className="text-[8px] font-bold text-gray-600 uppercase block mb-0.5">Points</span>
                             <span className="text-xs font-bold text-gray-700">{entry.points} pts</span>
                         </div>
                         <div className="text-center border-x border-gray-50">
-                            <span className="text-[8px] font-bold text-gray-400 uppercase block mb-0.5">Attaque</span>
+                            <span className="text-[8px] font-bold text-gray-600 uppercase block mb-0.5">Attaque</span>
                             <span className="text-xs font-bold text-gray-700">{entry.goalsFor} b.</span>
                         </div>
                         <div className="text-center">
-                            <span className="text-[8px] font-bold text-gray-400 uppercase block mb-0.5">Défense</span>
+                            <span className="text-[8px] font-bold text-gray-600 uppercase block mb-0.5">Défense</span>
                             <span className="text-xs font-bold text-gray-700">{entry.goalsAgainst} b.</span>
                         </div>
                     </div>

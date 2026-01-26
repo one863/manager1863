@@ -41,7 +41,11 @@ export const BackupService = {
 				if (gameState && gameState.userTeamId) {
 					const team = await db.teams.get(gameState.userTeamId);
 					if (team) {
-						await CloudService.uploadBackup(saveId, json, team.name);
+						await CloudService.uploadSave(saveId, json, {
+							clubName: team.name,
+							season: gameState.season,
+							day: gameState.day
+						});
 					}
 				}
 			}
@@ -61,7 +65,6 @@ export const BackupService = {
             backupKeys.forEach(key => {
                 localStorage.removeItem(key);
             });
-            console.log("[Backup] LocalStorage nettoyé des anciens backups.");
         } catch (e) {
             // Ignorer
         }

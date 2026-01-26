@@ -39,9 +39,21 @@ export class GridEngine {
         'PENALTY_MISS',
         'CORNER_GOAL'
     ];
-    // Autres actions offensives
-    const offensiveTypes = ['PASS_SHORT','PASS_LONG','PASS_BACK','PASS_SWITCH','THROUGH_BALL','CROSS','KEY_PASS','CUT_BACK','DRIBBLE','HEAD_PASS','REBOUND','OWN_GOAL','FREE_KICK_CROSS','CORNER_SHORT','CORNER_OVERCOOKED','GK_LONG','GK_SHORT','GK_BOULETTE'];
-    const defensiveTypes = ['TACKLE','INTERCEPT','BLOCK','CLEARANCE','PRESSING_SUCCESS','BALL_RECOVERY','CLAIM','PUNCH'];
+    // Autres actions offensives (sans les jetons GK qui sont uniquement pour GOAL_KICK)
+    const offensiveTypes = ['PASS_SHORT','PASS_LONG','PASS_BACK','PASS_SWITCH','THROUGH_BALL','CUT_BACK','DRIBBLE','HEAD_PASS','REBOUND','OWN_GOAL','FREE_KICK_CROSS','CORNER_SHORT','CORNER_OVERCOOKED'];
+    // Jetons défensifs de base (disponibles partout)
+    const defensiveTypesBase = ['TACKLE','INTERCEPT','DUEL_WON'];
+    // Jetons défensifs zonaux (limités à certaines zones)
+    const defensiveTypesBlock = ['BLOCK']; // Surface défensive uniquement
+    const defensiveTypesPressing = ['PRESSING_SUCCESS']; // Camp adverse uniquement (pressing haut)
+    const defensiveTypesRecovery = ['BALL_RECOVERY']; // Milieu de terrain
+    const defensiveTypesGK = ['CLAIM','PUNCH']; // Surface défensive uniquement (gardien)
+    const gkTypes = ['GK_SHORT', 'GK_LONG', 'GK_BOULETTE', 'GK_POSSESSION']; // Jetons gardien uniquement pour situations spéciales
+
+    // Calcul des zones pour l'équipe qui défend (opponentTeamId)
+    const isDefensiveZoneForOpponent = (opponentTeamId === homeId && pos.x <= 1) || (opponentTeamId === awayId && pos.x >= 4);
+    const isMidfieldZone = pos.x >= 2 && pos.x <= 3;
+    const isPressingZoneForOpponent = (opponentTeamId === homeId && pos.x >= 3) || (opponentTeamId === awayId && pos.x <= 2);
 
     config.baseTokens.forEach((pt: Partial<Token>, index: number) => {
         if (!pt.type || pt.type === 'NEUTRAL_POSSESSION' || !validTypes.has(pt.type as string)) return;
@@ -69,7 +81,8 @@ export class GridEngine {
                 quality: pt.quality || 30,
                 duration: pt.duration || 5
             });
-        } else if (defensiveTypes.includes(pt.type as string)) {
+        } else if (defensiveTypesBase.includes(pt.type as string)) {
+            // Jetons défensifs de base : disponibles partout
             bag.push({
                 id: `sys-${zoneKey}-${index}`,
                 type: pt.type as TokenType,
@@ -78,6 +91,74 @@ export class GridEngine {
                 quality: pt.quality || 30,
                 duration: pt.duration || 5
             });
+        } else if (defensiveTypesBlock.includes(pt.type as string) || defensiveTypesGK.includes(pt.type as string)) {
+            // BLOCK, CLAIM, PUNCH : uniquement dans la surface défensive
+            if (isDefensiveZoneForOpponent) {
+                bag.push({
+                    id: `sys-${zoneKey}-${index}`,
+                    type: pt.type as TokenType,
+                    ownerId: 0,
+                    teamId: opponentTeamId,
+                    quality: pt.quality || 30,
+                    duration: pt.duration || 5
+                });
+            }
+        } else if (defensiveTypesPressing.includes(pt.type as string)) {
+            // PRESSING_SUCCESS : uniquement dans le camp adverse (pressing haut)
+            if (isPressingZoneForOpponent) {
+                bag.push({
+                    id: `sys-${zoneKey}-${index}`,
+                    type: pt.type as TokenType,
+                    ownerId: 0,
+                    teamId: opponentTeamId,
+                    quality: pt.quality || 30,
+                    duration: pt.duration || 5
+                });
+            }
+        } else if (defensiveTypesRecovery.includes(pt.type as string)) {
+            // BALL_RECOVERY : uniquement au milieu de terrain
+            if (isMidfieldZone) {
+                bag.push({
+                    id: `sys-${zoneKey}-${index}`,
+                    type: pt.type as TokenType,
+                    ownerId: 0,
+                    teamId: opponentTeamId,
+                    quality: pt.quality || 30,
+                    duration: pt.duration || 5
+                });
+            }
+        } else if (pt.type === 'CLEARANCE') {
+            // CLEARANCE : disponible uniquement dans les zones défensives de l'équipe qui défend
+            const isDefensiveZoneHome = pos.x <= 2; // Zones 0, 1, 2 = défense home
+            const isDefensiveZoneAway = pos.x >= 3; // Zones 3, 4, 5 = défense away
+            // L'équipe qui défend = opponentTeamId (équipe sans possession)
+            if ((opponentTeamId === homeId && isDefensiveZoneHome) || 
+                (opponentTeamId === awayId && isDefensiveZoneAway)) {
+                bag.push({
+                    id: `sys-${zoneKey}-${index}`,
+                    type: pt.type as TokenType,
+                    ownerId: 0,
+                    teamId: opponentTeamId,
+                    quality: pt.quality || 30,
+                    duration: pt.duration || 5
+                });
+            }
+        } else if (pt.type === 'CROSS') {
+            // CROSS : disponible uniquement dans les zones offensives de l'équipe en possession
+            const isOffensiveZoneHome = pos.x >= 3; // Zones 3, 4, 5 = attaque home
+            const isOffensiveZoneAway = pos.x <= 2; // Zones 0, 1, 2 = attaque away
+            // L'équipe en possession peut centrer depuis le camp adverse
+            if ((possessionTeamId === homeId && isOffensiveZoneHome) || 
+                (possessionTeamId === awayId && isOffensiveZoneAway)) {
+                bag.push({
+                    id: `sys-${zoneKey}-${index}`,
+                    type: pt.type as TokenType,
+                    ownerId: 0,
+                    teamId: possessionTeamId,
+                    quality: pt.quality || 30,
+                    duration: pt.duration || 5
+                });
+            }
         }
         // Les autres types (VAR, etc.) sont ignorés ici
     });
@@ -144,16 +225,19 @@ export class GridEngine {
 
       switch(sit) {
           case 'KICK_OFF':
-              create('PASS_BACK', 80); create('PASS_LONG', 10); create('INTERCEPT', 10, opponentTeamId);
+              // Coup d'envoi : passe en retrait ou latérale vers un coéquipier (réaliste)
+              create('PASS_BACK', 70);
+              create('PASS_SWITCH', 30);
               break;
           case 'CORNER':
-              // Défense (adverse)
-              create('CORNER_CLEARED', 50, opponentTeamId);
-              create('PUNCH', 10, opponentTeamId);
-              create('CLAIM', 15, opponentTeamId);
-              // Attaque (équipe en possession)
-              create('CORNER_SHORT', 20, teamId);
-              create('CORNER_GOAL', 5, teamId);
+              // Défense (adverse) - réduit pour plus de buts sur corner
+              create('CORNER_CLEARED', 35, opponentTeamId);
+              create('PUNCH', 8, opponentTeamId);
+              create('CLAIM', 12, opponentTeamId);
+              // Attaque (équipe en possession) - augmenté
+              create('CORNER_SHORT', 15, teamId);
+              create('CORNER_GOAL', 15, teamId);  // Triplé : ~15% de chance de but
+              create('HEAD_SHOT', 10, teamId);    // Tête non cadrée
               break;
           case 'PENALTY':
               create('PENALTY_GOAL', 75); create('PENALTY_SAVED', 20); create('PENALTY_MISS', 5);
@@ -169,10 +253,24 @@ export class GridEngine {
               create('THROW_IN_SAFE', 70); create('THROW_IN_LONG_BOX', 20); create('THROW_IN_LOST', 10);
               break;
           case 'REBOUND_ZONE':
-              create('REBOUND', 40); create('BLOCK', 30); create('CLEARANCE', 20); create('SHOOT_GOAL', 10);
+              // Zone de rebond : situation chaotique, toutes les équipes peuvent récupérer
+              create('REBOUND', 25, teamId);
+              create('SHOOT_GOAL', 15, teamId);
+              create('SHOOT_SAVED', 10, teamId);
+              create('BLOCK', 20, opponentTeamId);
+              create('CLEARANCE', 15, opponentTeamId);
+              create('CLAIM', 10, opponentTeamId);
+              create('DUEL_WON', 5, opponentTeamId);
               break;
           case 'FREE_KICK':
-              create('FREE_KICK_CROSS', 60); create('FREE_KICK_WALL', 30); create('FREE_KICK_SHOT', 10);
+              create('FREE_KICK_CROSS', 50); 
+              create('FREE_KICK_SHOT', 15);
+              create('FREE_KICK_WALL', 25, opponentTeamId);
+              create('BLOCK', 10, opponentTeamId);
+              break;
+          case 'VAR_ZONE':
+              // Le VAR décide : la plupart du temps ça confirme la décision
+              create('SYSTEM', 100); // Le système gère, la décision sera prise par le moteur
               break;
       }
       return this.shuffle(bag);
@@ -185,5 +283,27 @@ export class GridEngine {
       [array[curr], array[rand]] = [array[rand], array[curr]];
     }
     return array;
+  }
+
+  /**
+   * Tirage pondéré par la qualité des jetons.
+   * Un jeton avec quality=50 a 5× plus de chances d'être tiré qu'un jeton avec quality=10.
+   */
+  public drawWeighted(bag: Token[]): Token | null {
+    if (bag.length === 0) return null;
+    
+    // Calcul de la somme totale des qualités
+    const totalQuality = bag.reduce((sum, t) => sum + Math.max(1, t.quality), 0);
+    
+    // Tirage aléatoire pondéré
+    let roll = Math.random() * totalQuality;
+    
+    for (const token of bag) {
+      roll -= Math.max(1, token.quality);
+      if (roll <= 0) return token;
+    }
+    
+    // Fallback (ne devrait pas arriver)
+    return bag[0];
   }
 }

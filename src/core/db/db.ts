@@ -1,16 +1,18 @@
+
 import Dexie, { type Table } from "dexie";
-import type { 
-	GameStateData, 
-	League, 
-	Match, 
-	NewsArticle, 
-	Player, 
-	Team, 
-    StaffRole
-} from "../types";
+import type { GameStateData, StaffRole } from "../types";
+import type { League } from "../domain/league/types";
+import type { Match, MatchResult } from "../domain/match/types";
+import type { NewsArticle } from "../domain/news/types";
+import type { Player } from "../domain/player/types";
+import type { Team } from "../domain/team/types";
+
+// Ré-exporte explicitement les types pour corriger les imports dans le projet
+export type { League, Match, MatchResult, NewsArticle, Player, Team };
 
 // Inscription de la nouvelle version pour supporter Condition, Moral et Potentiel persistants
-export const CURRENT_DATA_VERSION = 20; 
+// Version 21: Ajout table matchLogs séparée pour les logs de match temporaires
+export const CURRENT_DATA_VERSION = 21; 
 
 export interface SaveSlot {
 	id?: number;
@@ -28,10 +30,28 @@ export interface BackupSlot {
     data: string; 
 }
 
+// Logs de match temporaires (séparés de la sauvegarde principale)
+export interface MatchLogsEntry {
+    id?: number;
+    saveId: number;
+    matchId: number;
+    debugLogs: any[];      // Logs complets avec bag, drawnToken, etc.
+    events: any[];         // Événements formatés
+    ballHistory: number[]; // Historique du ballon
+}
+
 export interface StaffStats {
-	coaching: number;    
-	medical: number;    
-	management: number;  
+	coaching: number;
+	medical: number;
+	management: number;
+	tactical: number;
+	discipline: number;
+	conditioning: number;
+	recovery: number;
+	reading: number;
+	training: number;
+	physical?: number;
+	goalkeeping?: number;
 }
 
 export interface StaffMember {
@@ -47,8 +67,9 @@ export interface StaffMember {
 	dna: string;
 	stats: StaffStats;
 	confidence: number;
-    joinedDay: number;
-    joinedSeason: number;
+	joinedDay: number;
+	joinedSeason: number;
+	traits?: string[];
 }
 
 export class AppDatabase extends Dexie {
@@ -62,6 +83,7 @@ export class AppDatabase extends Dexie {
 	staff!: Table<StaffMember>;
 	history!: Table<any>;
     backups!: Table<BackupSlot>;
+    matchLogs!: Table<MatchLogsEntry>;
 
 	constructor() {
 		super("Manager1863DB");
@@ -76,7 +98,8 @@ export class AppDatabase extends Dexie {
 			news: "++id, saveId, day, [saveId+day]",
 			staff: "++id, saveId, teamId, [saveId+teamId]",
 			history: "++id, saveId, teamId",
-            backups: "++id, saveId, timestamp, [saveId+timestamp]"
+            backups: "++id, saveId, timestamp, [saveId+timestamp]",
+            matchLogs: "++id, saveId, matchId, [saveId+matchId]"
 		});
 	}
 }

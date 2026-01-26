@@ -39,9 +39,9 @@ export default function ClubIdentityCard({
 					<h2 className="text-xl font-black italic tracking-tighter text-ink truncate leading-none mb-2">
 						{team.name}
 					</h2>
-					<div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+					<div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-black text-slate-600 uppercase tracking-widest">
 						<span className="flex items-center gap-1.5 text-slate-700">
-							<Trophy size={10} className="text-slate-400" />
+							<Trophy size={10} className="text-slate-600" />
 							{league?.name || "Ligue"}
 						</span>
 						<span className="opacity-30">•</span>
@@ -55,25 +55,25 @@ export default function ClubIdentityCard({
 
 			<div className="relative z-10 grid grid-cols-3 gap-3 mt-6">
 				<div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-					<span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Classement</span>
+					<span className="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Classement</span>
 					<div className="flex items-baseline gap-1">
 						<span className="text-lg font-black text-ink">{position}</span>
-						<span className="text-[10px] text-slate-400 font-black">E</span>
+						<span className="text-[10px] text-slate-600 font-black">E</span>
 					</div>
 				</div>
 
 				<div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-					<span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget</span>
+					<span className="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Budget</span>
 					<div className="flex items-baseline gap-1">
 						<span className="text-lg font-black text-ink">{team.budget > 1000 ? `${(team.budget/1000).toFixed(1)}M` : `${team.budget}k`}</span>
 					</div>
 				</div>
 
 				<div className="bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-					<span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Confiance</span>
+					<span className="block text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Confiance</span>
 					<div className="flex items-baseline gap-1">
 						<span className={`text-lg font-black ${team.confidence > 50 ? "text-green-600" : "text-amber-500"}`}>{team.confidence}</span>
-						<span className="text-[10px] text-slate-400 font-black">%</span>
+						<span className="text-[10px] text-slate-600 font-black">%</span>
 					</div>
 				</div>
 			</div>

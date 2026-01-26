@@ -39,20 +39,22 @@ export class TokenMatchEngine {
     this.currentSituation = 'KICK_OFF';
     this.logs = [];
     this.debugLogs = [];
-    
-    // Log de démarrage (type START)
-    const startLog: MatchLog = {
+
+    // Log de coup d'envoi avec le bag initial
+    const kickOffBag = this.grid.buildBag(this.ballPosition, 'KICK_OFF', this.possessionTeamId, this.homeTeamId, this.awayTeamId);
+    const kickOffLog: MatchLog = {
       time: 0,
-      type: 'START',
-      text: `Bienvenue pour ce match entre ${this.homeName} et ${this.awayName} !`,
+      type: 'EVENT',
+      text: `Le coup d'envoi va être donné par ${this.homeName}.`,
       eventSubtype: undefined,
       teamId: this.homeTeamId,
+      possessionTeamId: this.possessionTeamId,
       ballPosition: { ...this.ballPosition },
-      bag: this.grid.buildBag(this.ballPosition, 'KICK_OFF', this.possessionTeamId, this.homeTeamId, this.awayTeamId).map(t => ({ type: t.type, teamId: t.teamId })),
+      bag: kickOffBag.map(t => ({ type: t.type, teamId: t.teamId })),
       zoneInfluences: {}
     };
-    this.logs.push(startLog);
-    this.debugLogs.push(startLog);
+    this.logs.push(kickOffLog);
+    this.debugLogs.push(kickOffLog);
 
     this.currentTime = 1;
 
@@ -75,14 +77,24 @@ export class TokenMatchEngine {
     }
     this.log('EVENT', "Fin du match !", { subtype: 'INFO' });
 
-    // Génération des ratings pour l'UI (onglet joueurs)
-    const playerRatings = this.players.map(p => ({
-      id: p.id,
-      name: p.name,
-      teamId: p.teamId,
-      rating: 6.0 + Math.random() * 2, // TODO: remplacer par une vraie logique de rating
-      fatigue: p.fatigue,
-      goals: 0 // TODO: compter les buts par joueur si besoin
+    // Appliquer les bonus/malus de fin de match
+    const finalStats = this.tracker.getFinalStats();
+    const homeGoals = finalStats.shots[this.homeTeamId]?.goals || 0;
+    const awayGoals = finalStats.shots[this.awayTeamId]?.goals || 0;
+    this.tracker.applyEndOfMatchModifiers(homeGoals, awayGoals);
+
+    // Génération des ratings basés sur les jetons joués
+    const playerRatings = this.tracker.getPlayerRatings().map(pr => ({
+      id: pr.id,
+      name: pr.name,
+      teamId: pr.teamId,
+      role: pr.role,
+      rating: pr.rating,
+      fatigue: this.players.find(p => p.id === pr.id)?.fatigue || 0,
+      goals: pr.goals,
+      assists: pr.assists,
+      actions: pr.actions,
+      stats: pr.stats
     }));
 
     return {
@@ -90,7 +102,7 @@ export class TokenMatchEngine {
       fullJournal: this.logs,
       debugLogs: this.debugLogs,
       ballHistory: this.sampleMomentum(),
-      stats: this.tracker.getFinalStats(),
+      stats: finalStats,
       stoppageTime: 4,
       analysis: {
         ratings: playerRatings
@@ -121,7 +133,8 @@ export class TokenMatchEngine {
     }
 
     const currentBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
-    const token = currentBag[0];
+    // Tirage pondéré par la qualité : les bons joueurs ont plus de chances d'agir
+    const token = this.grid.drawWeighted(currentBag);
     if (token) {
         this.resolveToken(token, currentBag, zoneInfluences);
     } else {
@@ -133,72 +146,131 @@ export class TokenMatchEngine {
 
     const player = this.grid.getPlayer(token.ownerId);
     const pName = player ? player.name : (token.teamId === 0 ? "Système" : "Collectif");
+    const pRole = player ? player.role : "";
     const logic = TOKEN_LOGIC[token.type];
     if (!logic) { this.currentTime += 5; return; }
 
     const result = logic(token, pName, token.teamId === this.homeTeamId, this.ballPosition);
 
-    // Séquence spéciale après un but : célébration puis remise en jeu
-    if (result.isGoal) {
-      // 1. Jeton célébration (30s, pas de déplacement, pas de playerName)
-      this.currentTime += 30;
-      this.log('EVENT', 'Célébration du but !', { subtype: 'GOAL', ballPosition: { ...this.ballPosition } });
+    // Tracker la performance individuelle du joueur
+    if (player && token.ownerId !== 0) {
+      this.tracker.trackPlayerAction(
+        player.id,
+        player.name,
+        player.teamId,
+        pRole,
+        token.type,
+        result,
+        this.ballPosition
+      );
+    }
 
-      // 2. Jeton de remise en jeu (30s, balle au centre, possession à l’équipe qui a encaissé, pas de playerName)
+    // Séquence spéciale après un but : log du but, célébration puis remise en jeu
+    if (result.isGoal) {
+      // 0. Log du but d'abord avec le nom du joueur et les stats
+      const duration = Math.max(2, result.customDuration || token.duration || 5);
+      this.currentTime += duration;
+      
+      const nextBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
+      const logObj: MatchLog = {
+        time: this.currentTime, 
+        type: 'EVENT', 
+        text: result.logMessage, 
+        eventSubtype: result.eventSubtype, 
+        playerName: pName, 
+        teamId: token.teamId, 
+        possessionTeamId: this.possessionTeamId,
+        ballPosition: { ...this.ballPosition }, 
+        bag: nextBag.map(t => ({ type: t.type, teamId: t.teamId })), 
+        drawnToken: { type: token.type, teamId: token.teamId }, 
+        statImpact: result.stats
+      };
+      this.logs.push(logObj);
+      this.debugLogs.push(logObj);
+      // Tracker les stats du but AVANT le return
+      this.tracker.trackAction(token.teamId, result, duration);
+
+      // 1. Jeton célébration (30s) - garde la couleur de l'équipe qui a marqué
       this.currentTime += 30;
+      this.log('EVENT', 'Célébration du but !', { subtype: 'GOAL', teamId: token.teamId, ballPosition: { ...this.ballPosition } });
+
+      // Changement de possession APRÈS la célébration (l'équipe qui a encaissé reprend)
       const concedingTeamId = token.teamId === this.homeTeamId ? this.awayTeamId : this.homeTeamId;
-      this.ballPosition = { x: 2, y: 2 };
       this.possessionTeamId = concedingTeamId;
+
+      // 2. Jeton de remise en jeu (30s, balle au centre x=3 sur grille 0-5) - couleur de l'équipe qui reprend
+      this.currentTime += 30;
+      this.ballPosition = { x: 3, y: 2 };
       this.currentSituation = 'KICK_OFF';
       this.log('EVENT', 'Remise en jeu après but.', { subtype: 'KICK_OFF', ballPosition: { ...this.ballPosition } });
       return;
     }
 
-    // Turnover après tir non cadré ou arrêté
-    if (["SHOOT_OFF_TARGET", "SHOOT_SAVED", "SHOOT_WOODWORK"].includes(token.type)) {
-      // La possession passe à l'autre équipe
-      this.possessionTeamId = token.teamId === this.homeTeamId ? this.awayTeamId : this.homeTeamId;
-      // On replace la balle dans la surface défensive de l'équipe qui récupère
-      if (token.type === "SHOOT_OFF_TARGET" || token.type === "SHOOT_SAVED") {
-        // Surface défensive de l'équipe qui récupère
-        if (this.possessionTeamId === this.homeTeamId) {
-          this.ballPosition = { x: 0, y: 2 };
-        } else {
-          this.ballPosition = { x: 5, y: 2 };
-        }
-        this.currentSituation = 'NORMAL';
-      } else if (token.type === "SHOOT_WOODWORK") {
-        // Rebond, la balle reste dans la zone
-        this.currentSituation = 'REBOUND_ZONE';
-      }
-    }
-
+    // ========================================
+    // GESTION CENTRALISÉE DU CHANGEMENT DE POSSESSION
+    // ========================================
+    
     // Appliquer la fatigue si le token est lié à un joueur
     if (player && token.type !== 'SYSTEM' && token.type !== 'NEUTRAL_POSSESSION') {
       player.applyFatigue(token.type);
     }
 
     if (this.currentSituation === 'KICK_OFF') {
-        this.currentSituation = 'NORMAL';
+      this.currentSituation = 'NORMAL';
     }
 
-    // La possession est toujours celle du teamId du jeton courant
-    this.possessionTeamId = token.teamId;
+    // Cas 1: Turnover explicite via le flag turnover du result
+    if (result.turnover) {
+      // L'équipe qui avait le jeton perd la possession
+      this.possessionTeamId = token.teamId === this.homeTeamId ? this.awayTeamId : this.homeTeamId;
+    }
+    // Cas 2: Tirs non convertis (spécial car le gardien récupère)
+    else if (["SHOOT_OFF_TARGET", "SHOOT_SAVED", "SHOOT_SAVED_CORNER"].includes(token.type)) {
+      // La possession passe à l'équipe adverse (le gardien récupère)
+      this.possessionTeamId = token.teamId === this.homeTeamId ? this.awayTeamId : this.homeTeamId;
+      // Repositionner la balle dans la zone du gardien
+      if (token.type !== "SHOOT_SAVED_CORNER") {
+        // Surface défensive de l'équipe qui récupère
+        this.ballPosition = this.possessionTeamId === this.homeTeamId 
+          ? { x: 0, y: 2 } 
+          : { x: 5, y: 2 };
+      }
+    }
+    // Cas 3: Poteau avec rebond (situation spéciale, possession non décidée)
+    else if (token.type === "SHOOT_WOODWORK") {
+      // La balle reste dans la zone, situation REBOUND_ZONE
+      // La possession reste à l'attaquant jusqu'au prochain tirage
+      this.currentSituation = 'REBOUND_ZONE';
+    }
+    // Cas 4: Jeton défensif (TACKLE, INTERCEPT, BLOCK, CLEARANCE, PUNCH, etc.)
+    // Le jeton appartient déjà à l'équipe qui défend, donc token.teamId = l'équipe qui récupère
+    else if (this.isDefensiveToken(token.type)) {
+      // L'équipe du jeton défensif gagne la possession
+      this.possessionTeamId = token.teamId;
+    }
+    // Cas 5: Action offensive normale - maintien de possession
+    else {
+      // La possession reste à l'équipe du jeton
+      this.possessionTeamId = token.teamId;
+    }
+
+    // Mouvement de la balle
     if (result.moveX !== 0 || result.moveY !== 0) {
       this.ballPosition.x = Math.max(0, Math.min(5, this.ballPosition.x + result.moveX));
       this.ballPosition.y = Math.max(0, Math.min(4, this.ballPosition.y + result.moveY));
     }
 
-    const duration = Math.max(2, result.customDuration || token.duration || 5);
-    let nextBag: Token[] = currentBag;
-    let nextToken: Token | undefined;
-    let nextZoneInfluences = zoneInfluences;
-    let nextSituation = this.currentSituation;
-    let nextBallPos = { ...this.ballPosition };
+    // Changement de situation si spécifié
+    if (result.nextSituation) {
+      this.currentSituation = result.nextSituation;
+      // Gérer la possession selon la situation
+      this.handleSituationPossession(token.teamId);
+    }
 
-    // La possession change toujours avec le teamId du jeton courant, plus besoin de bloc possessionChange
-    if (result.nextSituation) this.currentSituation = result.nextSituation;
-    nextBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
+    const duration = Math.max(2, result.customDuration || token.duration || 5);
+    
+    // Construire le prochain bag avec la possession mise à jour
+    const nextBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
 
     if (token.type !== 'SYSTEM' && token.type !== 'NEUTRAL_POSSESSION') {
       // Pour les buts, on force le playerName uniquement sur le log du but (pas sur célébration/remise en jeu)
@@ -231,12 +303,65 @@ export class TokenMatchEngine {
     const step = Math.max(1, Math.floor(this.rawMomentum.length / 100));
     return Array.from({length: 100}, (_, i) => this.rawMomentum[Math.min(i * step, this.rawMomentum.length - 1)] || 0);
   }
+
+  /**
+   * Détermine si un type de jeton est défensif (récupération de balle)
+   */
+  private isDefensiveToken(type: TokenType): boolean {
+    const defensiveTypes: TokenType[] = [
+      'TACKLE', 'INTERCEPT', 'BLOCK', 'CLEARANCE', 'BALL_RECOVERY',
+      'PUNCH', 'CLAIM', 'SAVE', 'PRESSING_SUCCESS', 'DUEL_WON',
+      'CORNER_CLEARED', 'PENALTY_SAVED'
+    ];
+    return defensiveTypes.includes(type);
+  }
+
+  /**
+   * Gère la possession selon la situation de jeu (corner, penalty, etc.)
+   */
+  private handleSituationPossession(tokenTeamId: number) {
+    switch (this.currentSituation) {
+      case 'CORNER':
+        // Le corner est tiré par l'équipe qui avait le jeton (généralement l'attaquant)
+        // Si c'est un tir dévié en corner, c'est l'attaquant qui obtient le corner
+        this.possessionTeamId = tokenTeamId;
+        break;
+      case 'GOAL_KICK':
+        // Le six mètres est pour l'équipe adverse (le gardien relance)
+        this.possessionTeamId = this.getOpponentId(tokenTeamId);
+        // Repositionner la balle
+        this.ballPosition = this.possessionTeamId === this.homeTeamId 
+          ? { x: 0, y: 2 } 
+          : { x: 5, y: 2 };
+        break;
+      case 'THROW_IN':
+        // La touche est pour l'équipe adverse
+        this.possessionTeamId = this.getOpponentId(tokenTeamId);
+        break;
+      case 'FREE_KICK':
+        // Le coup franc est pour l'équipe adverse (victime de la faute)
+        this.possessionTeamId = this.getOpponentId(tokenTeamId);
+        break;
+      case 'PENALTY':
+        // Le penalty est pour l'équipe adverse (victime de la faute)
+        this.possessionTeamId = this.getOpponentId(tokenTeamId);
+        // Repositionner la balle au point de penalty
+        this.ballPosition = this.possessionTeamId === this.homeTeamId 
+          ? { x: 5, y: 2 } 
+          : { x: 0, y: 2 };
+        break;
+      // NORMAL, KICK_OFF, REBOUND_ZONE : pas de changement automatique
+    }
+  }
+
   private log(type: any, text: string, opt: any = {}) {
       const logObj = {
         time: this.currentTime, 
         type, text, 
-        eventSubtype: opt.subtype, 
-        ballPosition: { ...this.ballPosition }, 
+        eventSubtype: opt.subtype,
+        teamId: opt.teamId ?? this.possessionTeamId, // Ajouter teamId explicite
+        possessionTeamId: this.possessionTeamId,
+        ballPosition: opt.ballPosition ?? { ...this.ballPosition }, 
         zoneInfluences: opt.zoneInfluences || {},
         bag: this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId).map(t => ({ type: t.type, teamId: t.teamId })),
         drawnToken: undefined

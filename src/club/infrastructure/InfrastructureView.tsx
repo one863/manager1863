@@ -44,7 +44,7 @@ export default function InfrastructureView() {
 			setShowProjectConfirm(null);
 			await loadClubData();
 		} else {
-			alert(result.error);
+			alert((result as any).error || "Une erreur est survenue");
 		}
 	};
 
@@ -166,7 +166,7 @@ export default function InfrastructureView() {
 						<div className="p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-lg font-bold text-gray-900">Confirmation de projet</h3>
-                                <button onClick={() => setShowProjectConfirm(null)} className="text-gray-400">
+                                <button onClick={() => setShowProjectConfirm(null)} className="text-gray-600">
                                     <X size={24} />
                                 </button>
                             </div>
@@ -185,11 +185,11 @@ export default function InfrastructureView() {
 
                             <div className="space-y-3 mb-8">
                                 <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Coût du projet</span>
+                                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Coût du projet</span>
                                     <CreditAmount amount={showProjectConfirm === "UPGRADE" ? upgradeCost : newStadiumCost} size="md" color="text-gray-900 font-black" />
                                 </div>
                                 <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Durée des travaux</span>
+                                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Durée des travaux</span>
                                     <span className="text-sm font-bold text-gray-900">{showProjectConfirm === "UPGRADE" ? "30" : "60"} jours</span>
                                 </div>
                             </div>

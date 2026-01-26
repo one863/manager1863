@@ -63,7 +63,7 @@ export default function MainMenu({
 							)}
 							<button
 								onClick={handleLogout}
-								className="text-slate-400 hover:text-red-500 transition-colors"
+								className="text-slate-600 hover:text-red-500 transition-colors"
 							>
 								<LogOut size={16} />
 							</button>

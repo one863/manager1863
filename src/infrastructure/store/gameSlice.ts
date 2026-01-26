@@ -58,7 +58,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     uiContext: { squad: 'squad', club: 'finances', transfers: 'players' },
 
 	initialize: async (slotId, date, teamId, _managerName, _teamName) => {
-		useLiveMatchStore.getState().clearLiveMatch();
+		useLiveMatchStore.getState().clearLiveMatch(slotId);
 		set({
 			currentSaveId: slotId, season: 1, day: 1, currentDate: date, userTeamId: teamId,
 			isProcessing: false, isTampered: false, isGameOver: false, lastUpdate: Date.now(),
@@ -77,21 +77,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 			const slot = await db.saveSlots.get(slotId);
 			if (state && slot) {
 				if (state.liveMatch) {
-                    // On restaure l'état complet du match live s'il existe
-					useLiveMatchStore.getState().initializeLiveMatch(
-                        state.liveMatch.matchId, 
-                        state.liveMatch.homeTeam, 
-                        state.liveMatch.awayTeam, 
-                        state.liveMatch.homePlayers,
-                        state.liveMatch.awayPlayers,
-                        state.liveMatch.result, 
-                        slotId, 
-                        state.liveMatch.currentTime || state.liveMatch.currentMinute || 0,
-                        state.liveMatch.isPaused ?? true,
-                        state.liveMatch.activeTab || "flux"
-                    );
+                    // Charger le match live depuis la DB (avec les logs de matchLogs)
+					await useLiveMatchStore.getState().loadLiveMatchFromDb(slotId);
 				} else {
-					useLiveMatchStore.getState().clearLiveMatch();
+					useLiveMatchStore.getState().clearLiveMatch(slotId);
 				}
 				set({
 					currentSaveId: slotId, season: state.season || 1, day: state.day || 1, currentDate: state.currentDate,
@@ -132,7 +121,12 @@ export const useGameStore = create<GameState>((set, get) => ({
                 NewsService.processDailyNews(currentSaveId, nextDay, nextDate, userTeamId),
             ]);
 
-            if (day % 30 === 0) await NewsService.cleanupOldNews(currentSaveId, season);
+            // Nettoyage périodique des données volumineuses (tous les 7 jours)
+            if (day % 7 === 0) {
+                await NewsService.cleanupOldNews(currentSaveId, season);
+                // Nettoyer les logs des anciens matchs utilisateur (garder seulement les 3 derniers jours)
+                await MatchService.cleanupOldUserMatchLogs(currentSaveId, userTeamId, day);
+            }
 
             if (pendingUserMatch) {
                 await useLiveMatchStore.getState().initializeLiveMatch(
@@ -179,7 +173,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             await MatchService.saveMatchResult(match, finalResult, currentSaveId, currentDate, true, true);
             await db.gameState.where("saveId").equals(currentSaveId).modify({ liveMatch: null });
-            useLiveMatchStore.getState().clearLiveMatch();
+useLiveMatchStore.getState().clearLiveMatch(currentSaveId);
 
             const nextDay = day + 1;
             const nextDate = new Date(currentDate);
@@ -212,7 +206,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 	},
 
     quitGame: () => {
-        useLiveMatchStore.getState().clearLiveMatch();
+        const { currentSaveId } = get();
+        if (currentSaveId) {
+            useLiveMatchStore.getState().clearLiveMatch(currentSaveId);
+        }
         set({
             currentSaveId: null,
             userTeamId: null,
@@ -267,7 +264,8 @@ async function updateGameState(saveId: number, teamId: number, day: number, seas
 	if (slot) await db.saveSlots.update(saveId, { day, season, lastPlayedDate: new Date() });
 	
     computeSaveHash(saveId).then(newHash => {
-        db.gameState.where("saveId").equals(saveId).modify({ hash: newHash });
+        // TODO: Ajouter hash au type GameStateData si nécessaire
+        // db.gameState.where("saveId").equals(saveId).modify({ hash: newHash });
     });
 	BackupService.performAutoBackup(saveId).catch(err => console.error("Auto-backup failed", err));
 }

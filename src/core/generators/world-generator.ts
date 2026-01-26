@@ -13,12 +13,13 @@ export function generateWorld(saveId: number, userTeamName: string) {
 	const teams: any[] = [];
 	const players: any[] = [];
 	const staff: any[] = [];
-	let userTeamId: number | null = null;
+	let userTeamIndex: number = -1; // Stocker l'index au lieu de l'ID
 
 	for (const tpl of LEAGUE_TEMPLATES) {
-		const leagueId = leagues.length + 1; // simple auto-increment
+		const leagueIndex = leagues.length;
+		// Ne pas spécifier d'ID, Dexie les générera automatiquement avec ++id
 		leagues.push({
-			id: leagueId,
+			// id sera auto-généré par Dexie
 			saveId,
 			name: tpl.name,
 			level: tpl.level,
@@ -43,11 +44,11 @@ export function generateWorld(saveId: number, userTeamName: string) {
 		for (let i = 0; i < tpl.teamsCount; i++) {
 			const isUserTeam = (i === playerTeamIndex && playerTeamIndex !== -1);
 			const colors = getRandomElement(TEAM_COLORS);
-			const teamId = teams.length + 1; // simple auto-increment
+			// Ne pas spécifier d'ID, Dexie les générera automatiquement
 			teams.push({
-				id: teamId,
+				// id sera auto-généré par Dexie
 				saveId,
-				leagueId,
+				leagueIndex, // Stocker l'index temporairement
 				name: teamNames[i],
 				reputation: tpl.reputation,
 				budget: isUserTeam ? 100 : tpl.reputation * 10,
@@ -67,28 +68,30 @@ export function generateWorld(saveId: number, userTeamName: string) {
 				tacticType: "4-4-2",
 				formation: "4-4-2"
 			});
-			if (isUserTeam) userTeamId = teamId;
+			
+			// Stocker l'index de l'équipe utilisateur
+			if (isUserTeam) {
+				userTeamIndex = teams.length - 1;
+			}
 
 			const avgSkill = (12 - tpl.level * 1.5) + (Math.random() * 2);
-			const squad = generateFullSquad(saveId, teamId, avgSkill);
-			players.push(...squad);
+			const squad = generateFullSquad(saveId, -1, avgSkill); // teamId sera assigné après
+			players.push(...squad.map(p => ({ ...p, teamIndex: teams.length - 1 }))); // Stocker l'index
 
 			const coach = generateStaff(avgSkill, "COACH");
 			const physio = generateStaff(avgSkill, "PHYSICAL_TRAINER");
 			const analyst = generateStaff(avgSkill, "VIDEO_ANALYST");
 			staff.push(
-				{ ...coach, saveId, teamId },
-				{ ...physio, saveId, teamId },
-				{ ...analyst, saveId, teamId }
+				{ ...coach, saveId, teamIndex: teams.length - 1 }, // Stocker l'index
+				{ ...physio, saveId, teamIndex: teams.length - 1 },
+				{ ...analyst, saveId, teamIndex: teams.length - 1 }
 			);
 		}
 	}
 
-	if (userTeamId === null) throw new Error("User team was not created.");
+	if (userTeamIndex === -1) throw new Error("User team was not created.");
 
-	// Les fixtures ne sont pas générés ici, à faire côté appelant si besoin
-
-	return { leagues, teams, players, staff, userTeamId };
-
-	return { userTeamId };
+	// Les IDs seront assignés par Dexie après bulkAdd
+	// Le code appelant devra récupérer les vrais IDs et mettre à jour les références
+	return { leagues, teams, players, staff, userTeamIndex };
 }

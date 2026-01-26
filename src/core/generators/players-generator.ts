@@ -1,10 +1,38 @@
 import type { Player } from "@/core/db/db";
 import { clamp, randomInt, getRandomElement } from "@/core/utils/math";
 
+/** Génère un DNA unique pour l'apparence du joueur */
+function generateDna(): string {
+	const skinIdx = randomInt(0, 5);   // Teint de peau (6 options)
+	const hairIdx = randomInt(0, 7);   // Couleur/style cheveux (8 options)
+	const facialIdx = randomInt(0, 5); // Traits du visage (6 options)
+	const eyesIdx = randomInt(0, 3);   // Type d'yeux (4 options)
+	const genderIdx = randomInt(0, 9); // 0 = homme, impair = femme (10% femme)
+	return `${skinIdx}-${hairIdx}-${facialIdx}-${eyesIdx}-${genderIdx}`;
+}
+
 const FIRST_NAMES = ["Arthur", "William", "Henry", "George", "Thomas", "John", "Edward", "Charles", "Walter", "Frank"];
 const LAST_NAMES = ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts"];
 
-const VALID_ROLES = ["GK", "DC", "DL", "DR", "MC", "ML", "MR", "ST", "LW", "RW"];
+// Rôles compatibles avec formations-config.ts
+const VALID_ROLES = [
+    "GK",                           // Gardien
+    "DC", "DCL", "DCR", "DL", "DR", // Défenseurs
+    "LWB", "RWB",                   // Pistons
+    "DM",                           // Milieu défensif
+    "MC", "MCL", "MCR", "ML", "MR", // Milieux
+    "AMC", "AML", "AMR",            // Milieux offensifs
+    "LW", "RW",                     // Ailiers
+    "ST", "STL", "STR", "CF"        // Attaquants
+];
+
+// Rôles par catégorie pour la génération d'équipe
+const ROLE_CATEGORIES = {
+    GK: ["GK"],
+    DEF: ["DC", "DCL", "DCR", "DL", "DR", "LWB", "RWB"],
+    MID: ["DM", "MC", "MCL", "MCR", "ML", "MR", "AMC", "AML", "AMR"],
+    FWD: ["ST", "STL", "STR", "CF", "LW", "RW"]
+};
 
 function generateSimplifiedStats(role: string, baseSkill: number) {
 	const getStat = (bonus = 0) => clamp(baseSkill + bonus + (Math.random() * 6 - 3), 1, 20);
@@ -15,16 +43,31 @@ function generateSimplifiedStats(role: string, baseSkill: number) {
 		defense: getStat(),
 		physical: getStat(),
 		mental: getStat(),
-        goalkeeping: getStat(role === "GK" ? 5 : -10),
+		goalkeeping: getStat(role === "GK" ? 5 : -10),
 	};
 
-	switch (role) {
-		case "GK": stats.mental += 3; stats.physical -= 2; break;
-		case "DC": stats.defense += 4; stats.finishing -= 5; break;
-		case "MC": stats.technical += 4; stats.mental += 3; break;
-		case "ST": stats.finishing += 5; stats.defense -= 5; break;
-        case "LW":
-        case "RW": stats.technical += 3; stats.physical += 3; break;
+	// Bonus par catégorie de rôle
+	if (role === "GK") {
+		stats.mental += 3; stats.physical -= 2;
+	} else if (ROLE_CATEGORIES.DEF.includes(role)) {
+		stats.defense += 4; stats.finishing -= 5;
+		if (["LWB", "RWB", "DL", "DR"].includes(role)) {
+			stats.physical += 2; // Latéraux plus physiques
+		}
+	} else if (ROLE_CATEGORIES.MID.includes(role)) {
+		stats.technical += 3; stats.mental += 2;
+		if (role === "DM") {
+			stats.defense += 3;
+		} else if (["AMC", "AML", "AMR"].includes(role)) {
+			stats.finishing += 2; // Meneurs plus décisifs
+		}
+	} else if (ROLE_CATEGORIES.FWD.includes(role)) {
+		stats.finishing += 4; stats.defense -= 4;
+		if (["LW", "RW"].includes(role)) {
+			stats.technical += 2; stats.physical += 2;
+		} else if (role === "CF") {
+			stats.technical += 3; // Faux 9 plus technique
+		}
 	}
 
 	return stats;
@@ -40,7 +83,7 @@ export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial
 	const age = randomInt(16, 36);
 	const stats = generateSimplifiedStats(role, targetAvgSkill);
 	// Calcul de la note moyenne (Skill)
-	const skill = Object.values(stats).reduce((a: any, b: any) => Number(a) + Number(b), 0) / 6;
+	const skill = (Object.values(stats) as number[]).reduce((a, b) => a + b, 0) / 6;
 
 	// --- LOGIQUE DE POTENTIEL ---
 	let potentialBonus = Math.random() * 4 + 1; // Standard: +1 à +5 points
@@ -65,7 +108,7 @@ export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial
 		condition: 100,
 		marketValue: Math.round(Math.pow(skill, 2.7) * 1000 + (potential - skill) * 500),
 		wage: Math.round(Math.pow(skill, 2) * 10),
-		dna: "0-0-0-0-0",
+		dna: generateDna(),
 		traits: [],
 		seasonStats: { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 },
 		isStarter: false,
@@ -80,13 +123,15 @@ export function generatePlayer(targetAvgSkill = 5, forcedRole?: string): Partial
 
 function getGeneralPosition(role: string): string {
     if (role === "GK") return "GK";
-    if (["DC", "DL", "DR"].includes(role)) return "DEF";
-    if (["MC", "ML", "MR"].includes(role)) return "MID";
+    if (ROLE_CATEGORIES.DEF.includes(role)) return "DEF";
+    if (ROLE_CATEGORIES.MID.includes(role)) return "MID";
     return "FWD";
 }
 
 function getSideFromRole(role: string): string {
-    if (role.endsWith("L") || role === "LW") return "L";
-    if (role.endsWith("R") || role === "RW") return "R";
+    const leftRoles = ["DL", "DCL", "LWB", "ML", "MCL", "AML", "LW", "STL"];
+    const rightRoles = ["DR", "DCR", "RWB", "MR", "MCR", "AMR", "RW", "STR"];
+    if (leftRoles.includes(role)) return "L";
+    if (rightRoles.includes(role)) return "R";
     return "C";
 }

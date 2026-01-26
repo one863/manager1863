@@ -5,12 +5,59 @@ import {
 	Calendar,
 	ChevronRight,
 	Clock,
+	HardDrive,
 	Trash2,
 	User,
     Upload
 } from "lucide-preact";
 import { useEffect, useState, useRef } from "preact/hooks";
 import { useTranslation } from "react-i18next";
+
+/** Calcule la taille approximative d'une sauvegarde en octets */
+async function getSaveSize(saveId: number): Promise<number> {
+	let totalSize = 0;
+	
+	try {
+		// Compte les éléments de chaque table liée à cette sauvegarde
+		const gameStates = await db.gameState.where("saveId").equals(saveId).toArray();
+		totalSize += gameStates.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const leagues = await db.leagues.where("saveId").equals(saveId).toArray();
+		totalSize += leagues.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const teams = await db.teams.where("saveId").equals(saveId).toArray();
+		totalSize += teams.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const players = await db.players.where("saveId").equals(saveId).toArray();
+		totalSize += players.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const staffMembers = await db.staff.where("saveId").equals(saveId).toArray();
+		totalSize += staffMembers.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const matches = await db.matches.where("saveId").equals(saveId).toArray();
+		totalSize += matches.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const newsItems = await db.news.where("saveId").equals(saveId).toArray();
+		totalSize += newsItems.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const historyItems = await db.history.where("saveId").equals(saveId).toArray();
+		totalSize += historyItems.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+		
+		const backupItems = await db.backups.where("saveId").equals(saveId).toArray();
+		totalSize += backupItems.reduce((acc, item) => acc + JSON.stringify(item).length, 0);
+	} catch (e) {
+		console.error("Erreur calcul taille save", saveId, e);
+	}
+	
+	return totalSize;
+}
+
+/** Formate une taille en octets en format lisible */
+function formatSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} o`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+	return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
 
 interface LoadGameProps {
 	onGameLoaded: (slotId: number) => void;
@@ -20,13 +67,23 @@ interface LoadGameProps {
 export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
 	const { t } = useTranslation();
 	const [saves, setSaves] = useState<any[]>([]);
+	const [saveSizes, setSaveSizes] = useState<Record<number, number>>({});
 	const [deleteConfirmation, setDeleteConfirmation] = useState<number | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const fetchSaves = async () => {
 		const allSaves = await db.saveSlots.toArray();
-		setSaves(allSaves.sort((a, b) => b.lastPlayedDate.getTime() - a.lastPlayedDate.getTime()));
+		const sortedSaves = allSaves.sort((a, b) => b.lastPlayedDate.getTime() - a.lastPlayedDate.getTime());
+		setSaves(sortedSaves);
+		
+		// Calcule les tailles en arrière-plan (progressivement)
+		for (const save of sortedSaves) {
+			if (save.id) {
+				const size = await getSaveSize(save.id);
+				setSaveSizes(prev => ({ ...prev, [save.id!]: size }));
+			}
+		}
 	};
 
 	useEffect(() => {
@@ -228,8 +285,8 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
 			<div className="flex-1 overflow-y-auto p-4 space-y-2">
 				{saves.length === 0 ? (
 					<div className="text-center py-12 opacity-50">
-						<Clock size={48} className="mx-auto text-gray-300 mb-4" />
-						<p className="text-sm font-serif italic text-gray-400">Aucune sauvegarde trouvée.</p>
+						<Clock size={48} className="mx-auto text-gray-500 mb-4" />
+						<p className="text-sm font-serif italic text-gray-600">Aucune sauvegarde trouvée.</p>
 					</div>
 				) : (
 					saves.map((save) => (
@@ -245,24 +302,32 @@ export default function LoadGame({ onGameLoaded, onCancel }: LoadGameProps) {
 										<span className="flex items-center gap-1 truncate">
 											<User size={10} /> {save.managerName}
 										</span>
-										<span className="text-gray-300">•</span>
+										<span className="text-gray-500">•</span>
 										<span className="font-mono text-gray-500">
 											S{save.season} J{save.day}
 										</span>
+										{save.id in saveSizes && (
+											<>
+												<span className="text-gray-500">•</span>
+												<span className="flex items-center gap-1 text-gray-500">
+													<HardDrive size={10} /> {formatSize(saveSizes[save.id])}
+												</span>
+											</>
+										)}
 									</div>
 								</div>
 
 								<div className="flex items-center gap-3 pl-3">
-									<span className="text-[10px] text-gray-400 font-medium">
+									<span className="text-[10px] text-gray-600 font-medium">
 										{new Date(save.lastPlayedDate).toLocaleDateString()}
 									</span>
 									<button
 										onClick={(e) => requestDelete(e, save.id)}
-										className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-20"
+										className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-20"
 									>
 										<Trash2 size={14} />
 									</button>
-									<ChevronRight size={16} className="text-gray-300 group-hover:text-accent transition-colors" />
+									<ChevronRight size={16} className="text-gray-500 group-hover:text-accent transition-colors" />
 								</div>
 							</div>
 						</div>
