@@ -1,5 +1,5 @@
 import { GridPosition, Token, ZoneData } from "./types";
-import { ZONES_CONFIG, DEFAULT_ZONE_CONFIG } from "./config/zones-config";
+import { ZONES_CONFIG } from "./config/zones-config";
 
 export class ZoneManager {
     private zones: Map<string, ZoneData> = new Map();
@@ -10,15 +10,35 @@ export class ZoneManager {
 
     private initializeZones() {
         for (let x = 0; x < 6; x++) {
-            for (let y = 0; y < 5; y++) { // 5 lignes pour correspondre à la config des zones
+            for (let y = 0; y < 5; y++) {
                 const id = `${x},${y}`;
-                const config = ZONES_CONFIG[id] || DEFAULT_ZONE_CONFIG;
+                const config = ZONES_CONFIG[id];
+                // Génère tous les tokens système pour la zone (pour debug/affichage)
+                const baseTokens: Token[] = [];
+                if (config) {
+                    // Ajoute tous les tokens système (pour les deux camps)
+                    [
+                        ...(config.offenseTokensHome || []),
+                        ...(config.defenseTokensHome || []),
+                        ...(config.offenseTokensAway || []),
+                        ...(config.defenseTokensAway || [])
+                    ].forEach((pt, i) => {
+                        if (!pt.type) return;
+                        baseTokens.push({
+                            id: `sys-${id}-${pt.type}-${i}`,
+                            type: pt.type as any,
+                            ownerId: 0,
+                            teamId: 0, // Système (pour debug, à adapter si besoin)
+                            quality: pt.quality || 30,
+                            duration: pt.duration || 5
+                        });
+                    });
+                }
                 this.zones.set(id, {
                     id,
-                    baseTokens: this.mapConfigToTokens(id, config.baseTokens),
+                    baseTokens,
                     logic: {
-                        defenseMultiplier: config.defenseMultiplier || DEFAULT_ZONE_CONFIG.defenseMultiplier!,
-                        errorChance: config.errorChance || DEFAULT_ZONE_CONFIG.errorChance!
+                        errorChance: 0
                     }
                 });
             }

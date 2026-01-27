@@ -3,6 +3,27 @@ import { Token, TokenExecutionResult, GridPosition } from "../types";
 const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: boolean, ballPos: GridPosition) => TokenExecutionResult> = {
+        'CLEARANCE_KEEP': (t, p, h) => ({
+            moveX: h ? 2 : -2,
+            moveY: rnd(-1, 1),
+            isGoal: false,
+            isEvent: false,
+            logMessage: `${p} dégage le ballon et trouve un coéquipier.`,
+            customDuration: 5,
+            nextSituation: undefined, // conserve la possession (utiliser une valeur existante si besoin)
+            stats: { isClearance: true, isSuccess: true }
+        }),
+
+        'CLEARANCE_LOSE': (t, p, h) => ({
+            moveX: h ? 2 : -2,
+            moveY: rnd(-1, 1),
+            isGoal: false,
+            isEvent: false,
+            logMessage: `${p} dégage le ballon mais l'adversaire récupère.`,
+            customDuration: 5,
+            nextSituation: undefined, // perd la possession (utiliser une valeur existante si besoin)
+            stats: { isClearance: true, isSuccess: false }
+        }),
     // --- 1. PROGRESSION (OFFENSE) ---
     'PASS_SHORT': (t, p, h) => ({ 
         moveX: h ? 1 : -1, moveY: rnd(-1, 1), 
@@ -22,23 +43,55 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
         logMessage: `${p} assure en retrait.`, customDuration: 3, 
         stats: { isPass: true, isSuccess: true } 
     }),
-    // (définition dupliquée supprimée)
     // --- CENTRE (CROSS) ---
     'CROSS': (t: Token, p: string, h: boolean, b: GridPosition) => {
         // Narration enrichie et issues variées
-            type CrossEvent = 'CORNER' | 'SAVE' | 'GOAL' | 'FOUL' | 'CARD' | 'SHOT' | 'INJURY' | 'PENALTY' | 'WOODWORK' | 'VAR' | undefined;
-            const outcomes: { log: string; event: CrossEvent; stat: { isCross: boolean; isSuccess: boolean } }[] = [
-                { log: `Centre tendu de ${p} repoussé par la défense !`, event: 'CORNER', stat: { isCross: true, isSuccess: false } },
-                { log: `Centre de ${p} capté par le gardien.`, event: 'SAVE', stat: { isCross: true, isSuccess: false } },
-                { log: `Centre de ${p} intercepté !`, event: undefined, stat: { isCross: true, isSuccess: false } },
-                { log: `${p} trouve un partenaire dans la surface !`, event: undefined, stat: { isCross: true, isSuccess: true } }
-            ];
+        type CrossEvent = 'CORNER' | 'SAVE' | 'GOAL' | 'FOUL' | 'CARD' | 'SHOT' | 'INJURY' | 'PENALTY' | 'WOODWORK' | 'VAR' | undefined;
+        const outcomes: { log: string; event: CrossEvent; stat: { isCross: boolean; isSuccess: boolean } }[] = [
+            { log: `Centre tendu de ${p} repoussé par la défense !`, event: 'CORNER', stat: { isCross: true, isSuccess: false } },
+            { log: `Centre de ${p} capté par le gardien.`, event: 'SAVE', stat: { isCross: true, isSuccess: false } },
+            { log: `Centre de ${p} intercepté !`, event: undefined, stat: { isCross: true, isSuccess: false } },
+            { log: `${p} trouve un partenaire dans la surface !`, event: undefined, stat: { isCross: true, isSuccess: true } }
+        ];
+        // Calcul du déplacement : avance toujours d'au moins 1 case vers la surface adverse, max 2 cases, sans sortir de la grille
+        let moveX = 0;
+        if (h) {
+            if (b.x < 5) {
+                moveX = Math.min(2, 5 - b.x); // avance de 1 ou 2 cases max, sans dépasser 5
+            } else {
+                // déjà en bout de grille, centre impossible
+                // On retourne un objet neutre pour éviter le null
+                return {
+                    moveX: 0,
+                    moveY: 0,
+                    isGoal: false,
+                    isEvent: true,
+                    eventSubtype: undefined,
+                    logMessage: `${p} ne peut pas centrer, trop excentré.`,
+                    customDuration: 3,
+                    stats: { isCross: true, isSuccess: false }
+                };
+            }
+        } else {
+            if (b.x > 0) {
+                moveX = Math.max(-2, 0 - b.x); // recule de 1 ou 2 cases max, sans dépasser 0
+            } else {
+                // déjà en bout de grille, centre impossible
+                // On retourne un objet neutre pour éviter le null
+                return {
+                    moveX: 0,
+                    moveY: 0,
+                    isGoal: false,
+                    isEvent: true,
+                    eventSubtype: undefined,
+                    logMessage: `${p} ne peut pas centrer, trop excentré.`,
+                    customDuration: 3,
+                    stats: { isCross: true, isSuccess: false }
+                };
+            }
+        }
         const idx = rnd(0, outcomes.length - 1);
         const o = outcomes[idx];
-        // Le centre va toujours vers la surface adverse (x=5 pour home, x=0 pour away)
-        const targetX = h ? 5 : 0;
-        const currentX = b.x;
-        const moveX = h ? Math.max(1, targetX - currentX) : Math.min(-1, targetX - currentX);
         return {
             moveX: moveX,
             moveY: rnd(-1, 1),
@@ -95,12 +148,14 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
         logMessage: `Frappe de ${p} à côté du cadre. Six mètres.`, customDuration: 10, 
         stats: { xg: 0.10 } 
     }),
-    'SHOOT_WOODWORK': (t, p) => ({ 
-        moveX: 0, moveY: 0, 
-        isGoal: false, isEvent: true, eventSubtype: 'WOODWORK', 
-        nextSituation: 'REBOUND_ZONE', 
-        logMessage: `LA BARRE ! La frappe de ${p} s'écrase sur le montant !`, customDuration: 10, 
-        stats: { xg: 0.20 } 
+    'SHOOT_WOODWORK': (t, p, h, b) => ({
+        moveX: 0, moveY: 0,
+        isGoal: false, isEvent: true, eventSubtype: 'WOODWORK',
+        nextSituation: 'REBOUND_ZONE',
+        // Ajout : le ballon va en zone 5,2 (home) ou 0,2 (away)
+        overrideBallPosition: h ? { x: 5, y: 2 } : { x: 0, y: 2 },
+        logMessage: `LA BARRE ! La frappe de ${p} s'écrase sur le montant !`, customDuration: 10,
+        stats: { xg: 0.20 }
     }),
     // Tir sur le poteau/barre qui sort en 6 mètres
     'WOODWORK_OUT': (t, p, h, b) => ({
@@ -293,7 +348,7 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
     'BLOCK': (t, p) => ({ 
         moveX: 0, moveY: 0, 
         isGoal: false, isEvent: false, 
-        logMessage: `Contre décisif de ${p} !`, customDuration: 4,
+        logMessage: `Contre attaque de ${p} !`, customDuration: 4,
         stats: { isDuel: true, isSuccess: true }
     }),
     'DUEL_WON': (t, p) => ({ 
@@ -455,7 +510,7 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
     'CUT_BACK': (t, p, h) => ({
         moveX: h ? -1 : 1, moveY: rnd(-1, 1), // Retrait vers le centre du terrain
         isGoal: false, isEvent: false,
-        logMessage: `Centre en retrait de ${p} !`, 
+        logMessage: `${p} joue en retrait !`, 
         customDuration: 3,
         stats: { isPass: true, isSuccess: true, isChanceCreated: true }
     }),

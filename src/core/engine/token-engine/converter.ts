@@ -90,14 +90,19 @@ export function createTokenPlayers(
         const roleKey = formationRoles[index] || "MC";
         // Les zones sont automatiquement inversées pour AWAY
         const zones = getZonesForRole(roleKey, isHome);
-        
+
         // Convertit les stats du domaine vers les stats du moteur
         const engineStats = convertToEngineStats(p.stats, p.position || roleKey);
-        
-        const state: TokenPlayerState = {
+
+        // Construction du nom complet du joueur
+        const playerName = [p.firstName, p.lastName].filter(Boolean).join(' ');
+
+        const state: TokenPlayerState & { name: string; role: string } = {
             id: String(p.id!),
+            name: playerName || `Joueur #${p.id}`,
             teamId: teamId,
             position: p.position,
+            role: p.role || roleKey,
             stats: engineStats,
             stamina: 100,
             form: 75,
@@ -107,12 +112,12 @@ export function createTokenPlayers(
         };
 
         const tokenPlayer = new TokenPlayer(state);
-        
+
         // Les zones incluent active et reach (déjà inversées si AWAY)
         tokenPlayer.setTacticalZones(zones.active, zones.reach);
         tokenPlayer.setBaseInfluence(p.stats?.technical || 10, p.stats?.defense || 10);
-        tokenPlayer.updateInfluence(2, 2, isHome); 
-        
+        tokenPlayer.updateInfluence(2, 2, isHome);
+
         return tokenPlayer;
     });
 }

@@ -220,27 +220,30 @@ export class TokenPlayer {
       }
     }
 
-    // 5. TIRS - basés sur finishing (uniquement en zone de tir)
-    if (isInFinalThird) {
+    // 5. TIRS - basés sur finishing
+    // SURFACE (isInBox) : zone de tir normale, beaucoup de SHOOT_GOAL
+    // ENTREE DE SURFACE (isInFinalThird && !isInBox) : tirs de loin, très peu de SHOOT_GOAL
+    // NOTE: SHOOT_OFF_TARGET et SHOOT_SAVED sont des jetons DEFENSIFS (dans zones-config)
+    // car c'est la défense/gardien qui force le tireur à rater
+    if (isInBox) {
+      // === SURFACE : zone de finition ===
       // Nombre de jetons SHOOT_GOAL = finishing * 2 (boost offensif)
-      // Un attaquant à 18 met 36 jetons BUT avec qualité 18+10 (bonus zone)
       const goalTokenCount = Math.ceil(finishing * 2);
       const goalQuality = finishing + 10; // Bonus qualité pour les buts
       for (let i = 0; i < goalTokenCount; i++) {
         tokens.push(this.createToken('SHOOT_GOAL', goalQuality));
       }
       
-      // Tirs ratés = MOINS nombreux et qualité réduite
-      // finishing=18 → 2 ratés de base (moins impactant)
-      const missCount = Math.max(1, Math.floor(this.getMissedShotsCount(finishing) / 2));
-      for (let i = 0; i < missCount; i++) {
-        // Qualité très basse = rarement tirés
-        tokens.push(this.createToken('SHOOT_SAVED', Math.max(3, missCount)));
-        tokens.push(this.createToken('SHOOT_OFF_TARGET', Math.max(3, missCount)));
-      }
-      
-      // Woodwork (malchance pure, indépendant des stats)
+      // Woodwork (malchance pure - reste offensif car c'est le tireur qui frappe le poteau)
       tokens.push(this.createToken('SHOOT_WOODWORK', 2));
+    } else if (isInFinalThird) {
+      // === ENTREE DE SURFACE : tirs de loin (1-3% de SHOOT_GOAL) ===
+      // Très peu de jetons et qualité très basse pour garder ~1-3%
+      const longShotQuality = Math.max(2, Math.floor(finishing / 5)); // qualité 2-4
+      tokens.push(this.createToken('SHOOT_GOAL', longShotQuality));
+      
+      // Woodwork rare
+      tokens.push(this.createToken('SHOOT_WOODWORK', 3));
     }
 
     // 6. TIRS DE LOIN - basés sur longShots (hors surface)
@@ -277,28 +280,29 @@ export class TokenPlayer {
     // ============================================
     // SYSTÈME SIMPLE : stat = nombre de jetons = qualité
     // Un défenseur avec tackling=16 met 16 jetons TACKLE avec qualité 16
+    // Augmenté pour équilibrer avec l'attaque
     // ============================================
 
-    // TACKLES - basés sur tackling (réduit pour équilibrer offense/défense)
-    const tackleCount = Math.ceil(tackling / 2);
+    // TACKLES - basés sur tackling
+    const tackleCount = tackling; // Plus de division, stat = count
     for (let i = 0; i < tackleCount; i++) {
       tokens.push(this.createToken('TACKLE', tackling));
     }
 
-    // INTERCEPTIONS - basés sur positioning (réduit pour équilibrer)
-    const interceptCount = Math.ceil(positioning / 2);
+    // INTERCEPTIONS - basés sur positioning
+    const interceptCount = positioning;
     for (let i = 0; i < interceptCount; i++) {
       tokens.push(this.createToken('INTERCEPT', positioning));
     }
 
     // BLOCKS - basés sur marking
-    for (let i = 0; i < Math.ceil(marking / 2); i++) {
+    for (let i = 0; i < marking; i++) {
       tokens.push(this.createToken('BLOCK', marking));
     }
 
     // CLEARANCE (dégagements) - basé sur heading
-    if (heading >= 10) {
-      for (let i = 0; i < Math.ceil(heading / 3); i++) {
+    if (heading >= 8) {
+      for (let i = 0; i < heading; i++) {
         tokens.push(this.createToken('CLEARANCE', heading));
       }
     }

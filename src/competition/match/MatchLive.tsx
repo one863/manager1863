@@ -25,9 +25,18 @@ type TabId = typeof TABS[number]['id'];
 // Utilitaires
 const cleanText = (text?: string) => text?.replace(/undefined|Collectif/g, "L'équipe") || '...';
 
-const isValidGoal = (e: any) => 
-    (e.eventSubtype === "GOAL" || e.type === "GOAL") && 
-    typeof e.playerName === "string" && 
+
+
+
+// Pour le score : tout log de but (hors célébration/remise en jeu)
+const isGoalForScore = (e: any) =>
+    e.eventSubtype === "GOAL" &&
+    e.text &&
+    !/célébration|remise en jeu/i.test(e.text);
+// Pour les buteurs : log de but avec playerName non vide (peu importe le texte)
+const isGoalForScorer = (e: any) =>
+    e.eventSubtype === "GOAL" &&
+    typeof e.playerName === "string" &&
     e.playerName.trim() !== "";
 
 export default function MatchLive({ onShowReport }: { onShowReport?: (id: number) => void }) {
@@ -49,7 +58,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     // État local
     const [initialTime] = useState(liveMatch?.currentTime || 0);
     const currentMatchTime = useSignal(initialTime);
-    const isPaused = useSignal(liveMatch?.isPaused ?? true);
+    // Toujours démarrer en pause pour un lecteur de logs
+    const isPaused = useSignal(true);
     const [activeTab, setActiveTab] = useState<TabId>(liveMatch?.activeTab || "flux");
 
     // Loading state
@@ -64,11 +74,20 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
     // Données du match (stables après chargement)
     const { result, homeTeam, awayTeam, matchId, homePlayers: homePlayersList, awayPlayers: awayPlayersList } = liveMatch;
-    const logs = result.debugLogs || [];
-    const maxTime = logs.length > 0 ? logs[logs.length - 1].time : 5400;
+    // Les logs complets du match
+    const allLogs = result.debugLogs || [];
+    // On ne garde que les logs jusqu'au temps courant pour le live
+    const logs = useComputed(() => allLogs.filter((l: any) => l.time <= currentMatchTime.value));
+    const maxTime = allLogs.length > 0 ? allLogs[allLogs.length - 1].time : 5400;
     // Utiliser result.homeTeamId/awayTeamId car ils correspondent aux teamId dans les logs
     const homeId = result.homeTeamId ?? homeTeam?.id;
     const awayId = result.awayTeamId ?? awayTeam?.id;
+
+    // Signaux réactifs pour le score et les buteurs
+    const homeScore = useSignal(0);
+    const awayScore = useSignal(0);
+    const homeScorers = useSignal([]);
+    const awayScorers = useSignal([]);
 
     // Signaux calculés
     const currentMinute = useComputed(() => Math.floor(currentMatchTime.value / 60));
@@ -78,17 +97,44 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         return min >= 90 ? min - 90 : 0;
     });
 
+    useEffect(() => {
+        // Score : tous les logs de but (hors célébration/remise en jeu)
+        const hGoalsScore = logs.value.filter((e: any) => e.teamId === homeId && isGoalForScore(e));
+        const aGoalsScore = logs.value.filter((e: any) => e.teamId === awayId && isGoalForScore(e));
+        homeScore.value = hGoalsScore.length;
+        awayScore.value = aGoalsScore.length;
+        // Buteurs : logs de but avec playerName non vide (hors célébration/remise en jeu)
+        const hGoalsScorers = logs.value.filter((e: any) => e.teamId === homeId && isGoalForScorer(e));
+        const aGoalsScorers = logs.value.filter((e: any) => e.teamId === awayId && isGoalForScorer(e));
+        // Pour éviter les doublons, on ne garde qu'un but par joueur/minute
+        const uniqueScorers = (arr: any[]) => {
+            const seen = new Set();
+            return arr.filter(e => {
+                const key = e.playerName + '-' + Math.floor(e.time / 60);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        };
+        homeScorers.value = uniqueScorers(hGoalsScorers).map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }));
+        awayScorers.value = uniqueScorers(aGoalsScorers).map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }));
+    }, [logs.value, homeId, awayId, currentMatchTime.value]);
+
     // Index du log actuel - source de vérité unique pour la navigation
-    const currentLogIndex = useSignal(
-        Math.max(0, logs.findLastIndex((l: any) => l.time <= currentMatchTime.value))
-    );
+    // Index du log actuel basé sur allLogs (pas les logs filtrés)
+    const currentLogIndex = useSignal(0);
+    // Synchronisation automatique de l'index avec le temps courant
+    useEffect(() => {
+        const idx = Math.max(0, allLogs.findLastIndex((l: any) => l.time <= currentMatchTime.value));
+        currentLogIndex.value = idx;
+    }, [currentMatchTime.value, allLogs]);
     
     // Au démarrage (temps 0), on prend le premier log de jeu (pas le START)
     const currentLog = useComputed(() => {
         const idx = currentLogIndex.value;
-        if (idx >= 0 && idx < logs.length) return logs[idx];
+        if (idx >= 0 && idx < allLogs.length) return allLogs[idx];
         // Si aucun log trouvé, chercher le premier log qui n'est pas un START
-        const firstGameLog = logs.find((l: any) => l.type !== 'START') || logs[0];
+        const firstGameLog = allLogs.find((l: any) => l.type !== 'START') || allLogs[0];
         return firstGameLog;
     });
 
@@ -96,11 +142,11 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const effectiveTeamId = useComputed(() => currentLog.value?.possessionTeamId ?? currentLog.value?.teamId);
 
     const currentScorers = useComputed(() => {
-        const playedLogs = logs.filter((l: any) => l.time <= currentMatchTime.value);
+        // On utilise les logs filtrés jusqu'au temps courant
         return {
-            h: playedLogs.filter((e: any) => e.teamId === homeId && isValidGoal(e))
+            h: logs.value.filter((e: any) => e.teamId === homeId && isValidGoal(e))
                 .map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) })),
-            a: playedLogs.filter((e: any) => e.teamId !== homeId && isValidGoal(e))
+            a: logs.value.filter((e: any) => e.teamId === awayId && isValidGoal(e))
                 .map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }))
         };
     });
@@ -128,7 +174,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     });
 
     const matchAnalysis = useComputed(() => {
-        const playedLogs = logs.filter((l: any) => l.time <= currentMatchTime.value);
+        // On utilise les logs filtrés jusqu'au temps courant
+        const playedLogs = logs.value;
         const analysis = result.analysis || {};
 
         // Fonction helper pour calculer les stats
@@ -160,37 +207,37 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
     // Handlers
     const handleGoToStart = useCallback(() => {
-        if (logs.length === 0) return;
+        if (allLogs.length === 0) return;
         isPaused.value = true;
         currentLogIndex.value = 0;
-        currentMatchTime.value = logs[0].time;
-    }, [logs, isPaused, currentMatchTime, currentLogIndex]);
+        currentMatchTime.value = allLogs[0].time;
+    }, [allLogs, isPaused, currentMatchTime, currentLogIndex]);
 
     const handleStepBack = useCallback(() => {
-        if (logs.length === 0) return;
+        if (allLogs.length === 0) return;
         isPaused.value = true;
         const idx = currentLogIndex.value;
         if (idx > 0) {
             currentLogIndex.value = idx - 1;
-            currentMatchTime.value = logs[idx - 1].time;
+            currentMatchTime.value = allLogs[idx - 1].time;
         }
-    }, [logs, isPaused, currentMatchTime, currentLogIndex]);
+    }, [allLogs, isPaused, currentMatchTime, currentLogIndex]);
 
     const handleStepForward = useCallback(() => {
-        if (logs.length === 0) return;
+        if (allLogs.length === 0) return;
         isPaused.value = true;
         const idx = currentLogIndex.value;
-        if (idx < logs.length - 1) {
+        if (idx < allLogs.length - 1) {
             currentLogIndex.value = idx + 1;
-            currentMatchTime.value = logs[idx + 1].time;
+            currentMatchTime.value = allLogs[idx + 1].time;
         }
-    }, [logs, isPaused, currentMatchTime, currentLogIndex]);
+    }, [allLogs, isPaused, currentMatchTime, currentLogIndex]);
 
     const handleSkip = useCallback(() => {
         isPaused.value = true;
-        currentLogIndex.value = logs.length - 1;
-        currentMatchTime.value = maxTime;
-    }, [isPaused, currentMatchTime, currentLogIndex, logs, maxTime]);
+        currentLogIndex.value = allLogs.length - 1;
+        currentMatchTime.value = allLogs.length > 0 ? allLogs[allLogs.length - 1].time : maxTime;
+    }, [isPaused, currentMatchTime, currentLogIndex, allLogs, maxTime]);
 
     const handleFinalize = useCallback(async () => {
         // Attendre que la sauvegarde soit terminée avant de naviguer vers le rapport
@@ -205,26 +252,24 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         const interval = setInterval(() => {
             if (currentMatchTime.value < maxTime) {
                 currentMatchTime.value += 1;
-                // Avancer l'index si on atteint le temps du prochain log
+                // Avancer d'un seul log à la fois, même si plusieurs logs ont le même temps
                 const nextIdx = currentLogIndex.value + 1;
-                if (nextIdx < logs.length && logs[nextIdx].time <= currentMatchTime.value) {
+                if (nextIdx < logs.length && logs[nextIdx].time === currentMatchTime.value) {
                     currentLogIndex.value = nextIdx;
                 }
             } else {
                 isPaused.value = true;
             }
         }, 100);
-        
         return () => clearInterval(interval);
-    }, [isPaused.value, maxTime]);
+    }, [isPaused.value, maxTime, currentMatchTime]);
 
     // Événements filtrés pour l'onglet flux
     const visibleEvents = useMemo(() => 
-        logs.filter((l: any) => 
-            (l.type === 'EVENT' || l.type === 'ACTION') && 
-            l.time <= currentMatchTime.value
+        logs.value.filter((l: any) => 
+            (l.type === 'EVENT' || l.type === 'ACTION')
         ).slice(-15).reverse(),
-        [logs, currentMatchTime.value]
+        [logs.value]
     );
 
     // Joueurs filtrés pour l'onglet players - utiliser les joueurs originaux enrichis avec les ratings
@@ -269,14 +314,15 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
             <Scoreboard
                 homeTeam={homeTeam}
                 awayTeam={awayTeam}
-                homeScore={useComputed(() => matchAnalysis.value.stats.h.goals)}
-                awayScore={useComputed(() => matchAnalysis.value.stats.a.goals)}
+                homeScore={homeScore}
+                awayScore={awayScore}
                 minute={currentMinute}
-                homeScorers={useComputed(() => currentScorers.value.h)}
-                awayScorers={useComputed(() => currentScorers.value.a)}
+                homeScorers={homeScorers}
+                awayScorers={awayScorers}
                 possession={sampledMomentum}
                 isFinished={isFinished.value}
                 stoppageTime={currentStoppageTime}
+                logs={logs.value}
             />
 
             <div className="flex-1 flex flex-col overflow-hidden px-4 pt-4 gap-3">

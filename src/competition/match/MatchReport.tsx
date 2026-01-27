@@ -132,8 +132,8 @@ export default function MatchReport({ matchId, onClose }: any) {
     ];
 
     const events = details?.events || [];
-    const homeGoals = events.filter(e => e.type === "GOAL" && e.teamId === match.homeTeamId);
-    const awayGoals = events.filter(e => e.type === "GOAL" && e.teamId === match.awayTeamId);
+    const homeGoals = events.filter(e => e.eventSubtype === "GOAL" && e.teamId === match.homeTeamId);
+    const awayGoals = events.filter(e => e.eventSubtype === "GOAL" && e.teamId === match.awayTeamId);
 
 	return (
 		<div className="flex flex-col h-full bg-gray-50 animate-fade-in relative overflow-hidden">

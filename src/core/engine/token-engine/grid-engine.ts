@@ -1,7 +1,7 @@
-import { GridPosition, Token, MatchSituation, TokenType, ZoneDefinition } from "./types";
+import { GridPosition, Token, MatchSituation, TokenType } from "./types";
 import { TOKEN_LOGIC } from "./config/token-logic";
 import { TokenPlayer } from "./token-player";
-import { ZONES_CONFIG, DEFAULT_ZONE_CONFIG } from "./config/zones-config";
+import { ZONES_CONFIG, ZoneDefinitionSplit } from "./config/zones-config";
 
 export class GridEngine {
   private players: TokenPlayer[] = [];
@@ -20,24 +20,27 @@ export class GridEngine {
     let bag: Token[] = [];
     const zoneKey = `${pos.x},${pos.y}`;
     const opponentTeamId = (possessionTeamId === homeId) ? awayId : homeId;
-    const config: ZoneDefinition = ZONES_CONFIG[zoneKey] || DEFAULT_ZONE_CONFIG;
+    const config: ZoneDefinitionSplit = ZONES_CONFIG[zoneKey];
 
     // 1. Jetons Système (Config de zone) : on ne garde que les jetons cohérents avec la possession
     const validTypes = new Set(Object.keys(TOKEN_LOGIC));
-    // Types de tirs purs (inclure tous les jetons de finition)
-    const shootTypes = [
+    // Types de tirs REUSSIS (jetons offensifs - appartiennent à l'attaquant)
+    const shootTypesOffensive = [
         'SHOOT_GOAL',
-        'SHOOT_SAVED',
-        'SHOOT_SAVED_CORNER',
-        'SHOOT_OFF_TARGET',
         'SHOOT_WOODWORK',
         'WOODWORK_OUT',
         'HEAD_SHOT',
         'FREE_KICK_SHOT',
         'PENALTY_GOAL',
-        'PENALTY_SAVED',
-        'PENALTY_MISS',
         'CORNER_GOAL'
+    ];
+    // Types de tirs RATES/ARRETES (jetons défensifs - appartiennent au gardien/défense)
+    const shootTypesDefensive = [
+        'SHOOT_SAVED',
+        'SHOOT_SAVED_CORNER',
+        'SHOOT_OFF_TARGET',
+        'PENALTY_SAVED',
+        'PENALTY_MISS'
     ];
     // Autres actions offensives (sans les jetons GK qui sont uniquement pour GOAL_KICK)
     const offensiveTypes = ['PASS_SHORT','PASS_LONG','PASS_BACK','PASS_SWITCH','THROUGH_BALL','CUT_BACK','DRIBBLE','HEAD_PASS','REBOUND','OWN_GOAL','FREE_KICK_CROSS','CORNER_SHORT','CORNER_OVERCOOKED'];
@@ -55,144 +58,115 @@ export class GridEngine {
     const isMidfieldZone = pos.x >= 2 && pos.x <= 3;
     const isPressingZoneForOpponent = (opponentTeamId === homeId && pos.x >= 3) || (opponentTeamId === awayId && pos.x <= 2);
 
-    config.baseTokens.forEach((pt: Partial<Token>, index: number) => {
-        if (!pt.type || pt.type === 'NEUTRAL_POSSESSION' || !validTypes.has(pt.type as string)) return;
-        // --- Gestion séparée des tirs ---
-        if (shootTypes.includes(pt.type as string)) {
-            // On autorise les tirs uniquement si l'équipe en possession est dans la surface adverse
-            const isSurfaceHome = ["0,1","0,2","0,3"].includes(zoneKey);
-            const isSurfaceAway = ["5,1","5,2","5,3"].includes(zoneKey);
-            if ((possessionTeamId === homeId && isSurfaceAway) || (possessionTeamId === awayId && isSurfaceHome)) {
-                bag.push({
-                    id: `sys-${zoneKey}-shoot-${index}`,
-                    type: pt.type as TokenType,
-                    ownerId: 0,
-                    teamId: possessionTeamId,
-                    quality: pt.quality || 30,
-                    duration: pt.duration || 5
-                });
-            }
-        } else if (offensiveTypes.includes(pt.type as string)) {
-            bag.push({
-                id: `sys-${zoneKey}-${index}`,
-                type: pt.type as TokenType,
-                ownerId: 0,
-                teamId: possessionTeamId,
-                quality: pt.quality || 30,
-                duration: pt.duration || 5
-            });
-        } else if (defensiveTypesBase.includes(pt.type as string)) {
-            // Jetons défensifs de base : disponibles partout
-            bag.push({
-                id: `sys-${zoneKey}-${index}`,
-                type: pt.type as TokenType,
-                ownerId: 0,
-                teamId: opponentTeamId,
-                quality: pt.quality || 30,
-                duration: pt.duration || 5
-            });
-        } else if (defensiveTypesBlock.includes(pt.type as string) || defensiveTypesGK.includes(pt.type as string)) {
-            // BLOCK, CLAIM, PUNCH : uniquement dans la surface défensive
-            if (isDefensiveZoneForOpponent) {
-                bag.push({
-                    id: `sys-${zoneKey}-${index}`,
-                    type: pt.type as TokenType,
-                    ownerId: 0,
-                    teamId: opponentTeamId,
-                    quality: pt.quality || 30,
-                    duration: pt.duration || 5
-                });
-            }
-        } else if (defensiveTypesPressing.includes(pt.type as string)) {
-            // PRESSING_SUCCESS : uniquement dans le camp adverse (pressing haut)
-            if (isPressingZoneForOpponent) {
-                bag.push({
-                    id: `sys-${zoneKey}-${index}`,
-                    type: pt.type as TokenType,
-                    ownerId: 0,
-                    teamId: opponentTeamId,
-                    quality: pt.quality || 30,
-                    duration: pt.duration || 5
-                });
-            }
-        } else if (defensiveTypesRecovery.includes(pt.type as string)) {
-            // BALL_RECOVERY : uniquement au milieu de terrain
-            if (isMidfieldZone) {
-                bag.push({
-                    id: `sys-${zoneKey}-${index}`,
-                    type: pt.type as TokenType,
-                    ownerId: 0,
-                    teamId: opponentTeamId,
-                    quality: pt.quality || 30,
-                    duration: pt.duration || 5
-                });
-            }
-        } else if (pt.type === 'CLEARANCE') {
-            // CLEARANCE : disponible uniquement dans les zones défensives de l'équipe qui défend
-            const isDefensiveZoneHome = pos.x <= 2; // Zones 0, 1, 2 = défense home
-            const isDefensiveZoneAway = pos.x >= 3; // Zones 3, 4, 5 = défense away
-            // L'équipe qui défend = opponentTeamId (équipe sans possession)
-            if ((opponentTeamId === homeId && isDefensiveZoneHome) || 
-                (opponentTeamId === awayId && isDefensiveZoneAway)) {
-                bag.push({
-                    id: `sys-${zoneKey}-${index}`,
-                    type: pt.type as TokenType,
-                    ownerId: 0,
-                    teamId: opponentTeamId,
-                    quality: pt.quality || 30,
-                    duration: pt.duration || 5
-                });
-            }
-        } else if (pt.type === 'CROSS') {
-            // CROSS : disponible uniquement dans les zones offensives de l'équipe en possession
-            const isOffensiveZoneHome = pos.x >= 3; // Zones 3, 4, 5 = attaque home
-            const isOffensiveZoneAway = pos.x <= 2; // Zones 0, 1, 2 = attaque away
-            // L'équipe en possession peut centrer depuis le camp adverse
-            if ((possessionTeamId === homeId && isOffensiveZoneHome) || 
-                (possessionTeamId === awayId && isOffensiveZoneAway)) {
-                bag.push({
-                    id: `sys-${zoneKey}-${index}`,
-                    type: pt.type as TokenType,
-                    ownerId: 0,
-                    teamId: possessionTeamId,
-                    quality: pt.quality || 30,
-                    duration: pt.duration || 5
-                });
-            }
+        // Sélectionne les bons jetons selon la possession
+        const sysTokens: Partial<Token>[] = [];
+        // Sélectionne les bons jetons selon la possession et l'équipe (home/away)
+        if (possessionTeamId === homeId) {
+            sysTokens.push(...(config.offenseTokensHome || []).map((t) => ({ ...t, _side: 'off' })));
+            sysTokens.push(...(config.defenseTokensAway || []).map((t) => ({ ...t, _side: 'def' })));
+        } else if (possessionTeamId === awayId) {
+            sysTokens.push(...(config.offenseTokensAway || []).map((t) => ({ ...t, _side: 'off' })));
+            sysTokens.push(...(config.defenseTokensHome || []).map((t) => ({ ...t, _side: 'def' })));
         }
-        // Les autres types (VAR, etc.) sont ignorés ici
+        // fallback legacy
+        if ((config as any).baseTokens) {
+            sysTokens.push(...(config as any).baseTokens);
+        }
+
+        sysTokens.forEach((pt: Partial<Token> & { _side?: 'off' | 'def' }, index: number) => {
+                if (!pt.type || pt.type === 'NEUTRAL_POSSESSION' || !validTypes.has(pt.type as string)) return;
+
+                // On filtre selon la possession :
+                // - offenseTokens* → teamId = possessionTeamId
+                // - defenseTokens* → teamId = opponentTeamId
+                const isOffensive = pt._side === 'off';
+                const isDefensive = pt._side === 'def';
+                const tokenTeamId = isOffensive ? possessionTeamId : isDefensive ? opponentTeamId : possessionTeamId;
+                // Pour la logique existante, on ne traite que les jetons du bon côté
+                if (isOffensive && pt.type === 'CROSS') {
+                    // CROSS offensif : même logique qu'avant
+                    const isOffensiveZoneHome = pos.x >= 3;
+                    const isOffensiveZoneAway = pos.x <= 2;
+                    let crossPossible = false;
+                    if ((possessionTeamId === homeId && isOffensiveZoneHome && pos.x < 5) || 
+                            (possessionTeamId === awayId && isOffensiveZoneAway && pos.x > 0)) {
+                            crossPossible = true;
+                    }
+                    if (!crossPossible) return;
+                }
+                // On ne garde que les jetons offensifs pour l'équipe en possession, défensifs pour l'adversaire
+                if ((isOffensive && tokenTeamId !== possessionTeamId) || (isDefensive && tokenTeamId !== opponentTeamId)) return;
+        
+        bag.push({
+            id: `sys-${zoneKey}-${pt.type}-${index}`,
+            type: pt.type as TokenType,
+            ownerId: 0,
+            teamId: tokenTeamId,
+            quality: pt.quality || 30,
+            duration: pt.duration || 5
+        });
     });
 
         // 2. Jetons Joueurs filtrés par rôle autorisé dans la zone (comparaison en majuscules)
+        // Récupérer le multiplicateur défensif de la zone
+        // defenseMultiplier supprimé
+        
         this.players.forEach(p => {
             const playerRole = typeof p.role === 'string' ? p.role.toUpperCase() : p.role;
-            const allowedRoles = (config.allowedRoles || []).map((r: string) => r.toUpperCase());
+            let allowedRoles: string[] = [];
+            if (p.teamId === homeId) {
+                allowedRoles = (config.allowedRolesHome || []).map((r: string) => r.toUpperCase());
+            } else if (p.teamId === awayId) {
+                allowedRoles = (config.allowedRolesAway || []).map((r: string) => r.toUpperCase());
+            }
             if (!allowedRoles.includes(playerRole)) return;
 
             let weight = 0;
-            // Cas spécial : surface adverse, on inclut les joueurs offensifs même si leur active/reach ne couvre pas la zone
             const isSurfaceHome = ["0,1","0,2","0,3"].includes(zoneKey);
             const isSurfaceAway = ["5,1","5,2","5,3"].includes(zoneKey);
             const isAttacker = ["ST","MC","AML","AMR","LW","RW","AMC"].includes(playerRole);
+            const isDefender = ["GK","DC","DL","DR"].includes(playerRole);
+
+            // Cas spécial : surface adverse, on inclut les joueurs offensifs même si leur active/reach ne couvre pas la zone
             if (
                 (isSurfaceHome && p.teamId === awayId && isAttacker) ||
                 (isSurfaceAway && p.teamId === homeId && isAttacker)
             ) {
                 weight = 1.0; // reach artificiel pour la surface adverse : on veut des tirs !
+            } else if (
+                // Défenseurs toujours présents dans leur propre surface
+                (isSurfaceHome && p.teamId === homeId && isDefender) ||
+                (isSurfaceAway && p.teamId === awayId && isDefender)
+            ) {
+                weight = 1.5; // Bonus pour les défenseurs dans leur surface
             } else if (p.activeZones.includes(zoneKey)) weight = 1.0;
             else if (p.reachZones.includes(zoneKey)) weight = 0.5;
 
+            // Correction : seuls les défenseurs de l'équipe qui défend dans SA surface génèrent des jetons défensifs
+            // Si on est dans la surface de AWAY (5,1/2/3), seuls les défenseurs de AWAY génèrent des jetons défensifs
+            // Si on est dans la surface de HOME (0,1/2/3), seuls les défenseurs de HOME génèrent des jetons défensifs
+            const isDefensiveSurface = (isSurfaceHome && p.teamId === homeId) || (isSurfaceAway && p.teamId === awayId);
+            const hasBall = (p.teamId === possessionTeamId);
             if (weight > 0) {
-                const hasBall = (p.teamId === possessionTeamId);
-                const pTokens = hasBall ? p.getOffensiveTokens(weight, pos, homeId, awayId) : p.getDefensiveTokens(weight);
-                // S'assurer que chaque jeton a le bon ownerId et teamId, et type valide, et que le type existe dans TOKEN_LOGIC
+                let pTokens: Token[] = [];
+                if (hasBall) {
+                    pTokens = p.getOffensiveTokens(weight, pos, homeId, awayId);
+                } else {
+                    // Si on est dans une surface défensive, seuls les défenseurs de l'équipe locale génèrent des jetons défensifs
+                    if (isDefender && isDefensiveSurface) {
+                        pTokens = p.getDefensiveTokens(weight);
+                    } else if (!isSurfaceHome && !isSurfaceAway) {
+                        // Hors surface, tous les défenseurs peuvent défendre normalement
+                        pTokens = p.getDefensiveTokens(weight);
+                    }
+                }
+                // defenseMultiplier supprimé
                 pTokens.forEach(t => {
                     if (!t.type || !validTypes.has(t.type as string)) return;
                     t.ownerId = p.id;
                     t.teamId = p.teamId;
                     if (typeof t.teamId !== 'number') t.teamId = p.teamId;
                 });
-                // Ne push que les tokens valides
                 bag.push(...pTokens.filter(t => t.type && validTypes.has(t.type as string)));
             }
         });
@@ -208,11 +182,39 @@ export class GridEngine {
         return true;
     });
 
+
     // On supprime tout jeton neutre restant (teamId: 0 ou type NEUTRAL_POSSESSION)
-    bag = bag.filter(t => t.type !== 'NEUTRAL_POSSESSION' && t.teamId !== 0);
+        bag = bag.filter(t => t.type !== 'NEUTRAL_POSSESSION' && t.teamId !== 0);
     if (bag.length === 0) {
         // Fallback : on donne la balle à l'équipe en possession
         bag.push({ id: 'sys-fallback', type: 'PASS_SHORT', ownerId: 1, teamId: possessionTeamId, quality: 10, duration: 10 });
+    }
+
+    // Limite stricte : max 100 jetons par sac, en conservant la proportion de chaque type
+    const MAX_TOKENS = 100;
+    if (bag.length > MAX_TOKENS) {
+        // Regrouper par type
+        const byType = new Map<string, Token[]>();
+        for (const t of bag) {
+            if (!byType.has(t.type)) byType.set(t.type, []);
+            byType.get(t.type)!.push(t);
+        }
+        // Calculer la proportion de chaque type
+        const total = bag.length;
+        const typeCounts = Array.from(byType.entries()).map(([type, tokens]) => ({ type, count: tokens.length, tokens }));
+        // Calculer le nombre de jetons à garder par type (arrondi, min 1 si présent)
+        let kept = 0;
+        const selected: Token[] = [];
+        for (let i = 0; i < typeCounts.length; i++) {
+            const { type, count, tokens } = typeCounts[i];
+            // Dernier type : prend tout ce qui reste pour arriver à MAX_TOKENS
+            let n = i === typeCounts.length - 1 ? (MAX_TOKENS - kept) : Math.max(1, Math.round(count / total * MAX_TOKENS));
+            n = Math.min(n, tokens.length, MAX_TOKENS - kept);
+            selected.push(...tokens.slice(0, n));
+            kept += n;
+            if (kept >= MAX_TOKENS) break;
+        }
+        bag = selected;
     }
     return this.shuffle(bag);
   }

@@ -64,7 +64,7 @@ export class TokenMatchEngine {
       if (!this.halfTimeReached && this.currentTime >= 2700) {
         this.log('EVENT', "C'est la mi-temps !", { subtype: 'STAT' });
         this.currentTime += 15;
-        this.ballPosition = { x: 2, y: 2 };
+        this.ballPosition = { x: 3, y: 2 }; // Away engage en 3,2
         this.currentSituation = 'KICK_OFF';
         this.possessionTeamId = this.awayTeamId;
         this.halfTimeReached = true;
@@ -116,20 +116,20 @@ export class TokenMatchEngine {
 
     const zoneInfluences: Record<string, any> = {};
     for (let x = 0; x < 6; x++) {
-        for (let y = 0; y < 5; y++) {
-            const zKey = `${x},${y}`;
-            let hAtk = 0; let hDef = 0; let aAtk = 0; let aDef = 0;
-            this.players.forEach(p => {
-                const power = p.activeZones.includes(zKey) ? 1.5 : (p.reachZones.includes(zKey) ? 0.7 : 0);
-                if (power > 0) {
-                    const isHome = p.teamId === this.homeTeamId;
-                    const pAtk = p.influence.atk * power;
-                    const pDef = p.influence.def * power;
-                    if (isHome) { hAtk += pAtk; hDef += pDef; } else { aAtk += pAtk; aDef += pDef; }
-                }
-            });
-            zoneInfluences[zKey] = { homeAtk: Math.round(hAtk), homeDef: Math.round(hDef), awayAtk: Math.round(aAtk), awayDef: Math.round(aDef) };
-        }
+      for (let y = 0; y < 5; y++) {
+        const zKey = `${x},${y}`;
+        let hAtk = 0; let hDef = 0; let aAtk = 0; let aDef = 0;
+        this.players.forEach(p => {
+          const power = p.activeZones.includes(zKey) ? 1.5 : (p.reachZones.includes(zKey) ? 0.7 : 0);
+          if (power > 0) {
+            const isHome = p.teamId === this.homeTeamId;
+            const pAtk = p.influence.atk * power;
+            const pDef = p.influence.def * power;
+            if (isHome) { hAtk += pAtk; hDef += pDef; } else { aAtk += pAtk; aDef += pDef; }
+          }
+        });
+        zoneInfluences[zKey] = { homeAtk: Math.round(hAtk), homeDef: Math.round(hDef), awayAtk: Math.round(aAtk), awayDef: Math.round(aDef) };
+      }
     }
 
     const currentBag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
@@ -144,8 +144,69 @@ export class TokenMatchEngine {
 
   private resolveToken(token: Token, currentBag: Token[], zoneInfluences: any) {
 
-    const player = this.grid.getPlayer(token.ownerId);
-    const pName = player ? player.name : (token.teamId === 0 ? "Système" : "Collectif");
+    let player = this.grid.getPlayer(token.ownerId);
+    
+    // Si c'est un jeton système (ownerId === 0), trouver un joueur de l'équipe dans la zone
+    if (!player && token.ownerId === 0 && token.teamId !== 0) {
+      const zoneKey = `${this.ballPosition.x},${this.ballPosition.y}`;
+      // Chercher un joueur de l'équipe du jeton qui est dans la zone
+      let candidatePlayers = this.players.filter(p => 
+        p.teamId === token.teamId && 
+        (p.activeZones.includes(zoneKey) || p.reachZones.includes(zoneKey))
+      );
+      
+      // Si aucun joueur dans la zone, chercher par rôle approprié pour l'action
+      if (candidatePlayers.length === 0) {
+        const isShootingAction = token.type.startsWith('SHOOT') || token.type === 'HEAD_SHOT' || token.type === 'CORNER_GOAL' || token.type === 'PENALTY_GOAL';
+        const isDefensiveAction = ['TACKLE', 'INTERCEPT', 'BLOCK', 'CLEARANCE', 'SHOOT_SAVED', 'SHOOT_OFF_TARGET'].includes(token.type);
+        
+        if (isShootingAction) {
+          // Pour les tirs, chercher attaquants et milieux offensifs
+          candidatePlayers = this.players.filter(p => 
+            p.teamId === token.teamId && 
+            ['ST', 'STL', 'STR', 'CF', 'AMC', 'AML', 'AMR', 'LW', 'RW', 'MC'].includes(p.role.toUpperCase())
+          );
+        } else if (isDefensiveAction) {
+          // Pour les actions défensives, chercher défenseurs et gardien
+          candidatePlayers = this.players.filter(p => 
+            p.teamId === token.teamId && 
+            ['GK', 'DC', 'DCL', 'DCR', 'DL', 'DR', 'DM'].includes(p.role.toUpperCase())
+          );
+        } else {
+          // Fallback : n'importe quel joueur de l'équipe
+          candidatePlayers = this.players.filter(p => p.teamId === token.teamId);
+        }
+      }
+      
+      if (candidatePlayers.length > 0) {
+        // Prendre un joueur au hasard pondéré par son influence
+        const totalInfluence = candidatePlayers.reduce((sum, p) => sum + (p.influence.atk + p.influence.def), 0);
+        let roll = Math.random() * totalInfluence;
+        for (const p of candidatePlayers) {
+          roll -= (p.influence.atk + p.influence.def);
+          if (roll <= 0) {
+            player = p;
+            break;
+          }
+        }
+        if (!player) player = candidatePlayers[0];
+      }
+    }
+    
+    // Correction : fallback explicite pour éviter undefined dans les logs de but
+    let pName: string;
+    if (player && player.name) {
+      pName = player.name;
+    } else if (token.teamId === 0) {
+      pName = "Système";
+    } else {
+      // Fallback : choisir un joueur offensif de l’équipe, sinon n’importe qui de l’équipe
+      const teamPlayers = this.players.filter(p => p.teamId === token.teamId);
+      // Privilégier les attaquants ou milieux offensifs
+      const forwards = teamPlayers.filter(p => p.role && /attaquant|avant|striker|forward|milieu offensif|offensif/i.test(p.role));
+      const fallbackPlayer = forwards[0] || teamPlayers[0];
+      pName = fallbackPlayer?.name || "Joueur inconnu";
+    }
     const pRole = player ? player.role : "";
     const logic = TOKEN_LOGIC[token.type];
     if (!logic) { this.currentTime += 5; return; }
@@ -153,7 +214,7 @@ export class TokenMatchEngine {
     const result = logic(token, pName, token.teamId === this.homeTeamId, this.ballPosition);
 
     // Tracker la performance individuelle du joueur
-    if (player && token.ownerId !== 0) {
+    if (player) {
       this.tracker.trackPlayerAction(
         player.id,
         player.name,
@@ -175,14 +236,17 @@ export class TokenMatchEngine {
       const logObj: MatchLog = {
         time: this.currentTime, 
         type: 'EVENT', 
-        text: result.logMessage, 
-        eventSubtype: result.eventSubtype, 
-        playerName: pName, 
-        teamId: token.teamId, 
+        // Si pName est 'Collectif' ou 'Système', on adapte le texte pour éviter "undefined"
+        text: (pName && pName !== 'Collectif' && pName !== 'Système')
+          ? result.logMessage
+          : `BUT !!! Frappe chirurgicale d'un collectif !`,
+        eventSubtype: 'GOAL',
+        playerName: pName,
+        teamId: token.teamId,
         possessionTeamId: this.possessionTeamId,
-        ballPosition: { ...this.ballPosition }, 
-        bag: nextBag.map(t => ({ type: t.type, teamId: t.teamId })), 
-        drawnToken: { type: token.type, teamId: token.teamId }, 
+        ballPosition: { ...this.ballPosition },
+        bag: nextBag.map(t => ({ type: t.type, teamId: t.teamId })),
+        drawnToken: { type: token.type, teamId: token.teamId },
         statImpact: result.stats
       };
       this.logs.push(logObj);
@@ -198,11 +262,12 @@ export class TokenMatchEngine {
       const concedingTeamId = token.teamId === this.homeTeamId ? this.awayTeamId : this.homeTeamId;
       this.possessionTeamId = concedingTeamId;
 
-      // 2. Jeton de remise en jeu (30s, balle au centre x=3 sur grille 0-5) - couleur de l'équipe qui reprend
+      // 2. Jeton de remise en jeu (30s, balle au centre selon l'équipe qui engage)
       this.currentTime += 30;
-      this.ballPosition = { x: 3, y: 2 };
+      // Home engage en 2,2 (côté home), Away engage en 3,2 (côté away)
+      this.ballPosition = { x: concedingTeamId === this.homeTeamId ? 2 : 3, y: 2 };
       this.currentSituation = 'KICK_OFF';
-      this.log('EVENT', 'Remise en jeu après but.', { subtype: 'KICK_OFF', ballPosition: { ...this.ballPosition } });
+      this.log('EVENT', 'Remise en jeu après but.', { subtype: 'KICK_OFF', teamId: concedingTeamId, ballPosition: { ...this.ballPosition } });
       return;
     }
 
