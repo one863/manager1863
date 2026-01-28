@@ -1,59 +1,43 @@
-// Définition pour la configuration des zones (utilisé dans ZONES_CONFIG)
+/**
+ * REPERE SPATIAL
+ * x: 0 (But Home) à 5 (But Away)
+ * y: 0 (Aile Gauche) à 4 (Aile Droite)
+ */
+export interface GridPosition { 
+  x: number; 
+  y: number; 
+}
+
+// ==========================================
+// 1. CONFIGURATION DES ZONES ET TACTIQUES
+// ==========================================
+
 export interface ZoneDefinition {
   allowedRoles: string[];
   baseTokens: Partial<Token>[];
-  
   errorChance?: number;
 }
 
-// Pour usage runtime (zone-manager)
-export interface ZoneData {
-  id: string;
-  baseTokens: Token[];
-  logic: {
+export type TacticType = 'OFFENSIVE' | 'BALANCED' | 'DEFENSIVE' | 'COUNTER_ATTACK' | 'POSSESSION';
 
-    errorChance: number;
-  };
+export interface TacticTemplate {
+  id: string;
+  name: string;
+  type: TacticType;
+  formation: string; // ex: '4-4-2'
+  instructions: any;
+  roles?: Record<string, string>; // Mapping rôle -> poste théorique
 }
 
+// ==========================================
+// 2. LE JOUEUR (STATS ET ÉTAT)
+// ==========================================
+
 /**
- * Statistiques complètes d'un joueur (échelle 1-20)
- * 
- * TECHNIQUE (attaque)
- * - finishing: Précision des tirs → nombre de SHOOT_GOAL
- * - passing: Qualité des passes → nombre de PASS_*
- * - dribbling: Capacité à éliminer → nombre de DRIBBLE
- * - crossing: Qualité des centres → nombre de CROSS
- * - vision: Passes décisives → nombre de THROUGH_BALL
- * - longShots: Tirs de loin → SHOOT en dehors de la surface
- * - heading: Jeu de tête → HEAD_SHOT, HEAD_PASS
- * 
- * DÉFENSE
- * - tackling: Qualité des tacles → nombre de TACKLE
- * - marking: Marquage → nombre de BLOCK
- * - positioning: Placement → nombre de INTERCEPT
- * - heading: Jeu de tête défensif → CLEARANCE
- * 
- * PHYSIQUE
- * - pace: Vitesse → influence sur les duels
- * - strength: Puissance → résistance aux tacles
- * - endurance: Endurance → résistance à la fatigue
- * - jumping: Détente → jeu aérien
- * 
- * MENTAL
- * - composure: Sang-froid → réduit les ratés sous pression
- * - concentration: Concentration → réduit les erreurs en fin de match
- * - aggression: Agressivité → plus de tacles, risque de fautes
- * - workRate: Volume de jeu → présence dans plus de zones
- * 
- * GARDIEN (si GK)
- * - reflexes: Réflexes → arrêts
- * - handling: Prise de balle → CLAIM vs PUNCH
- * - kicking: Relance au pied → GK_LONG
- * - oneOnOnes: Face à face → arrêts en 1v1
+ * Statistiques sur une échelle de 1 à 20
  */
 export interface PlayerStats {
-  // Technique
+  // Technique (Offense)
   finishing: number;
   passing: number;
   dribbling: number;
@@ -75,116 +59,102 @@ export interface PlayerStats {
   
   // Mental
   composure: number;      // Sang-froid sous pression
-  concentration: number;  // Évite les erreurs en fin de match
-  aggression: number;     // Tacles agressifs, risque de fautes
+  concentration: number;  // Évite les erreurs
+  aggression: number;     // Risque de fautes
   workRate: number;       // Volume de jeu
   
-  // Gardien (optionnel)
+  // Gardien
   reflexes?: number;
   handling?: number;
   kicking?: number;
   oneOnOnes?: number;
-  
-  // Legacy (pour compatibilité)
+
+  // Compatibilité
   technical?: number;
   defense?: number;
-  
 
   [key: string]: number | undefined;
 }
 
+export interface TokenPlayerState {
+  id: number;
+  teamId: number;
+  role: string;          // Rôle tactique (ex: ST, DC, MCL)
+  stats: PlayerStats;
+  fatigue: number;       // 0 à 100
+  confidence: number;    // 0 à 100
+  injured: boolean;
+  suspended: boolean;
+}
+
+// ==========================================
+// 3. LOGIQUE DES JETONS (ENGINE)
+// ==========================================
+
 export interface Token {
   id: string;
   type: string;
-  ownerId: number;
+  ownerId: number;       // ID du joueur qui a généré le jeton
   teamId: number;
-  duration: number;
-  position?: string; // Poste du joueur
-  metadata?: any;
+  duration: number;      // Temps consommé par l'action (en secondes)
+  role?: string;         // Rôle associé au jeton
+  position?: string;     // Affichage (ex: "Buteur")
+  metadata?: any;        // Pour stocker si c'est un jeton TIRED, ELITE, etc.
 }
 
-export type MatchSituation = 'NORMAL' | 'CORNER' | 'PENALTY' | 'FREE_KICK' | 'GOAL_KICK' | 'THROW_IN' | 'KICK_OFF' | 'REBOUND_ZONE' | 'VAR_ZONE' | 'GOAL_HOME' | 'GOAL_AWAY' | 'GOAL_CELEBRATION' | 'KICK_OFF_RESTART';
+export type MatchSituation = 
+  | 'NORMAL' 
+  | 'KICK_OFF' 
+  | 'KICK_OFF_RESTART' 
+  | 'CORNER' 
+  | 'PENALTY' 
+  | 'GOAL_KICK' 
+  | 'FREE_KICK' 
+  | 'GOAL_HOME' 
+  | 'GOAL_AWAY';
 
 export interface TokenExecutionResult {
   moveX: number;
   moveY: number;
   isGoal: boolean;
   isEvent: boolean;
-  eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
+  eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'SAVE' | 'WOODWORK' | 'BLOCK';
   nextSituation?: MatchSituation;
   logMessage: string;
   customDuration?: number;
-  /** Si true, la possession passe à l'adversaire après cette action */
-  turnover?: boolean;
+  turnover?: boolean;     // Si true, l'autre équipe récupère le ballon
   stats?: { 
     xg?: number; 
     isPass?: boolean; 
     isSuccess?: boolean; 
-    isDuel?: boolean; 
-    isInterception?: boolean; 
     isChanceCreated?: boolean; 
-    isAssist?: boolean;
   };
+  overrideBallPosition?: GridPosition; // Pour forcer la balle (ex: penalty, centre)
 }
 
-export interface GridPosition { x: number; y: number; }
+// ==========================================
+// 4. LOGS ET STATISTIQUES DE MATCH
+// ==========================================
 
-export interface TokenPlayerState {
-  id: string;
-  teamId: number;
-  position: string;
-  stats: PlayerStats;
-  stamina: number;
-  form: number;
-  fatigue: number;
-  injured: boolean;
-  suspended: boolean;
-}
-
-export interface StaffModifiers {
-  technicalBonus: number;
-  tacticalBonus: number;
-  disciplineBonus: number;
-  staminaBonus: number;
+export interface MatchLog {
+  time: number;           // Temps en secondes
+  type: 'ACTION' | 'EVENT';
+  text: string;
+  teamId: number;         // Équipe qui fait l'action
+  possessionTeamId: number;
+  ballPosition: GridPosition;
+  playerName?: string;    // Nom du joueur pour affichage direct
+  eventSubtype?: string;
+  bag?: Partial<Token>[]; // État du sac avant tirage
+  drawnToken?: Partial<Token>; // Jeton pioché
 }
 
 export interface MatchStats {
-  possession: Record<string, number>;
-  shots: Record<string, any>;
-  shotsOnTarget?: Record<string, number>;
-  corners: Record<string, number>;
-  fouls: Record<string, number>;
-  cards: Record<string, number>;
-  passes: Record<string, any>;
-  xg: Record<string, number>;
-  duels?: Record<string, any>;
-  interceptions?: Record<string, number>;
-  woodwork?: Record<string, number>;
-  possessionPercent?: Record<string, number>;
-}
-
-export type TacticType = 'OFFENSIVE' | 'BALANCED' | 'DEFENSIVE' | 'COUNTER_ATTACK' | 'POSSESSION';
-
-export interface TacticTemplate {
-  id: string;
-  name: string;
-  type: TacticType;
-  formation: string;
-  instructions: any;
-  roles?: any;
-}
-
-export interface MatchLog {
-  time: number;
-  type: 'ACTION' | 'THINKING' | 'EVENT' | 'STAT' | 'START';
-  eventSubtype?: 'GOAL' | 'FOUL' | 'CARD' | 'CORNER' | 'SHOT' | 'INJURY' | 'PENALTY' | 'SAVE' | 'WOODWORK' | 'VAR';
-  text: string;
-  playerName?: string;
-  teamId?: number;
-  possessionTeamId?: number; // Ajout : équipe réellement en possession après l'action
-  ballPosition?: GridPosition;
-  bag?: { type: string, teamId: number }[];
-  drawnToken?: { type: string, teamId: number, position?: string };
-  statImpact?: any;
-  zoneInfluences?: Record<string, { homeAtk: number, homeDef: number, awayAtk: number, awayDef: number }>;
+  possession: Record<number, number>; // teamId -> secondes
+  shots: Record<number, number>;
+  shotsOnTarget: Record<number, number>;
+  xg: Record<number, number>;
+  corners: Record<number, number>;
+  fouls: Record<number, number>;
+  cards: Record<number, { yellow: number, red: number }>;
 }

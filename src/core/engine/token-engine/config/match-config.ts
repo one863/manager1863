@@ -1,17 +1,20 @@
 export const MATCH_CONFIG = {
     timing: {
-        matchDuration: 5400, // 90 mins en secondes
-        stoppageTime: 240,    // 4 mins
-        kickOffDelay: 60      // Délai après un but
+        matchDuration: 5400,     // 90 minutes
+        celebrationDuration: 30, // Temps de célébration (phases de GOAL_SEQUENCE)
+        restartDelay: 30,        // Temps de remise en jeu
+        stoppageTimeFactor: 1.2  // Multiplicateur pour calculer le temps additionnel
     },
-    physics: {
-        moveBallX: 1,         // Pas de base en X
-        moveBallY: 1,         // Pas de base en Y
-        randomYChance: 0.4    // Chance que Y change lors d'un mouvement X
+    grid: {
+        width: 6,  // x: 0-5
+        height: 5, // y: 0-4
+        goalZones: { home: 0, away: 5 }
     },
     balancing: {
-        baseSuccessChance: 70, // Chance de base de réussir une action offensive
-        defensePressureMax: 2.0, // Multiplicateur max de la défense
-        fatigueThreshold: 50   // Seuil à partir duquel le joueur perd de l'influence
+        // Au lieu de "chance de réussite", on définit la densité du sac
+        baseOffensiveTokens: 15, // Nombre de jetons générés par une stat de 10
+        fatigueStart: 60,        // % à partir duquel les jetons _TIRED apparaissent
+        fatigueImpact: 1.5,      // Vitesse d'épuisement des joueurs
+        confidenceBoost: 0.2     // % de jetons ELITE ajoutés en cas de succès
     }
 };

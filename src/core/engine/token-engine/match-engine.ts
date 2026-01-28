@@ -1,42 +1,60 @@
- import { GridPosition, Token, MatchLog, MatchSituation } from "./types";
+import { GridPosition, Token, MatchLog, MatchSituation } from "./types";
 import { GridEngine } from "./grid-engine";
 import { TOKEN_LOGIC } from "./config/token-logic";
+import { TokenPlayer } from "./token-player";
 
-/**
- * Moteur ultra-simplifié :
- * - Pas d'influence joueurs/tactiques
- * - Chaque zone = sac de jetons prédéfinis (zone config)
- * - Tirage purement aléatoire
- */
 export class TokenMatchEngine {
-    // Gestion du but en attente et du flag de remise en jeu
-    private _pendingGoal: {
-      team: 'home' | 'away';
-      bag: Token[];
-      token: Token;
-      time: number;
-    } | null = null;
-    private _justKickedOff: boolean = false;
+  private _pendingGoal: {
+    team: 'home' | 'away';
+    bag: Token[];
+    token: Token;
+    time: number;
+  } | null = null;
+  private _justKickedOff: boolean = false;
+  private _nextTurnBag: Token[] | null = null;
+
   public currentTime: number = 0;
   public ballPosition: GridPosition = { x: 2, y: 2 };
   public possessionTeamId: number;
   public homeTeamId: number;
   public awayTeamId: number;
   public currentSituation: MatchSituation = 'KICK_OFF';
+
   private grid: GridEngine;
+  private players: TokenPlayer[];
   private logs: MatchLog[] = [];
-  private matchDuration: number = 5400; // 90 min * 60s
+  private matchDuration: number = 5400; 
   public homeScore: number = 0;
   public awayScore: number = 0;
 
-  constructor(homeId: number, awayId: number) {
+  constructor(homeId: number, awayId: number, players: TokenPlayer[]) {
     this.grid = new GridEngine();
     this.homeTeamId = homeId;
     this.awayTeamId = awayId;
     this.possessionTeamId = homeId;
-    this.homeScore = 0;
-    this.awayScore = 0;
+    this.players = players;
   }
+
+  // --- UTILITAIRES ---
+
+  private ensureIds(bag: Token[]) {
+    bag.forEach(t => {
+      if (!t.id) t.id = Math.random().toString(36).substring(2, 11);
+    });
+    return bag;
+  }
+
+  private updatePlayersInfluence() {
+    this.players.forEach(p =>
+      p.updateInfluence(this.ballPosition.x, this.ballPosition.y)
+    );
+  }
+
+  private serializeBag(bag: Token[]) {
+    return bag.map(t => ({ ...t }));
+  }
+
+  // --- BOUCLE DE MATCH ---
 
   public simulateMatch() {
     this.currentTime = 0;
@@ -45,22 +63,22 @@ export class TokenMatchEngine {
     this.logs = [];
     this.homeScore = 0;
     this.awayScore = 0;
-    // Log 0 : état de départ (coup d'envoi à -1s, possession home)
-    this.logs.push({
-      time: -1,
-      type: 'EVENT',
-      text: 'Coup d\'envoi immédiat',
-      teamId: this.homeTeamId,
-      possessionTeamId: this.homeTeamId,
-      ballPosition: { ...this.ballPosition },
-      bag: [],
-      drawnToken: undefined
-    } as MatchLog);
-    let matchEnded = false;
-    while (!matchEnded && this.currentTime < this.matchDuration) {
+    this._nextTurnBag = null;
+
+    this.updatePlayersInfluence();
+
+    const kickOffBag = this.grid.buildBag(
+      this.ballPosition, 'KICK_OFF', this.possessionTeamId, this.homeTeamId, this.awayTeamId, this.players
+    );
+    this.ensureIds(kickOffBag);
+    this._nextTurnBag = kickOffBag;
+
+    this.log('EVENT', "Coup d'envoi imminent", kickOffBag);
+
+    while (this.currentTime < this.matchDuration) {
       this.step();
-      if (this.currentTime >= this.matchDuration) matchEnded = true;
     }
+
     this.log('EVENT', "Fin du match !");
     return {
       events: this.logs,
@@ -72,99 +90,71 @@ export class TokenMatchEngine {
   }
 
   public step() {
-    const bag = this.grid.buildBag(this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId);
-    const token = this.grid.drawWeighted(bag);
+    this.updatePlayersInfluence();
+
+    let currentBag = this._nextTurnBag;
+    if (!currentBag) {
+      currentBag = this.grid.buildBag(
+        this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId, this.players
+      );
+      this.ensureIds(currentBag);
+    }
+
+    const shuffled = this.grid.shuffle([...currentBag]);
+    const token = shuffled[0];
+
     if (!token) {
       this.currentTime += 5;
-      this.log('ACTION', 'Aucun jeton tiré (sac vide)', bag, undefined);
       return;
     }
-    this.resolveToken(token, bag);
+
+    this.resolveToken(token, currentBag);
   }
 
-  private resolveToken(token: Token, bag: Token[]) {
-    // Applique la logique du token (aléatoire, pas de stats)
+  private resolveToken(token: Token, sourceBag: Token[]) {
     const logic = TOKEN_LOGIC[token.type];
-    if (!logic) {
-      this.currentTime += 5;
-      return;
-    }
-    const result = logic(token, "Collectif", token.teamId === this.homeTeamId, this.ballPosition);
-    // Mouvement balle
-    if (result.moveX || result.moveY) {
+    if (!logic) { this.currentTime += 5; return; }
+
+    const player = this.players.find(p => p.id === token.ownerId);
+    const pName = player ? player.name : "Collectif";
+
+    // Mise à jour de la fatigue du joueur pour cette action
+    if (player) player.applyFatigue(token.type);
+
+    const result = logic(token, pName, token.teamId === this.homeTeamId, this.ballPosition);
+
+    // 1. MOUVEMENT & CLAMPING
+    if (result.overrideBallPosition) {
+      this.ballPosition = {
+        x: Math.max(0, Math.min(5, result.overrideBallPosition.x)),
+        y: Math.max(0, Math.min(4, result.overrideBallPosition.y))
+      };
+    } else {
       this.ballPosition.x = Math.max(0, Math.min(5, this.ballPosition.x + (result.moveX || 0)));
       this.ballPosition.y = Math.max(0, Math.min(4, this.ballPosition.y + (result.moveY || 0)));
     }
-    // Score : détection d'un but (situation spéciale)
-    let isGoal = false;
+
+    // 2. DÉTECTION DU BUT
     if (result.nextSituation === 'GOAL_HOME' || result.nextSituation === 'GOAL_AWAY') {
-      // On ne fait rien ici : le but sera loggé à l'étape suivante (voir ci-dessous)
       this._pendingGoal = {
         team: result.nextSituation === 'GOAL_HOME' ? 'home' : 'away',
-        bag: bag ? [...bag] : [],
+        bag: sourceBag ? [...sourceBag] : [],
         token: token,
         time: this.currentTime,
       };
-      // On avance le temps comme pour une action normale
-      this.currentTime += result.customDuration || token.duration || 5;
+      this.handlePendingGoal();
       return;
     }
-    // Si un but était en attente, on le log maintenant (avant l'action courante)
-    if (this._pendingGoal) {
-      const scorerRoles = [
-        { code: 'MC', label: 'Milieu' }, { code: 'MCL', label: 'Milieu' }, { code: 'MCR', label: 'Milieu' },
-        { code: 'ML', label: 'Milieu' }, { code: 'MR', label: 'Milieu' },
-        { code: 'AMC', label: 'Milieu offensif' }, { code: 'AML', label: 'Ailier' }, { code: 'AMR', label: 'Ailier' },
-        { code: 'ST', label: 'Attaquant' }, { code: 'STL', label: 'Attaquant' }, { code: 'STR', label: 'Attaquant' }, { code: 'CF', label: 'Attaquant' }
-      ];
-      const scoringTeamId = this._pendingGoal.team === 'home' ? this.homeTeamId : this.awayTeamId;
-      const candidates = (this._pendingGoal.bag || []).filter(t => t.teamId === scoringTeamId && scorerRoles.some(r => (t.type || '').includes(r.code)));
-      let playerName = 'Joueur';
-      if (candidates.length > 0) {
-        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-        const found = scorerRoles.find(r => (chosen.type || '').includes(r.code));
-        playerName = found ? found.label : 'Joueur';
-      }
-      if (this._pendingGoal.team === 'home') {
-        this.homeScore++;
-        // console.log supprimé
-        this.log('EVENT', `But pour l'équipe à domicile !`, this._pendingGoal.bag, this._pendingGoal.token, 'GOAL', playerName);
-      } else {
-        this.awayScore++;
-        // console.log supprimé
-        this.log('EVENT', `But pour l'équipe à l'extérieur !`, this._pendingGoal.bag, this._pendingGoal.token, 'GOAL', playerName);
-      }
-      // 2. Log de célébration (30s, balle immobile, pas de changement de possession)
-      this.currentTime += 30;
-      // console.log supprimé
-      this.log('EVENT', 'Célébration du but !', this._pendingGoal.bag, this._pendingGoal.token, undefined, undefined);
-      // 3. Log de changement de possession/coup d'envoi (30s, balle au centre, possession à l'équipe qui a encaissé)
-      this.currentTime += 30;
-      // Placement du ballon selon l'équipe qui a encaissé
-      if (this._pendingGoal.team === 'home') {
-        // But home : coup d'envoi away en 3,2
-        this.ballPosition = { x: 3, y: 2 };
-        this.possessionTeamId = this.awayTeamId;
-      } else {
-        // But away : coup d'envoi home en 2,2
-        this.ballPosition = { x: 2, y: 2 };
-        this.possessionTeamId = this.homeTeamId;
-      }
-      this.currentSituation = 'KICK_OFF_RESTART';
-      // console.log supprimé
-      this.log('EVENT', 'Remise en jeu après but', this._pendingGoal.bag, this._pendingGoal.token, undefined, undefined);
-      this._justKickedOff = true; // flag pour la prochaine action
-      this._pendingGoal = null;
-    }
-    // Possession - turnover classique
+
+    // 3. POSSESSION
     if (result.turnover) {
-      this.possessionTeamId = token.teamId === this.homeTeamId ? this.awayTeamId : this.homeTeamId;
+      this.possessionTeamId = (token.teamId === this.homeTeamId) ? this.awayTeamId : this.homeTeamId;
     } else {
       this.possessionTeamId = token.teamId;
     }
-    // Situation classique
+
+    // 4. SITUATION
     if (this.currentSituation === 'KICK_OFF_RESTART' && this._justKickedOff) {
-      // Après la première action de remise en jeu, repasser à NORMAL
       this.currentSituation = 'NORMAL';
       this._justKickedOff = false;
     } else if (result.nextSituation) {
@@ -172,13 +162,81 @@ export class TokenMatchEngine {
     } else if (this.currentSituation === 'KICK_OFF') {
       this.currentSituation = 'NORMAL';
     }
-    // Log console propre pour chaque action principale
-    if (result.isEvent || result.eventSubtype) {
-      // console.log supprimé
-    }
-    // Log
-    this.log(result.isEvent ? 'EVENT' : 'ACTION', result.logMessage, bag, token);
+
+    // 5. PRÉPARATION DU TOUR SUIVANT
+    this.updatePlayersInfluence();
+    const nextBag = this.grid.buildBag(
+      this.ballPosition, this.currentSituation, this.possessionTeamId, this.homeTeamId, this.awayTeamId, this.players
+    );
+    this.ensureIds(nextBag);
+    this._nextTurnBag = nextBag;
+
+    // 6. LOG & TEMPS
+    this.log(
+      result.isEvent ? 'EVENT' : 'ACTION',
+      result.logMessage,
+      nextBag,
+      token,
+      result.eventSubtype,
+      pName
+    );
+
     this.currentTime += result.customDuration || token.duration || 5;
+  }
+
+  private handlePendingGoal() {
+    if (!this._pendingGoal) return;
+
+    const scoringTeamId = this._pendingGoal.team === 'home' ? this.homeTeamId : this.awayTeamId;
+    const candidates = (this._pendingGoal.bag || []).filter(t => t.teamId === scoringTeamId);
+
+    let playerName = 'Joueur';
+    let chosenToken = this._pendingGoal.token;
+
+    if (candidates.length > 0) {
+      const potentialScorers = candidates.filter(t =>
+        ['ST', 'CF', 'AML', 'AMR', 'AMC', 'MC', 'MCL', 'MCR', 'ML', 'MR'].includes(t.position || '')
+      );
+      const shuffled = this.grid.shuffle(potentialScorers.length > 0 ? potentialScorers : candidates);
+      chosenToken = shuffled[0];
+    }
+
+    const player = this.players.find(p => p.id === chosenToken.ownerId);
+    playerName = player ? player.name : (chosenToken.position || "Collectif");
+    
+    // Boost de confiance pour le buteur
+    if (player) player.adjustConfidence(10);
+
+    if (this._pendingGoal.team === 'home') this.homeScore++;
+    else this.awayScore++;
+
+    const result = TOKEN_LOGIC[this._pendingGoal.token.type](
+      this._pendingGoal.token,
+      playerName,
+      this._pendingGoal.team === 'home',
+      this.ballPosition
+    );
+    
+    this.log('EVENT', result.logMessage, this._pendingGoal.bag, this._pendingGoal.token, 'GOAL', playerName);
+
+    this.currentTime += 30;
+    this.log('EVENT', `Célébration de ${playerName} !`, [], undefined, undefined, playerName);
+
+    this.currentTime += 30;
+    this.ballPosition = (this._pendingGoal.team === 'home') ? { x: 3, y: 2 } : { x: 2, y: 2 };
+    this.possessionTeamId = (this._pendingGoal.team === 'home') ? this.awayTeamId : this.homeTeamId;
+
+    this.currentSituation = 'KICK_OFF_RESTART';
+    this.updatePlayersInfluence();
+
+    const restartBag = this.grid.buildBag(this.ballPosition, 'KICK_OFF', this.possessionTeamId, this.homeTeamId, this.awayTeamId, this.players);
+    this.ensureIds(restartBag);
+    this._nextTurnBag = restartBag;
+
+    this.log('EVENT', 'Remise en jeu après but', restartBag);
+
+    this._justKickedOff = true;
+    this._pendingGoal = null;
   }
 
   private log(type: 'EVENT' | 'ACTION', text: string, bag?: Token[], drawnToken?: Token, eventSubtype?: string, playerName?: string) {
@@ -186,11 +244,11 @@ export class TokenMatchEngine {
       time: this.currentTime,
       type,
       text,
-      teamId: this.possessionTeamId,
+      teamId: drawnToken ? drawnToken.teamId : this.possessionTeamId,
       possessionTeamId: this.possessionTeamId,
       ballPosition: { ...this.ballPosition },
-      bag: bag ? bag.map(t => ({ type: t.type, teamId: t.teamId, id: t.id })) : undefined,
-      drawnToken: drawnToken ? { type: drawnToken.type, teamId: drawnToken.teamId, id: drawnToken.id, position: drawnToken.position } : undefined,
+      bag: bag ? this.serializeBag(bag) : undefined,
+      drawnToken: drawnToken ? { ...drawnToken } : undefined,
       eventSubtype,
       playerName
     } as MatchLog);

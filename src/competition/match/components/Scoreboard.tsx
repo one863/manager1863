@@ -1,6 +1,5 @@
 import type { Team } from "@/core/types";
-import { type Signal, useSignalEffect } from "@preact/signals";
-import { useSignal } from "@preact/signals";
+import { type Signal } from "@preact/signals";
 import { TeamCrest, getTeamColors } from "@/ui/components/Common/TeamCrest";
 
 interface Scorer {
@@ -16,7 +15,7 @@ interface ScoreboardProps {
 	minute: Signal<number>;
 	homeScorers: Signal<Scorer[]>;
 	awayScorers: Signal<Scorer[]>;
-	possession: Signal<number>;
+	possession: Signal<number[]>;
 	isFinished: boolean;
 	stoppageTime: Signal<number>;
 	onFinalize?: () => void;
@@ -24,64 +23,26 @@ interface ScoreboardProps {
 
 export default function Scoreboard({
 	homeTeam, awayTeam, homeScore, awayScore, minute, homeScorers, awayScorers,
-	isFinished, stoppageTime, logs
-}: ScoreboardProps & { logs?: any[] }) {
+	isFinished, stoppageTime
+}: ScoreboardProps) {
 
 	const homeColors = getTeamColors(homeTeam);
-const awayColors = getTeamColors(awayTeam);
+    const awayColors = getTeamColors(awayTeam);
 
-// Extraction des logs de but (type EVENT, eventSubtype GOAL, hors célébration/remise en jeu si texte existe)
-const isGoalLog = (l: any) =>
-	l.type === 'EVENT' &&
-	l.eventSubtype === 'GOAL' &&
-	(!l.text || !/célébration|remise en jeu/i.test(l.text));
-const goalLogs = (logs || []).filter(isGoalLog);
-const homeId = homeTeam?.id;
-const awayId = awayTeam?.id;
-// Score par équipe : utiliser directement les signaux homeScore/awayScore
-const homeGoals = homeScore.value;
-const awayGoals = awayScore.value;
-// Buteurs par équipe (playerName ou nom parsé du texte, dédoublonné)
-const extractScorerName = (log: any) => {
-	if (log.playerName && log.playerName !== 'undefined') return log.playerName;
-	if (typeof log.text === 'string') {
-		const match = log.text.match(/de ([^!]+)!/);
-		if (match && match[1]) {
-			const name = match[1].trim();
-			if (name && name !== 'undefined') return name;
-		}
-	}
-	return undefined;
-};
-const dedupeScorers = (arr: any[]) => {
-	const seen = new Set();
-	return arr.filter(e => {
-		const name = extractScorerName(e);
-		if (!name) return false;
-		const key = name + '-' + Math.floor(e.time / 60);
-		if (seen.has(key)) return false;
-		seen.add(key);
-		return true;
-	});
-};
-const homeScorersArr = dedupeScorers(goalLogs.filter(l => l.teamId === homeId)).map(l => ({ name: extractScorerName(l), minute: Math.floor(l.time / 60) }));
-const awayScorersArr = dedupeScorers(goalLogs.filter(l => l.teamId === awayId)).map(l => ({ name: extractScorerName(l), minute: Math.floor(l.time / 60) }));
-// Formatage des buteurs (nom + minutes, dédoublonné)
-const formatScorers = (scorers: { name: string, minute: number }[]) => {
-  if (!scorers || !Array.isArray(scorers)) return "";
-  const map = new Map<string, number[]>();
-  scorers.forEach(s => {
-    if (s && s.name) {
-      if (!map.has(s.name)) map.set(s.name, []);
-      map.get(s.name)!.push(s.minute);
-    }
-  });
-  return Array.from(map.entries())
-    .map(([name, mins]) => `${name} (${mins.sort((a, b) => a - b).join("', ") + "'"})`)
-    .join(" • ");
-};
-const hStr = formatScorers(homeScorersArr);
-const aStr = formatScorers(awayScorersArr);
+    // Formatage des buteurs (nom + minutes, dédoublonné)
+    const formatScorers = (scorers: Scorer[]) => {
+        if (!scorers || !Array.isArray(scorers)) return "";
+        const map = new Map<string, number[]>();
+        scorers.forEach(s => {
+            if (s && s.name) {
+                if (!map.has(s.name)) map.set(s.name, []);
+                map.get(s.name)!.push(s.minute);
+            }
+        });
+        return Array.from(map.entries())
+            .map(([name, mins]) => `${name} (${mins.sort((a, b) => a - b).join("', ") + "'"})`)
+            .join(" • ");
+    };
 
 	return (
 		<div className="bg-white border-b border-gray-100 shadow-sm relative overflow-hidden shrink-0 h-[115px]">
@@ -102,7 +63,7 @@ const aStr = formatScorers(awayScorersArr);
 						</div>
 						<div className="min-h-8 w-full">
 							<p className="text-[10px] font-black text-emerald-600/70 text-left leading-tight break-words">
-								{hStr}
+								{formatScorers(homeScorers.value)}
 							</p>
 						</div>
 					</div>
@@ -110,9 +71,9 @@ const aStr = formatScorers(awayScorersArr);
 					{/* Center Block */}
 					<div className="flex flex-col items-center justify-center px-4 shrink-0 min-w-[90px] pt-1">
 						<div className="flex items-center gap-2 transition-all duration-300 text-gray-900">
-							<span className="text-3xl font-black tabular-nums leading-none">{homeGoals}</span>
+							<span className="text-3xl font-black tabular-nums leading-none">{homeScore.value}</span>
 							<span className="text-gray-200 font-bold text-xl leading-none">:</span>
-							<span className="text-3xl font-black tabular-nums leading-none">{awayGoals}</span>
+							<span className="text-3xl font-black tabular-nums leading-none">{awayScore.value}</span>
 						</div>
 						<div className="mt-1.5 flex flex-col items-center gap-1">
 							{!isFinished ? (
@@ -135,7 +96,7 @@ const aStr = formatScorers(awayScorersArr);
 						</div>
 						<div className="min-h-8 w-full">
 							<p className="text-[10px] font-black text-emerald-600/70 text-right leading-tight break-words">
-								{aStr}
+								{formatScorers(awayScorers.value)}
 							</p>
 						</div>
 					</div>

@@ -2,122 +2,111 @@ import { db } from "@/core/db/db";
 import { create } from "zustand";
 
 interface LiveMatchData {
-	matchId: number;
-	homeTeam: any;
-	awayTeam: any;
+    matchId: number;
+    homeTeam: any;
+    awayTeam: any;
     homePlayers: any[];
     awayPlayers: any[];
-	result: any; // Peut être null si la simu n'est pas finie
-	currentTime: number;
+    result: any; 
+    currentTime: number;
     isPaused: boolean;
-	activeTab: "highlights" | "live" | "stats" | "players";
+    activeTab: "highlights" | "live" | "stats" | "players";
 }
 
 interface LiveMatchState {
-	liveMatch: LiveMatchData | null;
-
-	initializeLiveMatch: (
-		matchId: number,
-		homeTeam: any,
-		awayTeam: any,
+    liveMatch: LiveMatchData | null;
+    initializeLiveMatch: (
+        matchId: number,
+        homeTeam: any,
+        awayTeam: any,
         homePlayers: any[],
         awayPlayers: any[],
-		result: any | null, // Peut être null
-		saveId: number,
-		startTime?: number,
+        result: any | null,
+        saveId: number,
+        startTime?: number,
         isPaused?: boolean,
-		activeTab?: "highlights" | "live" | "stats" | "players"
-	) => Promise<void>;
-	updateLiveMatchState: (data: Partial<LiveMatchData>, saveId?: number) => Promise<void>;
-	clearLiveMatch: (saveId: number) => Promise<void>;
+        activeTab?: "highlights" | "live" | "stats" | "players"
+    ) => Promise<void>;
+    updateLiveMatchState: (data: Partial<LiveMatchData>, saveId?: number) => Promise<void>;
+    clearLiveMatch: (saveId: number) => Promise<void>;
     loadLiveMatchFromDb: (saveId: number) => Promise<void>;
 }
 
 export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
-	liveMatch: null,
+    liveMatch: null,
 
-	initializeLiveMatch: async (
-		matchId,
-		homeTeam,
-		awayTeam,
-        homePlayers,
-        awayPlayers,
-		result,
-		saveId,
-		startTime = 0,
-        isPaused = true,
-		activeTab = "live"
-	) => {
-		const initialData: LiveMatchData = {
-			matchId,
-			homeTeam,
-			awayTeam,
-            homePlayers,
-            awayPlayers,
-			result,
-			currentTime: startTime,
-            isPaused,
-            activeTab
-		};
+    initializeLiveMatch: async (
+        matchId, homeTeam, awayTeam, homePlayers, awayPlayers, result, saveId,
+        startTime = 0, isPaused = true, activeTab = "live"
+    ) => {
+        // Purge tous les logs IA vs IA dès le lancement du live utilisateur
+        if (saveId) {
+            await db.matchLogs.where("saveId").equals(saveId).delete();
+        }
 
-		if (saveId) {
-			// Sauvegarder une version allégée en DB (sans logs volumineux)
-			// Les logs complets restent en mémoire pour le débogage
-			const lightResult = result ? {
-				matchId: result.matchId,
-				homeTeamId: result.homeTeamId,
-				awayTeamId: result.awayTeamId,
-				homeScore: result.homeScore,
-				awayScore: result.awayScore,
-				stats: result.stats,
-				scorers: result.scorers,
-				ratings: result.ratings,
-				stoppageTime: result.stoppageTime,
-				analysis: result.analysis,
-				ballHistory: result.ballHistory,
-				// Inclure debugLogs AVEC le bag pour la visualisation
-				debugLogs: (result.debugLogs || []).map((log: any) => ({
-					time: log.time,
-					type: log.type,
-					text: log.text,
-					eventSubtype: log.eventSubtype,
-					playerName: log.playerName,
-					teamId: log.teamId,
-					possessionTeamId: log.possessionTeamId,
-					ballPosition: log.ballPosition,
-					statImpact: log.statImpact,
-					bag: log.bag,
-					drawnToken: log.drawnToken
-				}))
-			} : null;
-			await db.gameState.where("saveId").equals(saveId).modify({ 
-                liveMatch: { ...initialData, result: lightResult }
-            });
-		}
-		set({ liveMatch: initialData });
-	},
-
-	updateLiveMatchState: async (data, saveId) => {
-		const { liveMatch } = get();
-		if (!liveMatch) return;
-
-		const updatedMatch = { ...liveMatch, ...data };
-		set({ liveMatch: updatedMatch });
+        const initialData: LiveMatchData = {
+            matchId, homeTeam, awayTeam, homePlayers, awayPlayers,
+            result, currentTime: startTime, isPaused, activeTab
+        };
 
         if (saveId) {
-            // Mise à jour partielle pour ne pas écraser result si déjà présent
+            // Sérialisation propre pour la DB : on conserve les IDs cruciaux
+            const lightResult = result ? {
+                ...result,
+                debugLogs: (result.debugLogs || []).map((log: any) => ({
+                    time: log.time,
+                    type: log.type,
+                    text: log.text,
+                    eventSubtype: log.eventSubtype,
+                    playerName: log.playerName,
+                    teamId: log.teamId,
+                    possessionTeamId: log.possessionTeamId,
+                    ballPosition: log.ballPosition,
+                    // On conserve le bag avec les IDs et ownerIds pour la vue Terrain/Sac
+                    bag: (log.bag || []).map((t: any) => ({
+                        id: t.id,
+                        type: t.type,
+                        teamId: t.teamId,
+                        ownerId: t.ownerId,
+                        position: t.position
+                    })),
+                    drawnToken: log.drawnToken ? {
+                        id: log.drawnToken.id,
+                        type: log.drawnToken.type,
+                        teamId: log.drawnToken.teamId,
+                        ownerId: log.drawnToken.ownerId,
+                        position: log.drawnToken.position
+                    } : null
+                }))
+            } : null;
+
+            await db.gameState.where("saveId").equals(saveId).modify({ 
+                liveMatch: { ...initialData, result: lightResult }
+            });
+        }
+        set({ liveMatch: initialData });
+    },
+
+    updateLiveMatchState: async (data, saveId) => {
+        const { liveMatch } = get();
+        if (!liveMatch) return;
+        const updatedMatch = { ...liveMatch, ...data };
+        set({ liveMatch: updatedMatch });
+        if (saveId) {
             await db.gameState.where("saveId").equals(saveId).modify(oldState => {
                 oldState.liveMatch = { ...oldState.liveMatch, ...data };
             });
         }
-	},
+    },
 
-	clearLiveMatch: async (saveId) => {
-		set({ liveMatch: null });
+    clearLiveMatch: async (saveId) => {
+        set({ liveMatch: null });
         if (saveId) {
             await db.gameState.where("saveId").equals(saveId).modify({ liveMatch: null });
+            // Purge tous les logs volumineux du slot courant
+            await db.matchLogs.where("saveId").equals(saveId).delete();
         }
-	},
+    },
 
     loadLiveMatchFromDb: async (saveId) => {
         const gameState = await db.gameState.where("saveId").equals(saveId).first();

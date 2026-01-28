@@ -1,6 +1,5 @@
 import { Token, GridPosition, PlayerStats } from "./types";
 
-
 export class TokenPlayer {
   public id: number;
   public name: string;
@@ -22,9 +21,7 @@ export class TokenPlayer {
     this.position = data.position || data.role || "MC";
     this.confidence = data.confidence ?? 50;
     
-    // Stats complètes avec valeurs par défaut
     this.stats = {
-      // Technique
       finishing: data.stats?.finishing ?? 10,
       passing: data.stats?.passing ?? 10,
       dribbling: data.stats?.dribbling ?? 10,
@@ -32,48 +29,22 @@ export class TokenPlayer {
       vision: data.stats?.vision ?? 10,
       longShots: data.stats?.longShots ?? 10,
       heading: data.stats?.heading ?? 10,
-      
-      // Défense
       tackling: data.stats?.tackling ?? 10,
       marking: data.stats?.marking ?? 10,
       positioning: data.stats?.positioning ?? 10,
-      
-      // Physique
       pace: data.stats?.pace ?? 10,
       strength: data.stats?.strength ?? 10,
       endurance: data.stats?.endurance ?? 10,
       jumping: data.stats?.jumping ?? 10,
-      
-      // Mental
       composure: data.stats?.composure ?? 10,
       concentration: data.stats?.concentration ?? 10,
       aggression: data.stats?.aggression ?? 10,
       workRate: data.stats?.workRate ?? 10,
-      
-      // Gardien
-      reflexes: data.stats?.reflexes,
-      handling: data.stats?.handling,
-      kicking: data.stats?.kicking,
-      oneOnOnes: data.stats?.oneOnOnes,
-      
-      // Legacy
-      technical: data.stats?.technical ?? 10,
-      defense: data.stats?.defense ?? 10,
-      
       ...data.stats
     };
   }
 
-  public setBaseInfluence(atk: number, def: number) {
-    this.influence = { atk, def };
-  }
-
-  public setTacticalZones(active: GridPosition[], reach: GridPosition[]) {
-    this.activeZones = (active || []).map(z => `${z.x},${z.y}`);
-    this.reachZones = (reach || []).map(z => `${z.x},${z.y}`);
-  }
-
-  public updateInfluence(ballX: number, ballY: number, isHome: boolean) {
+  public updateInfluence(ballX: number, ballY: number) {
     let centerX = 2, centerY = 2;
     if (this.activeZones.length > 0) {
         const parts = this.activeZones[0].split(',');
@@ -84,187 +55,61 @@ export class TokenPlayer {
     const dist = Math.sqrt(Math.pow(ballX - centerX, 2) + Math.pow(ballY - centerY, 2));
     const factor = Math.max(0.2, 1.2 - dist * 0.2);
 
-    // Influence réduite par la fatigue
-    const fatigueFactor = 1 - Math.min(1, this.fatigue / 120);
-    this.influence.atk = (this.stats.technical || 10) * factor * fatigueFactor;
-    this.influence.def = (this.stats.defense || 10) * factor * fatigueFactor;
+    const fatigueFactor = 1 - Math.min(0.5, this.fatigue / 150);
+    this.influence.atk = (this.stats.finishing + this.stats.passing) / 2 * factor * fatigueFactor;
+    this.influence.def = (this.stats.tackling + this.stats.positioning) / 2 * factor * fatigueFactor;
   }
 
-  // Appeler après chaque action impliquant le joueur
   public applyFatigue(actionType: string) {
     let cost = 0.5;
-    if (actionType.startsWith('DRIBBLE')) cost = 1.5;
-    else if (actionType.startsWith('SHOOT')) cost = 2.0;
-    else if (actionType === 'TACKLE' || actionType === 'INTERCEPT') cost = 1.2;
-    else if (actionType === 'PRESSING_SUCCESS') cost = 1.5;
+    if (actionType.includes('DRIBBLE')) cost = 1.2;
+    else if (actionType.includes('SHOOT')) cost = 1.5;
+    else if (actionType === 'TACKLE') cost = 1.0;
 
     const endurance = this.stats.endurance || 10;
-    this.fatigue += cost * (12 / Math.max(5, endurance));
-    if (this.fatigue > 100) this.fatigue = 100;
+    this.fatigue += cost * (15 / Math.max(5, endurance));
+    this.fatigue = Math.min(100, this.fatigue);
   }
 
-  // Récupération de fatigue
-  public recoverFatigue(amount: number = 5) {
-    this.fatigue = Math.max(0, this.fatigue - amount);
-  }
-
-  // Modifier la confiance (après but, passe décisive, erreur, etc.)
-  public adjustConfidence(delta: number) {
-    this.confidence = Math.max(0, Math.min(100, this.confidence + delta));
-  }
-
-  /**
-   * Calcule le malus de tirs ratés basé sur:
-   * - Base: 20 - finishing (ex: finishing=18 → 2 ratés de base)
-   * - Fatigue: +1 raté tous les 25% de fatigue
-   * - Confiance: +1 raté si confiance < 30, -1 si confiance > 70
-   * - Composure: réduit l'impact de la pression
-   */
-  private getMissedShotsCount(finishing: number): number {
-    // Base: 20 - finishing (finishing=18 → 2, finishing=12 → 8)
-    let missed = Math.max(1, 20 - finishing);
-    
-    // Fatigue: ajoute des ratés
-    const fatigueBonus = Math.floor(this.fatigue / 25);
-    missed += fatigueBonus;
-    
-    // Confiance: modifie les ratés
-    if (this.confidence < 30) {
-      missed += 2;  // Pas confiant = plus de ratés
-    } else if (this.confidence > 70) {
-      missed = Math.max(1, missed - 1);  // Très confiant = moins de ratés
-    }
-    
-    // Composure réduit l'impact (sang-froid)
-    const composure = this.stats.composure || 10;
-    if (composure >= 15) {
-      missed = Math.max(1, missed - 1);
-    }
-    
-    return Math.max(1, missed);
-  }
-
-  public getOffensiveTokens(weight: number, pos: GridPosition, homeTeamId: number, awayTeamId: number): Token[] {
+  public getOffensiveTokens(weight: number, pos: GridPosition, homeTeamId: number): Token[] {
     const tokens: Token[] = [];
-    
-    // Stats du joueur (avec weight pour zone active/reach)
-    const passing = Math.round((this.stats.passing || 10) * weight);
-    const dribbling = Math.round((this.stats.dribbling || 10) * weight);
-    const finishing = Math.round((this.stats.finishing || 10) * weight);
-    const vision = Math.round((this.stats.vision || 10) * weight);
-    const crossing = Math.round((this.stats.crossing || 10) * weight);
-    
-    // Déterminer si on est dans le dernier tiers
     const isHomeTeam = this.teamId === homeTeamId;
     const targetX = isHomeTeam ? 5 : 0;
-    const isInFinalThird = Math.abs(targetX - pos.x) <= 1;
-    const isInBox = Math.abs(targetX - pos.x) === 0 && pos.y >= 1 && pos.y <= 3; // Surface (zone de tir)
+    
+    // Stats pondérées par l'influence de la zone
+    const s = {
+        pass: Math.round((this.stats.passing || 10) * weight),
+        drib: Math.round((this.stats.dribbling || 10) * weight),
+        fin: Math.round((this.stats.finishing || 10) * weight),
+        vis: Math.round((this.stats.vision || 10) * weight),
+        cross: Math.round((this.stats.crossing || 10) * weight)
+    };
+
+    const isInBox = Math.abs(targetX - pos.x) === 0 && pos.y >= 1 && pos.y <= 3;
     const isOnWing = pos.y === 0 || pos.y === 4;
 
-    // ============================================
-    // SYSTÈME SIMPLE : stat = nombre de jetons = qualité
-    // Un joueur avec passing=15 met 15 jetons PASS avec qualité 15
-    // MAIS : dans la surface, on réduit fortement les passes !
-    // ============================================
+    // 1. PASSES (Réduites en surface pour favoriser le tir)
+    const passCount = isInBox ? 2 : s.pass;
+    for (let i = 0; i < passCount; i++) tokens.push(this.createToken('PASS_SHORT'));
+    
+    // 2. VISION & PROFONDEUR
+    const throughCount = Math.floor(s.vis / 2);
+    for (let i = 0; i < throughCount; i++) tokens.push(this.createToken('PASS_THROUGH'));
 
-    // 1. PASSES - basées sur la stat passing
-    // Dans la surface : très peu de passes (on est là pour tirer !)
-    const passMultiplier = isInBox ? 0.2 : 1.0; // 80% de réduction dans la surface
-    const passCount = Math.max(1, Math.round(passing * passMultiplier));
-    for (let i = 0; i < passCount; i++) {
-      tokens.push(this.createToken('PASS_SHORT'));
-    }
-    // Passes en retrait (encore moins dans la surface)
-    const backPassCount = isInBox ? 1 : Math.ceil(passing / 3);
-    for (let i = 0; i < backPassCount; i++) {
-      tokens.push(this.createToken('PASS_BACK'));
-    }
-    // Renversements de jeu (vision + passing élevés) - PAS dans la surface
-    if (!isInBox && vision >= 10 && passing >= 10) {
-      for (let i = 0; i < Math.ceil(vision / 4); i++) {
-        tokens.push(this.createToken('PASS_SWITCH'));
-      }
-    }
-    // Combinaisons (une-deux) - PAS dans la surface
-    if (!isInBox && passing >= 12) {
-      for (let i = 0; i < Math.ceil(passing / 5); i++) {
-        tokens.push(this.createToken('COMBO_PASS'));
-      }
+    // 3. DRIBBLES
+    const dribbleCount = Math.floor(s.drib / 2);
+    for (let i = 0; i < dribbleCount; i++) tokens.push(this.createToken('DRIBBLE'));
+
+    // 4. CENTRES
+    if (isOnWing && Math.abs(targetX - pos.x) <= 2) {
+      for (let i = 0; i < s.cross; i++) tokens.push(this.createToken('CROSS'));
     }
 
-    // 2. PASSES LONGUES et VISION - basées sur vision
-    if (!isInFinalThird) {
-      for (let i = 0; i < Math.ceil(vision / 2); i++) {
-        tokens.push(this.createToken('PASS_LONG'));
-      }
-    }
-    // Passes décisives (vision élevée) - PAS dans la surface (on y est déjà !)
-    if (!isInBox && vision >= 10) {
-      const throughBallCount = Math.ceil(vision / 2);
-      for (let i = 0; i < throughBallCount; i++) {
-        tokens.push(this.createToken('THROUGH_BALL'));
-      }
-    }
-
-    // 3. DRIBBLES - basés sur dribbling (réduit dans la surface)
-    const dribbleMultiplier = isInBox ? 0.3 : 1.0;
-    const dribbleCount = Math.max(1, Math.ceil(dribbling / 2 * dribbleMultiplier));
-    for (let i = 0; i < dribbleCount; i++) {
-      tokens.push(this.createToken('DRIBBLE'));
-    }
-
-    // 4. CENTRES - basés sur crossing (uniquement sur les ailes)
-    if (isOnWing && isInFinalThird) {
-      for (let i = 0; i < crossing; i++) {
-        tokens.push(this.createToken('CROSS'));
-      }
-      for (let i = 0; i < Math.ceil(crossing / 2); i++) {
-        tokens.push(this.createToken('CUT_BACK'));
-      }
-    }
-
-    // 5. TIRS - basés sur finishing
-    // SURFACE (isInBox) : zone de tir normale, beaucoup de SHOOT_GOAL
-    // ENTREE DE SURFACE (isInFinalThird && !isInBox) : tirs de loin, très peu de SHOOT_GOAL
-    // NOTE: SHOOT_OFF_TARGET et SHOOT_SAVED sont des jetons DEFENSIFS (dans zones-config)
-    // car c'est la défense/gardien qui force le tireur à rater
+    // 5. FINITION (Le coeur du score)
     if (isInBox) {
-      // === SURFACE : zone de finition ===
-      // Nombre de jetons SHOOT_GOAL = finishing * 2 (boost offensif)
-      const goalTokenCount = Math.ceil(finishing * 2);
-      const goalQuality = finishing + 10; // Bonus qualité pour les buts
-      for (let i = 0; i < goalTokenCount; i++) {
-        tokens.push(this.createToken('SHOOT_GOAL'));
-      }
-      
-      // Woodwork (malchance pure - reste offensif car c'est le tireur qui frappe le poteau)
-      tokens.push(this.createToken('SHOOT_WOODWORK'));
-    } else if (isInFinalThird) {
-      // === ENTREE DE SURFACE : tirs de loin (1-3% de SHOOT_GOAL) ===
-      // Très peu de jetons et qualité très basse pour garder ~1-3%
-      const longShotQuality = Math.max(2, Math.floor(finishing / 5)); // qualité 2-4
-      tokens.push(this.createToken('SHOOT_GOAL'));
-      
-      // Woodwork rare
-      tokens.push(this.createToken('SHOOT_WOODWORK'));
-    }
-
-    // 6. TIRS DE LOIN - basés sur longShots (hors surface)
-    const longShots = Math.round((this.stats.longShots || 10) * weight);
-    if (!isInFinalThird && longShots >= 12) {
-      for (let i = 0; i < Math.ceil(longShots / 3); i++) {
-        tokens.push(this.createToken('SHOOT_OFF_TARGET'));
-      }
-    }
-
-    // 7. JEU DE TÊTE offensif - basé sur heading + jumping
-    const heading = Math.round((this.stats.heading || 10) * weight);
-    const jumping = this.stats.jumping || 10;
-    if (heading >= 12 && jumping >= 10) {
-      for (let i = 0; i < Math.ceil(heading / 3); i++) {
-        tokens.push(this.createToken('HEAD_SHOT'));
-        tokens.push(this.createToken('HEAD_PASS'));
-      }
+        // En surface, la stat finishing définit le nombre de chances de marquer
+        const shootCount = Math.ceil(s.fin / 2);
+        for (let i = 0; i < shootCount; i++) tokens.push(this.createToken('SHOOT_GOAL'));
     }
 
     return tokens;
@@ -272,76 +117,49 @@ export class TokenPlayer {
 
   public getDefensiveTokens(weight: number): Token[] {
     const tokens: Token[] = [];
-    
-    // Stats défensives avec weight
-    const tackling = Math.round((this.stats.tackling || 10) * weight);
-    const positioning = Math.round((this.stats.positioning || 10) * weight);
-    const marking = Math.round((this.stats.marking || 10) * weight);
-    const heading = Math.round((this.stats.heading || 10) * weight);
-    const aggression = this.stats.aggression || 10;
+    const s = {
+        tack: Math.round((this.stats.tackling || 10) * weight),
+        pos: Math.round((this.stats.positioning || 10) * weight),
+        mark: Math.round((this.stats.marking || 10) * weight)
+    };
 
-    // ============================================
-    // SYSTÈME SIMPLE : stat = nombre de jetons = qualité
-    // Un défenseur avec tackling=16 met 16 jetons TACKLE avec qualité 16
-    // Augmenté pour équilibrer avec l'attaque
-    // ============================================
+    for (let i = 0; i < s.tack; i++) tokens.push(this.createToken('TACKLE'));
+    for (let i = 0; i < s.pos; i++) tokens.push(this.createToken('INTERCEPT'));
+    for (let i = 0; i < s.mark; i++) tokens.push(this.createToken('BLOCK_SHOT'));
 
-    // TACKLES - basés sur tackling
-    const tackleCount = tackling; // Plus de division, stat = count
-    for (let i = 0; i < tackleCount; i++) {
-      tokens.push(this.createToken('TACKLE'));
-    }
-
-    // INTERCEPTIONS - basés sur positioning
-    const interceptCount = positioning;
-    for (let i = 0; i < interceptCount; i++) {
-      tokens.push(this.createToken('INTERCEPT'));
-    }
-
-    // BLOCKS - basés sur marking
-    for (let i = 0; i < marking; i++) {
-      tokens.push(this.createToken('BLOCK'));
-    }
-
-    // CLEARANCE (dégagements) - basé sur heading
-    if (heading >= 8) {
-      for (let i = 0; i < heading; i++) {
-        tokens.push(this.createToken('CLEARANCE'));
-      }
-    }
-
-    // PRESSING - combinaison positioning + endurance
-    const pressing = Math.ceil((positioning + (this.stats.endurance || 10)) / 4);
-    for (let i = 0; i < pressing; i++) {
-      tokens.push(this.createToken('PRESSING_SUCCESS'));
-    }
-
-    // FAUTES - basées sur l'agressivité (plus agressif = plus de fautes)
-    if (aggression >= 14) {
-      const foulRisk = Math.ceil((aggression - 10) / 2);
-      for (let i = 0; i < foulRisk; i++) {
-        tokens.push(this.createToken('FOUL'));
-      }
-    }
-
-    // ERREURS - basées sur la fatigue et la concentration
-    const concentration = this.stats.concentration || 10;
-    const errorRisk = Math.ceil(this.fatigue / 30) + (concentration < 10 ? 1 : 0);
-    for (let i = 0; i < errorRisk; i++) {
-      tokens.push(this.createToken('ERROR'));
-    }
-    
     return tokens;
   }
 
   private createToken(type: string): Token {
+    let finalType = type;
+
+    // --- LOGIQUE DE MUTATION DYNAMIQUE ---
+    // On transforme le type de jeton selon l'état réel du joueur
+    
+    const isExhausted = this.fatigue > 75;
+    const isConfident = this.confidence > 80;
+
+    if (isExhausted) {
+        // La fatigue "pollue" les actions
+        if (type === 'PASS_SHORT') finalType = 'PASS_SHORT_TIRED';
+        if (type === 'SHOOT_GOAL') finalType = 'SHOOT_GOAL_TIRED';
+        if (type === 'TACKLE') finalType = 'TACKLE_TIRED';
+    } else if (isConfident) {
+        // La confiance booste certaines actions
+        if (type === 'PASS_SHORT' && this.stats.passing > 15) finalType = 'PASS_SHORT_ELITE';
+    }
+
     return {
-      id: `${this.id}-${type}-${Math.random()}`,
-      type,
+      id: `p${this.id}-${finalType}-${Math.random().toString(36).substr(2, 5)}`,
+      type: finalType,
       ownerId: this.id,
       teamId: this.teamId,
-      duration: 4,
-      position: this.position || this.role // Utilise la vraie position si dispo
+      duration: 5,
+      position: this.role,
+      metadata: { 
+        fatigue: Math.round(this.fatigue),
+        confidence: this.confidence
+      }
     };
   }
 }

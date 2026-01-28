@@ -40,18 +40,19 @@ Seules les données essentielles sont persistées :
 }
 ```
 
+
 ### Match Live (table séparée `matchLogs`)
 
-Les logs complets sont stockés dans une **table séparée** `matchLogs` pendant le match, puis **supprimés automatiquement** à la sortie :
+Les logs complets sont stockés dans une **table séparée** `matchLogs` pendant le match, puis **supprimés automatiquement** :
 
 ```typescript
 // Table matchLogs (temporaire pendant le match)
 interface MatchLogsEntry {
-    saveId: number;
-    matchId: number;
-    debugLogs: any[];      // Logs complets avec bag, drawnToken
-    events: any[];         // Événements formatés
-    ballHistory: number[]; // Historique du ballon
+  saveId: number;
+  matchId: number;
+  debugLogs: any[];      // Logs complets avec bag, drawnToken
+  events: any[];         // Événements formatés
+  ballHistory: number[]; // Historique du ballon
 }
 ```
 
@@ -66,8 +67,9 @@ interface MatchLogsEntry {
 
 **Workflow :**
 1. Début match → Logs sauvés dans `matchLogs` (table séparée)
-2. Pendant le match → Logs disponibles pour replay/debug
-3. Fin match (`clearLiveMatch`) → `matchLogs` **SUPPRIMÉS**
+2. Lancement d’un live utilisateur → **tous les logs IA vs IA sont supprimés**
+3. Pendant le match → Logs disponibles pour replay/debug
+4. Fin match (`clearLiveMatch`) → `matchLogs` **SUPPRIMÉS**
 
 ### News
 

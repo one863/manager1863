@@ -13,49 +13,52 @@ export class ZoneManager {
             for (let y = 0; y < 5; y++) {
                 const id = `${x},${y}`;
                 const config = ZONES_CONFIG[id];
-                // Génère tous les tokens système pour la zone (pour debug/affichage)
+                
                 const baseTokens: Token[] = [];
                 if (config) {
-                    // Ajoute tous les tokens système (pour les deux camps)
-                    [
-                        ...(config.offenseTokensHome || []),
-                        ...(config.defenseTokensHome || []),
-                        ...(config.offenseTokensAway || []),
-                        ...(config.defenseTokensAway || [])
-                    ].forEach((pt, i) => {
+                    // On garde une trace des rôles autorisés dans cette zone
+                    const allPartial = [
+                        ...config.offenseTokensHome, ...config.defenseTokensHome,
+                        ...config.offenseTokensAway, ...config.defenseTokensAway
+                    ];
+
+                    allPartial.forEach((pt, i) => {
                         if (!pt.type) return;
                         baseTokens.push({
-                            id: `sys-${id}-${pt.type}-${i}`,
-                            type: pt.type as any,
+                            id: `template-${id}-${pt.role}-${i}`,
+                            type: pt.type,
                             ownerId: 0,
-                            teamId: 0, // Système (pour debug, à adapter si besoin)
-                            duration: pt.duration || 5
+                            teamId: 0,
+                            duration: pt.duration || 5,
+                            role: pt.role // On stocke le rôle pour savoir QUI peut agir ici
                         });
                     });
                 }
+
                 this.zones.set(id, {
                     id,
                     baseTokens,
                     logic: {
-                        errorChance: 0
+                        // On pourrait ajouter des multiplicateurs de fatigue par zone (ex: boue)
+                        errorChance: (x === 0 || x === 5) ? 0.05 : 0 // Plus de stress près des buts
                     }
                 });
             }
         }
     }
 
-    private mapConfigToTokens(zoneId: string, partialTokens: any[]): Token[] {
-        return partialTokens.map((pt, index) => ({
-            id: `base-${zoneId}-${index}`,
-            type: pt.type,
-            ownerId: 0, // Système
-            teamId: 0,  // Neutre
-            duration: pt.duration || 5
-        }));
+    /**
+     * Retourne les rôles théoriquement actifs dans cette zone.
+     * Utile pour l'UI pour afficher "Zone d'influence de : ST, DC"
+     */
+    public getAllowedRolesInZone(pos: GridPosition): string[] {
+        const zone = this.getZone(pos);
+        const roles = zone.baseTokens.map(t => t.role).filter(Boolean) as string[];
+        return [...new Set(roles)]; // Unicité
     }
 
     public getZone(pos: GridPosition): ZoneData {
         const id = `${pos.x},${pos.y}`;
-        return this.zones.get(id) || this.zones.get("2,2")!; // Fallback sécurité
+        return this.zones.get(id) || this.zones.get("2,2")!; 
     }
 }

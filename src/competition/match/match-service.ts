@@ -107,22 +107,22 @@ export const MatchService = {
         const currentMatch = await db.matches.get(match.id!);
         if (currentMatch?.played) return;
 
-        // Stocker uniquement : scores, stats, notes (ratings), buteurs
-        // Aucun texte, aucun log, aucun event détaillé
-        const resultToSave = { 
-            matchId: result.matchId,
-            homeTeamId: result.homeTeamId,
-            awayTeamId: result.awayTeamId,
-            homeScore: result.homeScore, 
-            awayScore: result.awayScore, 
-            stats: result.stats,
-            scorers: (result as any).scorers,
-            ratings: (result as any).ratings,
-            stoppageTime: result.stoppageTime,
-            events: [],
-            debugLogs: [],
-            ballHistory: []
-        };
+
+		// Purge stricte de tous les champs volumineux potentiels
+		const resultToSave = JSON.parse(JSON.stringify({
+			matchId: result.matchId,
+			homeTeamId: result.homeTeamId,
+			awayTeamId: result.awayTeamId,
+			homeScore: result.homeScore,
+			awayScore: result.awayScore,
+			stats: result.stats,
+			scorers: (result as any).scorers,
+			ratings: (result as any).ratings,
+			stoppageTime: result.stoppageTime,
+			events: Array.isArray((result as any).events) ? [] : [], // Toujours vide
+			debugLogs: [],
+			ballHistory: []
+		}));
 
 		await db.matches.where("id").equals(match.id!).modify({ homeScore: result.homeScore, awayScore: result.awayScore, played: true, details: resultToSave });
 		await Promise.all([
