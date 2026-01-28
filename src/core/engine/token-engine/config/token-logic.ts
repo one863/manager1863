@@ -1,3 +1,4 @@
+
 import { Token, TokenExecutionResult, GridPosition } from "../types";
 
 const rnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -29,7 +30,7 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
         moveX: h ? 1 : -1, moveY: rnd(-1, 1), 
         isGoal: false, isEvent: false, 
         logMessage: `${p} joue court.`, customDuration: rnd(2, 4), 
-        stats: { isPass: true, isSuccess: true } 
+        stats: { isPass: true, isSuccess: true, position: t.position } 
     }),
     'PASS_LONG': (t, p, h) => ({ 
         moveX: h ? 2 : -2, moveY: rnd(-1, 1), 
@@ -45,92 +46,92 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
     }),
     // --- CENTRE (CROSS) ---
     'CROSS': (t: Token, p: string, h: boolean, b: GridPosition) => {
-        // Narration enrichie et issues variées
-        type CrossEvent = 'CORNER' | 'SAVE' | 'GOAL' | 'FOUL' | 'CARD' | 'SHOT' | 'INJURY' | 'PENALTY' | 'WOODWORK' | 'VAR' | undefined;
-        const outcomes: { log: string; event: CrossEvent; stat: { isCross: boolean; isSuccess: boolean } }[] = [
-            { log: `Centre tendu de ${p} repoussé par la défense !`, event: 'CORNER', stat: { isCross: true, isSuccess: false } },
-            { log: `Centre de ${p} capté par le gardien.`, event: 'SAVE', stat: { isCross: true, isSuccess: false } },
-            { log: `Centre de ${p} intercepté !`, event: undefined, stat: { isCross: true, isSuccess: false } },
-            { log: `${p} trouve un partenaire dans la surface !`, event: undefined, stat: { isCross: true, isSuccess: true } }
+        // Corner possible seulement si ballon dans la zone de but adverse
+        const isCornerZone = (h && b.x === 5) || (!h && b.x === 0);
+        const outcomes = [
+            isCornerZone
+                ? { log: `Centre tendu de ${p} repoussé... Corner !`, event: 'CORNER', turnover: false, stat: { isCross: true, isSuccess: false } }
+                : { log: `Centre tendu de ${p} repoussé...`, event: undefined, turnover: true, stat: { isCross: true, isSuccess: false } },
+            { log: `Centre de ${p} capté par le gardien.`, event: 'SAVE', turnover: true, stat: { isCross: true, isSuccess: false } },
+            { log: `Centre de ${p} intercepté !`, event: undefined, turnover: true, stat: { isCross: true, isSuccess: false } },
+            { log: `${p} trouve un partenaire dans la surface !`, event: undefined, turnover: false, stat: { isCross: true, isSuccess: true } }
         ];
-        // Calcul du déplacement : avance toujours d'au moins 1 case vers la surface adverse, max 2 cases, sans sortir de la grille
-        let moveX = 0;
-        if (h) {
-            if (b.x < 5) {
-                moveX = Math.min(2, 5 - b.x); // avance de 1 ou 2 cases max, sans dépasser 5
-            } else {
-                // déjà en bout de grille, centre impossible
-                // On retourne un objet neutre pour éviter le null
-                return {
-                    moveX: 0,
-                    moveY: 0,
-                    isGoal: false,
-                    isEvent: true,
-                    eventSubtype: undefined,
-                    logMessage: `${p} ne peut pas centrer, trop excentré.`,
-                    customDuration: 3,
-                    stats: { isCross: true, isSuccess: false }
-                };
-            }
-        } else {
-            if (b.x > 0) {
-                moveX = Math.max(-2, 0 - b.x); // recule de 1 ou 2 cases max, sans dépasser 0
-            } else {
-                // déjà en bout de grille, centre impossible
-                // On retourne un objet neutre pour éviter le null
-                return {
-                    moveX: 0,
-                    moveY: 0,
-                    isGoal: false,
-                    isEvent: true,
-                    eventSubtype: undefined,
-                    logMessage: `${p} ne peut pas centrer, trop excentré.`,
-                    customDuration: 3,
-                    stats: { isCross: true, isSuccess: false }
-                };
-            }
-        }
-        const idx = rnd(0, outcomes.length - 1);
-        const o = outcomes[idx];
+
+        // 1. Calcul de moveX (déjà très bon dans ton code)
+        let moveX = h ? Math.min(2, 5 - b.x) : Math.max(-2, 0 - b.x);
+        if (h && b.x === 5) moveX = 0; // Sécurité
+        if (!h && b.x === 0) moveX = 0;
+
+        // 2. CORRECTION AXE Y : On vise toujours le centre (Y=2)
+        // On calcule l'écart par rapport au centre et on s'en rapproche
+        const targetY = 2;
+        const diffY = targetY - b.y; 
+        // moveY sera de +1, +2, -1 ou -2 pour converger vers la ligne 2
+        let moveY = diffY > 0 ? rnd(1, 2) : (diffY < 0 ? rnd(-2, -1) : rnd(-1, 1));
+
+        const o = outcomes[rnd(0, outcomes.length - 1)];
+
         return {
             moveX: moveX,
-            moveY: rnd(-1, 1),
-            isGoal: false, isEvent: true,
-            eventSubtype: o.event,
+            moveY: moveY,
+            isGoal: false,
+            isEvent: true,
+            eventSubtype: o.event as any,
+            turnover: o.turnover, // Crucial pour que le gardien récupère le ballon
+            nextSituation: o.event === 'CORNER' ? 'CORNER' : 'NORMAL',
             logMessage: o.log,
             customDuration: 6,
             stats: o.stat
         };
     },
-    'PASS_SWITCH': (t, p, h, b) => ({ 
-        moveX: 0, moveY: b.y <= 2 ? 2 : -2, 
-        isGoal: false, isEvent: false, 
-        logMessage: `${p} renverse le jeu.`, customDuration: 5, 
-        stats: { isPass: true, isSuccess: true } 
-    }),
+   'PASS_SWITCH': (t, p, h, b) => {
+    // 1. Calcul de la destination Y (On vise l'opposé)
+    // Si on est à gauche (0,1), on va à droite (3,4) et inversement
+    const targetY = b.y <= 1 ? rnd(3, 4) : rnd(0, 1);
+    const moveY = targetY - b.y;
+
+    // 2. Légère progression en X (1 case vers l'avant si possible)
+    let moveX = h ? 1 : -1;
+    // Sécurité pour ne pas sortir de la grille en X
+    if ((h && b.x === 5) || (!h && b.x === 0)) moveX = 0;
+
+    // Simplifié : réussite automatique
+    return {
+        moveX: moveX,
+        moveY: moveY,
+        isGoal: false,
+        isEvent: false,
+        turnover: false,
+        logMessage: `${p} renverse superbement le jeu à l'opposé !`,
+        customDuration: rnd(4, 6),
+        stats: { isPass: true, isSuccess: true }
+    };
+},
     'DRIBBLE': (t, p, h) => ({ 
-        moveX: h ? 1 : -1, moveY: 0, 
+        moveX: h ? 1 : -1, moveY: rnd(-1, 1), 
         isGoal: false, isEvent: false, 
         logMessage: `${p} élimine son vis-à-vis !`, customDuration: 4, 
         stats: { isDuel: true, isSuccess: true } 
     }),
 
     // --- 2. FINITION (SHOTS) ---
-    'SHOOT_GOAL': (t, p) => ({ 
+    'SHOOT_GOAL': (t, p, isHome, ballPos) => ({ 
         moveX: 0, moveY: 0, 
         isGoal: true, isEvent: true, eventSubtype: 'GOAL', 
         logMessage: `BUT !!! Frappe chirurgicale de ${p} !`, customDuration: 60, 
-        stats: { xg: 0.35 } 
+        stats: { xg: 0.35 },
+        nextSituation: isHome ? 'GOAL_HOME' : 'GOAL_AWAY'
     }),
     // Récupération sur tir cadré : le gardien capte
     'SHOOT_SAVED': (t, p, h, b) => ({ 
-        moveX: 0, moveY: 0, 
-        isGoal: false, isEvent: true, eventSubtype: 'SAVE', 
-        turnover: true,
-        nextSituation: 'GOAL_KICK',
-        logMessage: `Arrêt du gardien sur la frappe de ${p} !`, customDuration: 5, 
-        stats: { xg: 0.15 } 
-    }),
+                moveX: 0, moveY: 0, 
+                isGoal: false, isEvent: true, eventSubtype: 'SAVE', 
+                turnover: false,
+                nextSituation: 'GOAL_KICK',
+                logMessage: `Arrêt du gardien sur la frappe de ${p} !`, customDuration: 5, 
+                stats: { xg: 0.15 },
+                overrideBallPosition: h ? { x: 0, y: 2 } : { x: 5, y: 2 }
+        }),
     // Arrêt dévié en corner
     'SHOOT_SAVED_CORNER': (t, p, h, b) => ({
         moveX: 0, moveY: 0,
@@ -207,20 +208,13 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
         moveX: h ? 1 : -1, moveY: rnd(-1, 1), 
         isGoal: false, isEvent: false, 
         nextSituation: 'NORMAL',
-        logMessage: `Relance courte de ${p}.`, customDuration: 10 
+        logMessage: `Le GK s\'empare du ballon puis effectue une relance courte.`, customDuration: 10 
     }),
     'GK_LONG': (t, p, h) => ({ 
         moveX: h ? 3 : -3, moveY: rnd(-1, 1), 
         isGoal: false, isEvent: false, 
         nextSituation: 'NORMAL',
-        logMessage: `Dégagement puissant de ${p}.`, customDuration: 15 
-    }),
-    'GK_BOULETTE': (t, p, h) => ({ 
-        moveX: 0, moveY: 0, 
-        isGoal: false, isEvent: true,
-        nextSituation: 'NORMAL',
-        turnover: true,
-        logMessage: `Mauvaise relance du gardien, récupération adverse !`, customDuration: 8 
+        logMessage: `Le GK s\'empare du ballon puis effectue une relance longue.`, customDuration: 15 
     }),
 
     // --- 5. COUPS DE PIED ARRÊTÉS ---
@@ -278,6 +272,7 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
     'FREE_KICK': (t: Token, p: string, h: boolean, b: GridPosition) => ({
         moveX: h ? 1 : -1, moveY: rnd(-1, 1),
         isGoal: false, isEvent: true, eventSubtype: 'FOUL',
+        nextSituation: 'NORMAL',
         logMessage: `${p} tire le coup franc depuis l'aile.`, customDuration: 10,
         stats: { isPass: true }
     }),
@@ -364,7 +359,7 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
         logMessage: `${p} perd son duel.`, customDuration: 4,
         stats: { isDuel: true, isSuccess: false }
     }),
-    'PRESSING_SUCCESS': (t, p) => ({ 
+    'PRESS': (t, p) => ({ 
         moveX: 0, moveY: 0, 
         isGoal: false, isEvent: false, 
         logMessage: `Pressing réussi de ${p} !`, customDuration: 3,
@@ -514,7 +509,7 @@ export const TOKEN_LOGIC: Record<string, (token: Token, pName: string, isHome: b
         customDuration: 3,
         stats: { isPass: true, isSuccess: true, isChanceCreated: true }
     }),
-    'COMBO_PASS': (t, p, h) => ({
+    'PASS_ONETWO': (t, p, h) => ({
         moveX: h ? 1 : -1, moveY: 0,
         isGoal: false, isEvent: false,
         logMessage: `Une-deux avec ${p} !`, 

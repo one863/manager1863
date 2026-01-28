@@ -4,7 +4,6 @@ import fr from "../../infrastructure/locales/fr.json";
 
 // NEW TOKEN ENGINE IMPORTS
 import { TokenMatchEngine } from "./token-engine/match-engine";
-import { createTokenPlayers } from "./token-engine/converter";
 
 // Initialisation i18next
 const initI18n = i18next.init({
@@ -28,39 +27,16 @@ async function runSimulation(data: any) {
     try {
         await initI18n;
 
+
         const homeTeamId = data.homeTeamId || 1;
         const awayTeamId = data.awayTeamId || 2;
         const homeName = data.homeName || "Home";
         const awayName = data.awayName || "Away";
-        const hTactic = data.hTactic || "4-4-2";
-        const aTactic = data.aTactic || "4-4-2";
 
-        const homeTokenPlayers = createTokenPlayers(
-            data.homePlayers || [],
-            data.homeStaff || [],
-            homeTeamId,
-            hTactic,
-            true
-        );
-
-        const awayTokenPlayers = createTokenPlayers(
-            data.awayPlayers || [],
-            data.awayStaff || [],
-            awayTeamId,
-            aTactic,
-            false
-        );
-
-        const allTokenPlayers = [...homeTokenPlayers, ...awayTokenPlayers];
-        const engine = new TokenMatchEngine(allTokenPlayers, homeTeamId, awayTeamId, homeName, awayName);
-
+        // Le moteur simplifié ne prend que les IDs
+        const engine = new TokenMatchEngine(homeTeamId, awayTeamId);
         const engineResult = engine.simulateMatch();
         const rawEvents = engineResult.events;
-
-        // Score FIABLE : utiliser les stats du moteur (tracker)
-        const stats = engineResult.stats || {};
-        const homeScore = stats.shots?.[homeTeamId]?.goals ?? 0;
-        const awayScore = stats.shots?.[awayTeamId]?.goals ?? 0;
 
         const goalEvents: any[] = [];
 
@@ -97,32 +73,21 @@ async function runSimulation(data: any) {
             };
         });
 
+
         return {
             matchId: data.matchId,
             homeTeamId: homeTeamId,
             awayTeamId: awayTeamId,
             homeName: homeName,
             awayName: awayName,
-            homeScore: homeScore,
-            awayScore: awayScore,
+            homeScore: engineResult.homeScore,
+            awayScore: engineResult.awayScore,
             events: formattedEvents,
-            debugLogs: engineResult.fullJournal.map((l: any) => ({ 
-                time: l.time,
-                type: l.type,
-                text: l.text,
-                playerName: l.playerName,
-                teamId: l.teamId,
-                ballPosition: l.ballPosition,
-                bag: l.bag,
-                drawnToken: l.drawnToken,
-                zoneInfluences: l.zoneInfluences,
-                eventSubtype: l.eventSubtype,
-                statImpact: l.statImpact
-            })),
-            ballHistory: engineResult.ballHistory,
-            stats: engineResult.stats,
+            debugLogs: engineResult.events,
+            ballHistory: [],
+            stats: { shots: {}, xg: {} },
             scorers: goalEvents,
-            ratings: engineResult.analysis?.ratings || [],
+            ratings: [],
             stoppageTime: 4
         };
 

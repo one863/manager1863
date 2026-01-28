@@ -1,11 +1,12 @@
-import { TokenType } from "../types";
+
+import { TOKEN_LOGIC } from "./token-logic";
 
 /**
  * Configuration des impacts sur le rating par type de jeton.
  * Chaque action contribue positivement ou négativement à la note du joueur.
  * Base rating = 6.0, les actions modifient cette note.
  */
-export const TOKEN_RATING_IMPACT: Record<TokenType, number> = {
+export const TOKEN_RATING_IMPACT: Record<keyof typeof TOKEN_LOGIC, number> = {
     // --- PROGRESSION (OFFENSE) ---
     'PASS_SHORT': 0.02,        // Passe courte réussie
     'PASS_LONG': 0.03,         // Passe longue réussie (plus difficile)

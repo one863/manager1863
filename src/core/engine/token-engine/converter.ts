@@ -104,9 +104,6 @@ export function createTokenPlayers(
             position: p.position,
             role: p.role || roleKey,
             stats: engineStats,
-            stamina: 100,
-            form: 75,
-            fatigue: 0,
             injured: false,
             suspended: false
         };

@@ -1,6 +1,8 @@
+// Fonction utilitaire locale pour filtrer les buts
+const isValidGoal = (e: any) => e.eventSubtype === "GOAL" && e.text && !/célébration|remise en jeu/i.test(e.text);
 import { useGameStore } from "@/infrastructure/store/gameSlice";
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
-import { useSignal, useComputed } from "@preact/signals";
+import { useSignal, useComputed, signal } from "@preact/signals";
 import { Loader2, Package, MapPin, Users, BarChart3, MessageSquare } from "lucide-preact";
 import { useEffect, useState, useRef, useCallback, useMemo } from "preact/hooks";
 
@@ -14,8 +16,8 @@ import PlayerColumn from "./components/PlayerColumn";
 
 // Constantes
 const TABS = [
-    { id: "flux", icon: MapPin },
-    { id: "2d", icon: Package },
+    { id: "live", icon: Package },
+    { id: "highlights", icon: MapPin },
     { id: "stats", icon: BarChart3 },
     { id: "players", icon: Users }
 ] as const;
@@ -56,11 +58,12 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     }, [currentSaveId, liveMatch, loadLiveMatchFromDb]);
 
     // État local
-    const [initialTime] = useState(liveMatch?.currentTime || 0);
+    // Toujours démarrer à 0 pour l'affichage du sac (coup d'envoi)
+    const [initialTime] = useState(0);
     const currentMatchTime = useSignal(initialTime);
     // Toujours démarrer en pause pour un lecteur de logs
     const isPaused = useSignal(true);
-    const [activeTab, setActiveTab] = useState<TabId>(liveMatch?.activeTab || "flux");
+    const [activeTab, setActiveTab] = useState<TabId>(liveMatch?.activeTab || "live");
 
     // Loading state
     if (!liveMatch?.result) {
@@ -74,8 +77,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
     // Données du match (stables après chargement)
     const { result, homeTeam, awayTeam, matchId, homePlayers: homePlayersList, awayPlayers: awayPlayersList } = liveMatch;
-    // Les logs complets du match
-    const allLogs = result.debugLogs || [];
+    // Les logs complets du match (debugLogs = events dans le worker simplifié)
+    const allLogs = result.debugLogs || result.events || [];
     // On ne garde que les logs jusqu'au temps courant pour le live
     const logs = useComputed(() => allLogs.filter((l: any) => l.time <= currentMatchTime.value));
     const maxTime = allLogs.length > 0 ? allLogs[allLogs.length - 1].time : 5400;
@@ -83,11 +86,33 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const homeId = result.homeTeamId ?? homeTeam?.id;
     const awayId = result.awayTeamId ?? awayTeam?.id;
 
-    // Signaux réactifs pour le score et les buteurs
-    const homeScore = useSignal(0);
-    const awayScore = useSignal(0);
-    const homeScorers = useSignal([]);
-    const awayScorers = useSignal([]);
+    // Score dynamique basé sur les logs jusqu'à l'index courant (pas le temps)
+    const currentLogsByIndex = useComputed(() => allLogs.slice(0, currentLogIndex.value + 1));
+    // Fonction utilitaire pour filtrer les logs de but valides (hors célébration/remise en jeu)
+    const isGoalForScore = (e: any) =>
+        e.eventSubtype === "GOAL" &&
+        e.text &&
+        !/célébration|remise en jeu/i.test(e.text);
+
+    const homeScore = useComputed(() => currentLogsByIndex.value.filter((l: any) => isGoalForScore(l) && l.teamId === homeId).length);
+    const awayScore = useComputed(() => currentLogsByIndex.value.filter((l: any) => isGoalForScore(l) && l.teamId === awayId).length);
+
+    // Buteurs dynamiques : logs jusqu'à l'index courant (playerName non vide)
+    const isGoalForScorer = (e: any) =>
+        e.eventSubtype === "GOAL" &&
+        typeof e.playerName === "string" &&
+        e.playerName.trim() !== "";
+
+    const homeScorers = useComputed(() =>
+        currentLogsByIndex.value
+            .filter((l: any) => isGoalForScorer(l) && l.teamId === homeId)
+            .map((l: any) => ({ name: l.playerName, minute: Math.floor(l.time / 60) }))
+    );
+    const awayScorers = useComputed(() =>
+        currentLogsByIndex.value
+            .filter((l: any) => isGoalForScorer(l) && l.teamId === awayId)
+            .map((l: any) => ({ name: l.playerName, minute: Math.floor(l.time / 60) }))
+    );
 
     // Signaux calculés
     const currentMinute = useComputed(() => Math.floor(currentMatchTime.value / 60));
@@ -96,29 +121,6 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         const min = currentMinute.value;
         return min >= 90 ? min - 90 : 0;
     });
-
-    useEffect(() => {
-        // Score : tous les logs de but (hors célébration/remise en jeu)
-        const hGoalsScore = logs.value.filter((e: any) => e.teamId === homeId && isGoalForScore(e));
-        const aGoalsScore = logs.value.filter((e: any) => e.teamId === awayId && isGoalForScore(e));
-        homeScore.value = hGoalsScore.length;
-        awayScore.value = aGoalsScore.length;
-        // Buteurs : logs de but avec playerName non vide (hors célébration/remise en jeu)
-        const hGoalsScorers = logs.value.filter((e: any) => e.teamId === homeId && isGoalForScorer(e));
-        const aGoalsScorers = logs.value.filter((e: any) => e.teamId === awayId && isGoalForScorer(e));
-        // Pour éviter les doublons, on ne garde qu'un but par joueur/minute
-        const uniqueScorers = (arr: any[]) => {
-            const seen = new Set();
-            return arr.filter(e => {
-                const key = e.playerName + '-' + Math.floor(e.time / 60);
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
-        };
-        homeScorers.value = uniqueScorers(hGoalsScorers).map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }));
-        awayScorers.value = uniqueScorers(aGoalsScorers).map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }));
-    }, [logs.value, homeId, awayId, currentMatchTime.value]);
 
     // Index du log actuel - source de vérité unique pour la navigation
     // Index du log actuel basé sur allLogs (pas les logs filtrés)
@@ -144,17 +146,18 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentScorers = useComputed(() => {
         // On utilise les logs filtrés jusqu'au temps courant
         return {
-            h: logs.value.filter((e: any) => e.teamId === homeId && isValidGoal(e))
+            h: logs.value.filter((e: any) => e.teamId === homeId && (typeof isValidGoal === 'function' ? isValidGoal(e) : true))
                 .map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) })),
-            a: logs.value.filter((e: any) => e.teamId === awayId && isValidGoal(e))
+            a: logs.value.filter((e: any) => e.teamId === awayId && (typeof isValidGoal === 'function' ? isValidGoal(e) : true))
                 .map((e: any) => ({ name: e.playerName, minute: Math.floor(e.time / 60) }))
         };
     });
 
     const bagStats = useComputed(() => {
         const bag = currentLog.value?.bag || [];
-        // Si le bag est vide ou ne contient qu'un seul token (ancien format), ne pas afficher de stats
-        if (bag.length <= 1) {
+        // Afficher le sac même s'il n'a qu'un seul token pour le tout premier log (coup d'envoi)
+        const isKickOff = currentLog.value?.time === 0 && currentLog.value?.type === 'EVENT' && (currentLog.value?.text?.toLowerCase().includes('coup d\'envoi') || currentLog.value?.eventSubtype === undefined);
+        if (bag.length === 0 || (bag.length === 1 && !isKickOff)) {
             return { total: 0, sides: { h: { count: 0, types: {} }, a: { count: 0, types: {} }, n: { count: 0, types: {} } } };
         }
         const total = bag.length;
@@ -163,13 +166,11 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
             a: { count: 0, types: {} },
             n: { count: 0, types: {} }
         };
-        
         for (const t of bag) {
             const side = String(t.teamId) === String(homeId) ? 'h' : String(t.teamId) === String(awayId) ? 'a' : 'n';
             stats[side].count++;
             stats[side].types[t.type] = (stats[side].types[t.type] || 0) + 1;
         }
-        
         return { total, sides: stats };
     });
 
@@ -197,9 +198,10 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         };
     });
 
+    // Fallback pour la courbe de momentum (vide dans la version simple)
     const sampledMomentum = useComputed(() => {
-        const momentum = result.ballHistory || [];
-        if (momentum.length === 0) return [];
+        const momentum = Array.isArray(result.ballHistory) ? result.ballHistory : [];
+        if (!momentum || momentum.length === 0) return [];
         const progressRatio = currentMatchTime.value / maxTime;
         const visibleCount = Math.ceil(momentum.length * progressRatio);
         return momentum.map((val: number, i: number) => i < visibleCount ? val : 0);
@@ -209,18 +211,20 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const handleGoToStart = useCallback(() => {
         if (allLogs.length === 0) return;
         isPaused.value = true;
-        currentLogIndex.value = 0;
-        currentMatchTime.value = allLogs[0].time;
+        // Cherche le premier log qui n'est pas de type START (log 1 réel)
+        const firstGameLogIdx = allLogs.findIndex((l: any) => l.type !== 'START');
+        const idx = firstGameLogIdx > 0 ? firstGameLogIdx : 0;
+        currentLogIndex.value = idx;
+        currentMatchTime.value = allLogs[idx].time;
     }, [allLogs, isPaused, currentMatchTime, currentLogIndex]);
 
     const handleStepBack = useCallback(() => {
         if (allLogs.length === 0) return;
-        isPaused.value = true;
         const idx = currentLogIndex.value;
-        if (idx > 0) {
-            currentLogIndex.value = idx - 1;
-            currentMatchTime.value = allLogs[idx - 1].time;
-        }
+        if (idx <= 1) return; // Ne rien faire si déjà au premier tirage (empêche retour sur log 0)
+        isPaused.value = true;
+        currentLogIndex.value = idx - 1;
+        currentMatchTime.value = allLogs[idx - 1].time;
     }, [allLogs, isPaused, currentMatchTime, currentLogIndex]);
 
     const handleStepForward = useCallback(() => {
@@ -254,7 +258,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                 currentMatchTime.value += 1;
                 // Avancer d'un seul log à la fois, même si plusieurs logs ont le même temps
                 const nextIdx = currentLogIndex.value + 1;
-                if (nextIdx < logs.length && logs[nextIdx].time === currentMatchTime.value) {
+                if (nextIdx < logs.value.length && logs.value[nextIdx].time === currentMatchTime.value) {
                     currentLogIndex.value = nextIdx;
                 }
             } else {
@@ -326,7 +330,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
             />
 
             <div className="flex-1 flex flex-col overflow-hidden px-4 pt-4 gap-3">
-                {activeTab !== "2d" ? (
+                {activeTab !== "live" ? (
                     <MomentumChart 
                         momentum={sampledMomentum} 
                         currentTime={currentMatchTime.value} 
@@ -334,10 +338,23 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                     />
                 ) : (
                     <PitchView
-                        displayPos={displayPos}
-                        effectiveTeamId={effectiveTeamId}
+                        displayPos={currentLogIndex.value === 1 && allLogs[0]
+                            ? signal(allLogs[0].ballPosition || { x: 2, y: 2 })
+                            : currentLogIndex.value > 0 && allLogs[currentLogIndex.value - 1]
+                                ? signal(allLogs[currentLogIndex.value - 1].ballPosition || { x: 2, y: 2 })
+                                : displayPos}
+                        effectiveTeamId={currentLogIndex.value === 1 && allLogs[0]
+                            ? signal(allLogs[0].possessionTeamId)
+                            : currentLogIndex.value > 0 && allLogs[currentLogIndex.value - 1]
+                                ? signal(allLogs[currentLogIndex.value - 1].possessionTeamId)
+                                : effectiveTeamId}
                         homeTeamId={homeId}
-                        currentLog={currentLog}
+                        awayTeamId={awayId}
+                        currentLog={currentLogIndex.value === 1 && allLogs[0]
+                            ? signal(allLogs[0])
+                            : currentLogIndex.value > 0 && allLogs[currentLogIndex.value - 1]
+                                ? signal(allLogs[currentLogIndex.value - 1])
+                                : currentLog}
                     />
                 )}
 
@@ -358,24 +375,54 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
 
                 {/* Contenu des onglets */}
                 <div className="flex-1 overflow-y-auto pb-24">
-                    {activeTab === "2d" && (
-                        <BagStatsPanel 
-                            bagStats={bagStats.value} 
-                            displayPos={displayPos.value}
-                            currentLogText={cleanText(currentLog.value?.text)}
-                        />
+                    {activeTab === "live" && (
+                        currentLogIndex.value === 0 ? null : (
+                            <>
+                                <BagStatsPanel 
+                                    bagStats={bagStats.value} 
+                                    bag={allLogs[currentLogIndex.value]?.bag || []}
+                                    homeId={homeId}
+                                    awayId={awayId}
+                                    possessionTeamId={allLogs[currentLogIndex.value]?.possessionTeamId}
+                                    displayPos={displayPos.value}
+                                    currentLogText={cleanText(allLogs[currentLogIndex.value - 1]?.text)}
+                                />
+                                {currentLogIndex.value > 1 && allLogs[currentLogIndex.value - 1] && allLogs[currentLogIndex.value - 2] ? (
+                                    <BagStatsPanel 
+                                        bagStats={bagStats.value} 
+                                        bag={allLogs[currentLogIndex.value - 1].bag || []}
+                                        homeId={homeId}
+                                        awayId={awayId}
+                                        possessionTeamId={allLogs[currentLogIndex.value - 1].possessionTeamId}
+                                        displayPos={allLogs[currentLogIndex.value - 2]?.ballPosition ?? { x: -1, y: -1 }}
+                                        currentLogText={cleanText(allLogs[currentLogIndex.value - 2].text)}
+                                    />
+                                ) : null}
+                            </>
+                        )
                     )}
 
-                    {activeTab === "flux" && (
+                    {activeTab === "highlights" && (
                         <div className="space-y-2">
-                            {visibleEvents.map((l: any, i: number) => (
-                                <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in">
-                                    <EventItem 
-                                        event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype, description: l.text }} 
-                                        homeTeamId={homeId} 
-                                    />
-                                </div>
-                            ))}
+                            {currentLogIndex.value === 0
+                                ? (
+                                    <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in">
+                                        <EventItem 
+                                            event={{ ...allLogs[0], minute: Math.floor(allLogs[0]?.time / 60), type: allLogs[0]?.eventSubtype, description: allLogs[0]?.text }} 
+                                            homeTeamId={homeId} 
+                                        />
+                                    </div>
+                                )
+                                : visibleEvents
+                                    .filter((l: any) => l !== allLogs[1])
+                                    .map((l: any, i: number) => (
+                                        <div key={i} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm animate-fade-in">
+                                            <EventItem 
+                                                event={{ ...l, minute: Math.floor(l.time / 60), type: l.eventSubtype, description: l.text }} 
+                                                homeTeamId={homeId} 
+                                            />
+                                        </div>
+                                    ))}
                         </div>
                     )}
 
@@ -406,32 +453,62 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                 onStepForward={handleStepForward}
                 onSkip={handleSkip}
                 onFinalize={handleFinalize}
+                disableStepBack={currentLogIndex.value <= 1}
             />
         </div>
     );
 }
 
 // Sous-composant pour les stats du bag (onglet 2D)
-function BagStatsPanel({ bagStats, displayPos, currentLogText }: { 
+function BagStatsPanel({ bagStats, bag, homeId, awayId, possessionTeamId, displayPos, currentLogText, previousBag, previousLogText, previousPossessionTeamId, previousDrawnTokenId }: {
     bagStats: { total: number; sides: Record<string, { count: number; types: Record<string, number> }> };
+    bag: any[];
+    homeId: number;
+    awayId: number;
+    possessionTeamId: number;
     displayPos: { x: number; y: number };
     currentLogText: string;
+    previousBag?: any[];
+    previousLogText?: string;
+    previousPossessionTeamId?: number;
+    previousDrawnTokenId?: string;
 }) {
-    const sideColors: Record<string, { bg: string; text: string; bar: string }> = {
-        h: { bg: 'bg-blue-50', text: 'text-blue-800', bar: 'bg-blue-500' },
-        a: { bg: 'bg-orange-50', text: 'text-orange-800', bar: 'bg-orange-500' },
-        n: { bg: 'bg-slate-50', text: 'text-slate-600', bar: 'bg-slate-400' }
+    const safeBag = Array.isArray(bag) ? bag : [];
+    const safePreviousBag = Array.isArray(previousBag) ? previousBag : [];
+    const hasBagContent = safeBag.length > 0;
+    // Palette stricte home/away
+    const getTokenColor = (teamId: any) => {
+        if (String(teamId) === String(homeId)) return 'bg-blue-100 text-blue-800 border-blue-200';
+        if (String(teamId) === String(awayId)) return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-red-100 text-red-800 border-red-200'; // warning visuel si neutre
     };
-
-    const hasBagContent = bagStats.total > 0;
-
+    // Vérification neutres
+    const hasNeutral = safeBag.some(t => String(t.teamId) !== String(homeId) && String(t.teamId) !== String(awayId));
+    // Séparation des jetons par équipe
+    const tokensPoss = safeBag.filter(t => String(t.teamId) === String(possessionTeamId));
+    const tokensOther = safeBag.filter(t => String(t.teamId) !== String(possessionTeamId));
+    // Comptage des jetons du même type dans le sac
+    const typeCounts = safeBag.reduce((acc: Record<string, number>, t: any) => {
+        acc[t.type] = (acc[t.type] || 0) + 1;
+        return acc;
+    }, {});
+    // Pour le sac précédent
+    const prevTokensPoss = safePreviousBag.filter(t => String(t.teamId) === String(previousPossessionTeamId));
+    const prevTokensOther = safePreviousBag.filter(t => String(t.teamId) !== String(previousPossessionTeamId));
+    // Comptage des jetons du même type dans le sac précédent
+    const prevTypeCounts = safePreviousBag.reduce((acc: Record<string, number>, t: any) => {
+        acc[t.type] = (acc[t.type] || 0) + 1;
+        return acc;
+    }, {});
+    // Pour la coloration du jeton tiré (correspondance stricte sur l'id)
+    const isDrawn = (t: any) => previousDrawnTokenId && t.id === previousDrawnTokenId;
     return (
         <div className="space-y-2">
             <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
                 <div className="flex flex-col gap-1.5 mb-2 border-b border-slate-100 pb-2">
                     {hasBagContent && (
                         <span className="text-[9px] font-black uppercase text-slate-600 tracking-widest flex items-center gap-1">
-                            <Package size={10} /> Contenu du bag ({bagStats.total} tokens)
+                            <Package size={10} /> Contenu du bag ({bag.length} jetons)
                             <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-1">
                                 Zone {displayPos.x},{displayPos.y}
                             </span>
@@ -439,40 +516,70 @@ function BagStatsPanel({ bagStats, displayPos, currentLogText }: {
                     )}
                     <div className="flex items-start gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100">
                         <MessageSquare size={10} className="text-slate-600 mt-0.5 shrink-0" />
-                        <p className="text-[12px] text-slate-600 leading-tight font-medium italic">"{currentLogText}"</p>
+                        <p className="text-[11px] text-slate-600 leading-tight font-medium">
+                            {(() => {
+                                const drawnToken = bag.find((t: any) => t.id === previousDrawnTokenId);
+                                if (drawnToken) {
+                                    const poste = drawnToken.position || '*';
+                                    return <span><span className="font-bold uppercase">{poste} {drawnToken.type}</span> — "{currentLogText}"</span>;
+                                }
+                                return `"${currentLogText}"`;
+                            })()}
+                        </p>
                     </div>
                 </div>
                 {hasBagContent && (
                     <div className="space-y-2">
-                        {(['h', 'a', 'n'] as const).map(side => {
-                            const s = bagStats.sides[side];
-                            if (s.count === 0) return null;
-                            const colors = sideColors[side];
-                            
-                            return (
-                                <div key={side} className={`p-1.5 rounded-lg ${colors.bg} border border-white/50`}>
-                                    <div className="flex items-center gap-1.5 mb-1 opacity-60">
-                                        <div className={`w-1 h-2 rounded-full ${colors.bar}`} />
-                                        <span className="text-[10px] uppercase tracking-tighter">
-                                            {Math.round(s.count / bagStats.total * 100)}%
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                        {Object.entries(s.types).map(([type, count]) => (
-                                            <div key={type} className="flex flex-col min-w-[60px]">
-                                                <span className={`text-[11px] font-black uppercase tracking-tight ${colors.text}`}>
-                                                    {type}
-                                                </span>
-                                                <span className="text-[11px] text-slate-600">
-                                                    {Math.round(count / bagStats.total * 100)}%
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
+                        <div className="flex flex-wrap gap-2 mb-1">
+                            {tokensPoss.map((t: any, i: number) => (
+                                <div key={i} className={`px-2 py-1 rounded border text-[10px] font-mono flex items-center justify-center ${getTokenColor(t.teamId)}`}> 
+                                    <span className="font-bold uppercase">{t.type} ({typeCounts[t.type]})</span>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {tokensOther.map((t: any, i: number) => (
+                                <div key={i} className={`px-2 py-1 rounded border text-[10px] font-mono flex items-center justify-center ${getTokenColor(t.teamId)}`}> 
+                                    <span className="font-bold uppercase">{t.type} ({typeCounts[t.type]})</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
+                )}
+                {/* Affichage du sac précédent */}
+                {previousBag && previousBag.length > 0 && (
+                    <div className="mt-4 pt-2 border-t border-slate-100">
+                        <div className="text-[10px] font-bold uppercase text-slate-500 mb-1">Action précédente</div>
+                        <div className="flex items-start gap-2 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-100 mb-1">
+                            <MessageSquare size={10} className="text-slate-600 mt-0.5 shrink-0" />
+                            <p className="text-[11px] text-slate-600 leading-tight font-medium">"{previousLogText}"</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-1">
+                            {prevTokensPoss.map((t: any, i: number) => (
+                                <div
+                                    key={i}
+                                    className={`px-2 py-1 rounded border text-[10px] font-mono flex items-center justify-center ${getTokenColor(t.teamId)} ${isDrawn(t) ? 'bg-green-200 border-green-500 text-green-900' : ''}`}
+                                    style={isDrawn(t) ? { fontWeight: 900 } : {}}
+                                >
+                                    <span className="font-bold uppercase">{t.type} ({prevTypeCounts[t.type]})</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {prevTokensOther.map((t: any, i: number) => (
+                                <div
+                                    key={i}
+                                    className={`px-2 py-1 rounded border text-[10px] font-mono flex items-center justify-center ${getTokenColor(t.teamId)} ${isDrawn(t) ? 'bg-green-200 border-green-500 text-green-900' : ''}`}
+                                    style={isDrawn(t) ? { fontWeight: 900 } : {}}
+                                >
+                                    <span className="font-bold uppercase">{t.type} ({prevTypeCounts[t.type]})</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {hasNeutral && (
+                    <div className="mt-2 text-xs text-red-600 font-bold">⚠️ Jeton(s) sans équipe home/away détecté(s) !</div>
                 )}
             </div>
         </div>

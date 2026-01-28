@@ -29,7 +29,6 @@ export class ZoneManager {
                             type: pt.type as any,
                             ownerId: 0,
                             teamId: 0, // Système (pour debug, à adapter si besoin)
-                            quality: pt.quality || 30,
                             duration: pt.duration || 5
                         });
                     });
@@ -51,7 +50,6 @@ export class ZoneManager {
             type: pt.type,
             ownerId: 0, // Système
             teamId: 0,  // Neutre
-            quality: pt.quality || 50,
             duration: pt.duration || 5
         }));
     }

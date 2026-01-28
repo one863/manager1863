@@ -1,10 +1,12 @@
-import { Token, TokenType, GridPosition, PlayerStats } from "./types";
+import { Token, GridPosition, PlayerStats } from "./types";
+
 
 export class TokenPlayer {
   public id: number;
   public name: string;
   public teamId: number;
   public role: string;
+  public position?: string;
   public stats: PlayerStats;
   public influence: { atk: number; def: number } = { atk: 1, def: 1 };
   public fatigue: number = 0;      // 0 = frais, 100 = épuisé
@@ -17,6 +19,7 @@ export class TokenPlayer {
     this.name = data.name;
     this.teamId = data.teamId;
     this.role = data.role || "MC";
+    this.position = data.position || data.role || "MC";
     this.confidence = data.confidence ?? 50;
     
     // Stats complètes avec valeurs par défaut
@@ -88,7 +91,7 @@ export class TokenPlayer {
   }
 
   // Appeler après chaque action impliquant le joueur
-  public applyFatigue(actionType: TokenType) {
+  public applyFatigue(actionType: string) {
     let cost = 0.5;
     if (actionType.startsWith('DRIBBLE')) cost = 1.5;
     else if (actionType.startsWith('SHOOT')) cost = 2.0;
@@ -169,37 +172,37 @@ export class TokenPlayer {
     const passMultiplier = isInBox ? 0.2 : 1.0; // 80% de réduction dans la surface
     const passCount = Math.max(1, Math.round(passing * passMultiplier));
     for (let i = 0; i < passCount; i++) {
-      tokens.push(this.createToken('PASS_SHORT', passing));
+      tokens.push(this.createToken('PASS_SHORT'));
     }
     // Passes en retrait (encore moins dans la surface)
     const backPassCount = isInBox ? 1 : Math.ceil(passing / 3);
     for (let i = 0; i < backPassCount; i++) {
-      tokens.push(this.createToken('PASS_BACK', passing));
+      tokens.push(this.createToken('PASS_BACK'));
     }
     // Renversements de jeu (vision + passing élevés) - PAS dans la surface
     if (!isInBox && vision >= 10 && passing >= 10) {
       for (let i = 0; i < Math.ceil(vision / 4); i++) {
-        tokens.push(this.createToken('PASS_SWITCH', vision));
+        tokens.push(this.createToken('PASS_SWITCH'));
       }
     }
     // Combinaisons (une-deux) - PAS dans la surface
     if (!isInBox && passing >= 12) {
       for (let i = 0; i < Math.ceil(passing / 5); i++) {
-        tokens.push(this.createToken('COMBO_PASS', passing));
+        tokens.push(this.createToken('COMBO_PASS'));
       }
     }
 
     // 2. PASSES LONGUES et VISION - basées sur vision
     if (!isInFinalThird) {
       for (let i = 0; i < Math.ceil(vision / 2); i++) {
-        tokens.push(this.createToken('PASS_LONG', vision));
+        tokens.push(this.createToken('PASS_LONG'));
       }
     }
     // Passes décisives (vision élevée) - PAS dans la surface (on y est déjà !)
     if (!isInBox && vision >= 10) {
       const throughBallCount = Math.ceil(vision / 2);
       for (let i = 0; i < throughBallCount; i++) {
-        tokens.push(this.createToken('THROUGH_BALL', vision + 5));
+        tokens.push(this.createToken('THROUGH_BALL'));
       }
     }
 
@@ -207,16 +210,16 @@ export class TokenPlayer {
     const dribbleMultiplier = isInBox ? 0.3 : 1.0;
     const dribbleCount = Math.max(1, Math.ceil(dribbling / 2 * dribbleMultiplier));
     for (let i = 0; i < dribbleCount; i++) {
-      tokens.push(this.createToken('DRIBBLE', dribbling));
+      tokens.push(this.createToken('DRIBBLE'));
     }
 
     // 4. CENTRES - basés sur crossing (uniquement sur les ailes)
     if (isOnWing && isInFinalThird) {
       for (let i = 0; i < crossing; i++) {
-        tokens.push(this.createToken('CROSS', crossing));
+        tokens.push(this.createToken('CROSS'));
       }
       for (let i = 0; i < Math.ceil(crossing / 2); i++) {
-        tokens.push(this.createToken('CUT_BACK', crossing));
+        tokens.push(this.createToken('CUT_BACK'));
       }
     }
 
@@ -231,26 +234,26 @@ export class TokenPlayer {
       const goalTokenCount = Math.ceil(finishing * 2);
       const goalQuality = finishing + 10; // Bonus qualité pour les buts
       for (let i = 0; i < goalTokenCount; i++) {
-        tokens.push(this.createToken('SHOOT_GOAL', goalQuality));
+        tokens.push(this.createToken('SHOOT_GOAL'));
       }
       
       // Woodwork (malchance pure - reste offensif car c'est le tireur qui frappe le poteau)
-      tokens.push(this.createToken('SHOOT_WOODWORK', 2));
+      tokens.push(this.createToken('SHOOT_WOODWORK'));
     } else if (isInFinalThird) {
       // === ENTREE DE SURFACE : tirs de loin (1-3% de SHOOT_GOAL) ===
       // Très peu de jetons et qualité très basse pour garder ~1-3%
       const longShotQuality = Math.max(2, Math.floor(finishing / 5)); // qualité 2-4
-      tokens.push(this.createToken('SHOOT_GOAL', longShotQuality));
+      tokens.push(this.createToken('SHOOT_GOAL'));
       
       // Woodwork rare
-      tokens.push(this.createToken('SHOOT_WOODWORK', 3));
+      tokens.push(this.createToken('SHOOT_WOODWORK'));
     }
 
     // 6. TIRS DE LOIN - basés sur longShots (hors surface)
     const longShots = Math.round((this.stats.longShots || 10) * weight);
     if (!isInFinalThird && longShots >= 12) {
       for (let i = 0; i < Math.ceil(longShots / 3); i++) {
-        tokens.push(this.createToken('SHOOT_OFF_TARGET', longShots));
+        tokens.push(this.createToken('SHOOT_OFF_TARGET'));
       }
     }
 
@@ -259,8 +262,8 @@ export class TokenPlayer {
     const jumping = this.stats.jumping || 10;
     if (heading >= 12 && jumping >= 10) {
       for (let i = 0; i < Math.ceil(heading / 3); i++) {
-        tokens.push(this.createToken('HEAD_SHOT', heading));
-        tokens.push(this.createToken('HEAD_PASS', heading));
+        tokens.push(this.createToken('HEAD_SHOT'));
+        tokens.push(this.createToken('HEAD_PASS'));
       }
     }
 
@@ -286,38 +289,38 @@ export class TokenPlayer {
     // TACKLES - basés sur tackling
     const tackleCount = tackling; // Plus de division, stat = count
     for (let i = 0; i < tackleCount; i++) {
-      tokens.push(this.createToken('TACKLE', tackling));
+      tokens.push(this.createToken('TACKLE'));
     }
 
     // INTERCEPTIONS - basés sur positioning
     const interceptCount = positioning;
     for (let i = 0; i < interceptCount; i++) {
-      tokens.push(this.createToken('INTERCEPT', positioning));
+      tokens.push(this.createToken('INTERCEPT'));
     }
 
     // BLOCKS - basés sur marking
     for (let i = 0; i < marking; i++) {
-      tokens.push(this.createToken('BLOCK', marking));
+      tokens.push(this.createToken('BLOCK'));
     }
 
     // CLEARANCE (dégagements) - basé sur heading
     if (heading >= 8) {
       for (let i = 0; i < heading; i++) {
-        tokens.push(this.createToken('CLEARANCE', heading));
+        tokens.push(this.createToken('CLEARANCE'));
       }
     }
 
     // PRESSING - combinaison positioning + endurance
     const pressing = Math.ceil((positioning + (this.stats.endurance || 10)) / 4);
     for (let i = 0; i < pressing; i++) {
-      tokens.push(this.createToken('PRESSING_SUCCESS', positioning));
+      tokens.push(this.createToken('PRESSING_SUCCESS'));
     }
 
     // FAUTES - basées sur l'agressivité (plus agressif = plus de fautes)
     if (aggression >= 14) {
       const foulRisk = Math.ceil((aggression - 10) / 2);
       for (let i = 0; i < foulRisk; i++) {
-        tokens.push(this.createToken('FOUL', aggression));
+        tokens.push(this.createToken('FOUL'));
       }
     }
 
@@ -325,20 +328,20 @@ export class TokenPlayer {
     const concentration = this.stats.concentration || 10;
     const errorRisk = Math.ceil(this.fatigue / 30) + (concentration < 10 ? 1 : 0);
     for (let i = 0; i < errorRisk; i++) {
-      tokens.push(this.createToken('ERROR', 5));
+      tokens.push(this.createToken('ERROR'));
     }
     
     return tokens;
   }
 
-  private createToken(type: TokenType, quality: number): Token {
+  private createToken(type: string): Token {
     return {
       id: `${this.id}-${type}-${Math.random()}`,
       type,
       ownerId: this.id,
       teamId: this.teamId,
-      quality: quality,
-      duration: 4
+      duration: 4,
+      position: this.position || this.role // Utilise la vraie position si dispo
     };
   }
 }

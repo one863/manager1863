@@ -89,35 +89,21 @@ export interface PlayerStats {
   technical?: number;
   defense?: number;
   
+
   [key: string]: number | undefined;
 }
-export type TokenType = 
-  | 'PASS_SHORT' | 'PASS_LONG' | 'PASS_BACK' | 'PASS_SWITCH' | 'DRIBBLE' | 'COMBO_PASS' | 'CROSS' | 'THROUGH_BALL' | 'CUT_BACK'
-  | 'SHOOT_GOAL' | 'SHOOT_SAVED' | 'SHOOT_CORNER' | 'SHOOT_OFF_TARGET' | 'SHOOT_WOODWORK' | 'SHOOT_SAVED_CORNER' | 'WOODWORK_OUT'
-  | 'HEAD_PASS' | 'HEAD_SHOT' | 'REBOUND' | 'OWN_GOAL'
-  | 'TACKLE' | 'INTERCEPT' | 'SAVE' | 'BLOCK' | 'CLEARANCE' | 'CLEARANCE_KEEP' | 'CLEARANCE_LOSE' | 'BALL_RECOVERY'
-  | 'DUEL_WON' | 'DUEL_LOST' | 'PRESSING_SUCCESS'
-  | 'PUNCH' | 'CLAIM' | 'SWEEPER_KEEPER' | 'GK_POSSESSION'
-  | 'FATIGUE' | 'ERROR' | 'OFFSIDE' | 'FOUL' | 'FOUL_PENALTY' | 'CARD' | 'FREE_KICK' | 'YELLOW_CARD' | 'RED_CARD' | 'SECOND_YELLOW_CARD' | 'INJURY' | 'STRETCHER'
-  | 'CORNER_GOAL' | 'CORNER_CLEARED' | 'CORNER_SHORT' | 'CORNER_OVERCOOKED'
-  | 'PENALTY_GOAL' | 'PENALTY_SAVED' | 'PENALTY_MISS'
-  | 'GK_SHORT' | 'GK_LONG' | 'GK_BOULETTE'
-  | 'THROW_IN_SAFE' | 'THROW_IN_LOST' | 'THROW_IN_LONG_BOX'
-  | 'FREE_KICK_SHOT' | 'FREE_KICK_CROSS' | 'FREE_KICK_WALL'
-  | 'VAR_CHECK' | 'STALEMATE' | 'ADDED_TIME'
-  | 'NEUTRAL_POSSESSION' | 'SYSTEM';
-
-export type MatchSituation = 'NORMAL' | 'CORNER' | 'PENALTY' | 'FREE_KICK' | 'GOAL_KICK' | 'THROW_IN' | 'KICK_OFF' | 'REBOUND_ZONE' | 'VAR_ZONE';
 
 export interface Token {
   id: string;
-  type: TokenType;
-  ownerId: number;   
-  teamId: number;    
-  quality: number;   
+  type: string;
+  ownerId: number;
+  teamId: number;
   duration: number;
+  position?: string; // Poste du joueur
   metadata?: any;
 }
+
+export type MatchSituation = 'NORMAL' | 'CORNER' | 'PENALTY' | 'FREE_KICK' | 'GOAL_KICK' | 'THROW_IN' | 'KICK_OFF' | 'REBOUND_ZONE' | 'VAR_ZONE' | 'GOAL_HOME' | 'GOAL_AWAY' | 'GOAL_CELEBRATION' | 'KICK_OFF_RESTART';
 
 export interface TokenExecutionResult {
   moveX: number;
@@ -197,8 +183,8 @@ export interface MatchLog {
   teamId?: number;
   possessionTeamId?: number; // Ajout : équipe réellement en possession après l'action
   ballPosition?: GridPosition;
-  bag?: { type: TokenType, teamId: number }[];
-  drawnToken?: { type: TokenType, teamId: number };
+  bag?: { type: string, teamId: number }[];
+  drawnToken?: { type: string, teamId: number, position?: string };
   statImpact?: any;
   zoneInfluences?: Record<string, { homeAtk: number, homeDef: number, awayAtk: number, awayDef: number }>;
 }

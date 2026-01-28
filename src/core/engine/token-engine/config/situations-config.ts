@@ -1,4 +1,4 @@
-import { MatchSituation, TokenType } from "../types";
+import { MatchSituation } from "../types";
 
 /**
  * Configuration des situations spéciales de match.
@@ -131,6 +131,38 @@ export const SET_PIECES_CONFIG: Record<MatchSituation, SpecialSituationConfig> =
     nextSituation: 'NORMAL',
     canScoreDirectly: false,
     narrative: "Vérification VAR en cours..."
+  },
+  'GOAL_HOME': {
+    baseDuration: 0,
+    ballPosition: 'CURRENT',
+    possession: 'CURRENT',
+    nextSituation: 'GOAL_CELEBRATION',
+    canScoreDirectly: false,
+    narrative: "But pour l'équipe à domicile !"
+  },
+  'GOAL_AWAY': {
+    baseDuration: 0,
+    ballPosition: 'CURRENT',
+    possession: 'CURRENT',
+    nextSituation: 'GOAL_CELEBRATION',
+    canScoreDirectly: false,
+    narrative: "But pour l'équipe à l'extérieur !"
+  },
+  'GOAL_CELEBRATION': {
+    baseDuration: 30,
+    ballPosition: 'CENTER',
+    possession: 'CONCEDING_TEAM',
+    nextSituation: 'KICK_OFF_RESTART',
+    canScoreDirectly: false,
+    narrative: "Célébration du but !"
+  },
+  'KICK_OFF_RESTART': {
+    baseDuration: 5,
+    ballPosition: 'CENTER',
+    possession: 'CONCEDING_TEAM',
+    nextSituation: 'NORMAL',
+    canScoreDirectly: false,
+    narrative: "Remise en jeu après le but."
   }
 };
 

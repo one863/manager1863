@@ -4,17 +4,24 @@ interface PitchViewProps {
     displayPos: ReadonlySignal<{ x: number; y: number }>;
     effectiveTeamId: ReadonlySignal<number | undefined>;
     homeTeamId: number;
+    awayTeamId: number;
     currentLog: ReadonlySignal<any>;
 }
 
 const GRASS_STRIPES = [...Array(10)];
 const GRID_CELLS = [...Array(30)];
 
-export default function PitchView({ displayPos, effectiveTeamId, homeTeamId, currentLog }: PitchViewProps) {
+export default function PitchView({ displayPos, effectiveTeamId, homeTeamId, awayTeamId, currentLog }: PitchViewProps) {
     const pos = displayPos.value;
-    const teamId = effectiveTeamId.value;
     const log = currentLog.value;
-    const possessionColor = teamId === homeTeamId ? 'bg-blue-500' : 'bg-orange-500';
+    const teamId = log?.possessionTeamId ?? effectiveTeamId.value;
+    // Correction explicite : bleu pour home, orange pour away
+    let possessionColor = 'bg-gray-400';
+    if (teamId === homeTeamId) possessionColor = 'bg-blue-500';
+    else if (teamId === awayTeamId) possessionColor = 'bg-orange-500';
+
+    // Détection coup d'envoi (KICK_OFF ou KICK_OFF_RESTART)
+    const isKickOffSituation = log?.situation === 'KICK_OFF' || log?.situation === 'KICK_OFF_RESTART' || (log?.text && /coup d'envoi/i.test(log.text));
 
     return (
         <div className="relative w-full max-w-2xl mx-auto aspect-[105/68] bg-emerald-600 border-[3px] border-white/50 shadow-2xl overflow-visible rounded-3xl">
@@ -66,14 +73,14 @@ export default function PitchView({ displayPos, effectiveTeamId, homeTeamId, cur
                                     <div className={`w-5 h-5 ${possessionColor} rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,0,0,0.3)] z-30 flex items-center justify-center`}>
                                         <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
                                     </div>
-                                    {log?.drawnToken && (
+                                    {(log?.drawnToken || isKickOffSituation) && (
                                         <div className={
                                             x === 0 ? "absolute -top-7 left-0 z-50 text-left" :
                                             x === 5 ? "absolute -top-7 right-0 z-50 text-right" :
                                             "absolute -top-7 left-1/2 -translate-x-1/2 z-50"
                                         }>
                                             <div className="bg-slate-900 text-[7px] text-white px-1.5 py-0.5 rounded border border-white/20 font-black uppercase whitespace-nowrap shadow-lg">
-                                                {log.drawnToken.type.split('_').pop()}
+                                                {isKickOffSituation ? 'KICKOFF' : log.drawnToken.type.split('_').pop()}
                                             </div>
                                         </div>
                                     )}

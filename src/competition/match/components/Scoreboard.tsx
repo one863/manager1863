@@ -38,18 +38,9 @@ const isGoalLog = (l: any) =>
 const goalLogs = (logs || []).filter(isGoalLog);
 const homeId = homeTeam?.id;
 const awayId = awayTeam?.id;
-// Score par équipe (tous les logs valides, dédoublonnés par minute/joueur si playerName, sinon par minute seulement)
-const dedupeScore = (arr: any[]) => {
-	const seen = new Set();
-	return arr.filter(e => {
-		const key = (e.playerName || 'X') + '-' + Math.floor(e.time / 60);
-		if (seen.has(key)) return false;
-		seen.add(key);
-		return true;
-	});
-};
-const homeGoals = dedupeScore(goalLogs.filter(l => l.teamId === homeId)).length;
-const awayGoals = dedupeScore(goalLogs.filter(l => l.teamId === awayId)).length;
+// Score par équipe : utiliser directement les signaux homeScore/awayScore
+const homeGoals = homeScore.value;
+const awayGoals = awayScore.value;
 // Buteurs par équipe (playerName ou nom parsé du texte, dédoublonné)
 const extractScorerName = (log: any) => {
 	if (log.playerName && log.playerName !== 'undefined') return log.playerName;

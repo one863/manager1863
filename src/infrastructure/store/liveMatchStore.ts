@@ -10,7 +10,7 @@ interface LiveMatchData {
 	result: any; // Peut être null si la simu n'est pas finie
 	currentTime: number;
     isPaused: boolean;
-    activeTab: "flux" | "2d" | "stats" | "players";
+	activeTab: "highlights" | "live" | "stats" | "players";
 }
 
 interface LiveMatchState {
@@ -26,7 +26,7 @@ interface LiveMatchState {
 		saveId: number,
 		startTime?: number,
         isPaused?: boolean,
-        activeTab?: "flux" | "2d" | "stats" | "players"
+		activeTab?: "highlights" | "live" | "stats" | "players"
 	) => Promise<void>;
 	updateLiveMatchState: (data: Partial<LiveMatchData>, saveId?: number) => Promise<void>;
 	clearLiveMatch: (saveId: number) => Promise<void>;
@@ -46,7 +46,7 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 		saveId,
 		startTime = 0,
         isPaused = true,
-        activeTab = "flux"
+		activeTab = "live"
 	) => {
 		const initialData: LiveMatchData = {
 			matchId,

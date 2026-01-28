@@ -9,6 +9,7 @@ interface MatchControlsProps {
     onStepForward: () => void;
     onSkip: () => void;
     onFinalize: () => void;
+    disableStepBack?: boolean;
 }
 
 export default function MatchControls({
@@ -18,7 +19,8 @@ export default function MatchControls({
     onStepBack,
     onStepForward,
     onSkip,
-    onFinalize
+    onFinalize,
+    disableStepBack = false
 }: MatchControlsProps) {
     const buttonBase = "w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-transform";
     const buttonSecondary = `${buttonBase} bg-white border border-slate-200`;
@@ -26,10 +28,10 @@ export default function MatchControls({
     return (
         <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 p-4 flex items-center justify-between z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-2">
-                <button onClick={onGoToStart} title="Début" className={buttonSecondary}>
+                <button onClick={onGoToStart} title="Début" className={buttonSecondary} disabled={disableStepBack}>
                     <StepBack size={20} /><StepBack size={20} className="-ml-3" />
                 </button>
-                <button onClick={onStepBack} title="Log précédent" className={buttonSecondary}>
+                <button onClick={onStepBack} title="Log précédent" className={buttonSecondary} disabled={disableStepBack}>
                     <StepBack size={20} />
                 </button>
                 <button 
