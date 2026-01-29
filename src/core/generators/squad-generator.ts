@@ -1,5 +1,5 @@
 import { generatePlayer } from "./players-generator";
-import { getFormationRoles, DEFAULT_FORMATION } from "@/core/engine/token-engine/config/formations-config";
+import { getFormationRoles, DEFAULT_FORMATION } from "@/core/engine/token-engine/formations-config";
 
 /**
  * Génère un effectif complet pour une équipe (22 joueurs)

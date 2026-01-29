@@ -1,19 +1,8 @@
-import i18next from "i18next";
-import en from "../../infrastructure/locales/en.json";
-import fr from "../../infrastructure/locales/fr.json";
-
-// Moteur et Classe Joueur
 import { TokenMatchEngine } from "./token-engine/match-engine";
-import { TokenPlayer } from "./token-engine/token-player";
 
-const initI18n = i18next.init({
-    lng: "fr",
-    fallbackLng: "en",
-    resources: { en: { translation: en }, fr: { translation: fr } },
-    returnObjects: true,
-    interpolation: { escapeValue: false },
-});
-
+/**
+ * Générateur d'ID unique pour les événements du match
+ */
 const generateId = () => {
     try {
         return crypto.randomUUID();
@@ -22,102 +11,111 @@ const generateId = () => {
     }
 };
 
+/**
+ * Exécute une simulation unique et formate les données pour l'UI
+ */
 async function runSimulation(data: any) {
     try {
-        await initI18n;
+        const { matchId, homeName, awayName, homeTeamId, awayTeamId } = data;
 
-        const homeTeamId = data.homeTeamId || 1;
-        const awayTeamId = data.awayTeamId || 2;
+        // 1. Initialisation du moteur
+        const engine = new TokenMatchEngine();
 
-        // --- HYDRATATION DES JOUEURS ---
-        // On transforme les données brutes en instances de classe exploitables par le moteur
-        const homePlayers = (data.homePlayers || []).map((p: any) => new TokenPlayer({ ...p, teamId: homeTeamId }));
-        const awayPlayers = (data.awayPlayers || []).map((p: any) => new TokenPlayer({ ...p, teamId: awayTeamId }));
-        
-        const allPlayers = [...homePlayers, ...awayPlayers];
+        // 2. Lancement de la simulation avec les paramètres reçus
+        const engineResult = engine.simulateMatch(5400, {
+            homeName: homeName || "Domicile",
+            awayName: awayName || "Extérieur"
+        });
 
-        // --- INITIALISATION MOTEUR ---
-        // On passe les instances de joueurs au moteur (nécessite le constructeur mis à jour)
-        const engine = new TokenMatchEngine(homeTeamId, awayTeamId, allPlayers);
-        const engineResult = engine.simulateMatch();
-        
-        const rawLogs = engineResult.events;
+        // 3. Extraction et formatage des événements de but
         const goalEvents: any[] = [];
+        const formattedEvents = engineResult.events.map((evt: any) => {
+            const minute = Math.floor(evt.time / 60);
 
-        const formattedEvents = rawLogs.map((evt: any) => {
-            const isHome = evt.teamId === homeTeamId;
-            let type = "highlight";
-            
-            if (evt.eventSubtype === "GOAL") {
-                type = "GOAL";
+            // bag JSON safe : [{id, type, teamId}, ...]
+            let bag = Array.isArray(evt.bag)
+                ? evt.bag.map((t: any) => ({ id: t.id, type: t.type, teamId: t.teamId }))
+                : [];
+
+            // drawnToken = le jeton effectivement tiré (celui du log)
+            let drawnToken = evt.token ? { id: evt.token.id, type: evt.token.type, teamId: evt.token.teamId } : null;
+
+            if (evt.type === "GOAL") {
                 goalEvents.push({
-                    minute: Math.floor(evt.time / 60),
+                    minute: minute,
                     teamId: evt.teamId,
-                    scorerName: evt.playerName || 'Joueur'
+                    scorerName: evt.scorer?.name || "Joueur"
                 });
-            } else if (evt.eventSubtype === "SHOT") type = "SHOT";
-              else if (evt.eventSubtype === "FOUL") type = "CARD";
-              else if (evt.eventSubtype === "CORNER") type = "CORNER";
+            }
 
             return {
                 id: generateId(),
-                matchId: data.matchId,
-                minute: Math.floor(evt.time / 60),
+                matchId: matchId,
+                minute: minute,
                 second: evt.time % 60,
-                type: type,
+                type: evt.type,
                 description: evt.text,
-                text: evt.text,
                 teamId: evt.teamId,
-                isHome: isHome,
-                scorerName: type === "GOAL" ? (evt.playerName || 'Joueur') : undefined
+                ballPosition: evt.ballPosition,
+                situation: evt.situation,
+                bag,
+                drawnToken
             };
         });
 
+        // 4. Retour des résultats complets
         return {
-            matchId: data.matchId,
-            homeTeamId: homeTeamId,
-            awayTeamId: awayTeamId,
-            homeName: data.homeName || "Home",
-            awayName: data.awayName || "Away",
+            matchId: matchId,
+            homeTeamId: homeTeamId || 1,
+            awayTeamId: awayTeamId || 2,
+            homeName: homeName || "Domicile",
+            awayName: awayName || "Extérieur",
             homeScore: engineResult.homeScore,
             awayScore: engineResult.awayScore,
             events: formattedEvents,
-            debugLogs: engineResult.events, // Contient les bags avec IDs stables
-            // ballHistory et ratings ne sont pas présents dans engineResult, donc on les retire
-            stats: { shots: {}, xg: {} },
             scorers: goalEvents,
-            stoppageTime: 4
+            stats: {
+                shots: { home: 0, away: 0 }, // Tu pourras incrémenter cela plus tard
+                possession: { home: 50, away: 50 }
+            }
         };
 
-    } catch (err: any) {
+    } catch (err) {
         console.error("Worker Simulation Error:", err);
         throw err;
     }
 }
 
+/**
+ * Gestionnaire de messages entrant
+ */
 self.onmessage = async (e: MessageEvent) => {
     const { type, payload } = e.data;
-    try {
-        await initI18n;
-        if (payload?.language && i18next.language !== payload.language) await i18next.changeLanguage(payload.language);
 
+    try {
         switch (type) {
+            case "SIMULATE_MATCH": {
+                const result = await runSimulation(payload);
+                self.postMessage({ 
+                    type: "MATCH_COMPLETE", 
+                    payload: { result, requestId: payload.requestId } 
+                });
+                break;
+            }
             case "SIMULATE_BATCH": {
                 const results = [];
                 for (const matchData of payload.matches) {
                     const result = await runSimulation(matchData);
                     results.push({ matchId: matchData.matchId, result });
                 }
-                self.postMessage({ type: "BATCH_COMPLETE", payload: { results, saveId: payload.saveId } });
-                break;
-            }
-            case "SIMULATE_MATCH": {
-                const result = await runSimulation(payload);
-                self.postMessage({ type: "MATCH_COMPLETE", payload: { result, requestId: payload.requestId } });
+                self.postMessage({ 
+                    type: "BATCH_COMPLETE", 
+                    payload: { results, saveId: payload.saveId } 
+                });
                 break;
             }
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error("Worker Global Error:", error);
     }
 };

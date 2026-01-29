@@ -89,10 +89,10 @@ export default defineConfig(({ mode }) => ({
 			"@": path.resolve(__dirname, "./src"),
 		},
 	},
-	test: {
-		globals: true,
-		environment: "happy-dom",
-		setupFiles: ["./src/infrastructure/test/setup.ts"],
-		include: ["src/**/*.{test,spec}.{ts,tsx}"],
-	},
+		test: {
+			globals: true,
+			environment: "happy-dom",
+			setupFiles: ["./src/infrastructure/test/setup.ts"],
+			include: ["src/**/*.{test,spec}.{ts,tsx}", "tests/**/*.{test,spec}.{ts,tsx}"],
+		},
 }));

@@ -1,7 +1,7 @@
 // Ce fichier génère les données d'affichage UI à partir de formations-config.ts
 // Source unique : src/core/engine/token-engine/config/formations-config.ts
 
-import { FORMATIONS as ENGINE_FORMATIONS, ROLE_ZONES, getFormationRoles } from "./engine/token-engine/config/formations-config";
+import { FORMATIONS as ENGINE_FORMATIONS, ROLE_ZONES, getFormationRoles } from "./engine/token-engine/formations-config";
 
 /**
  * Génère les positions visuelles pour une formation à partir des zones du moteur
