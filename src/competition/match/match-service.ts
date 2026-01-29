@@ -127,7 +127,10 @@ export const MatchService = {
         // Selon ta doc : On ne garde QUE les stats/butteurs/notes dans la table matches
         const lightDetails = {
             stats: result.stats,
-            scorers: [...result.homeScorers, ...result.awayScorers],
+            scorers: [
+                ...(Array.isArray(result.homeScorers) ? result.homeScorers : []),
+                ...(Array.isArray(result.awayScorers) ? result.awayScorers : [])
+            ],
             ratings: result.ratings,
             stoppageTime: result.stoppageTime || 0
         };
