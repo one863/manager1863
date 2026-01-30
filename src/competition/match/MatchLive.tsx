@@ -62,6 +62,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     // 2. SYNCHRONISATION INITIALE
     useEffect(() => {
         if (!liveMatch?.result) return;
+        // DEBUG : log du résultat brut reçu du worker
+        console.log('[MatchLive] liveMatch.result', liveMatch.result);
         currentMatchTime.value = liveMatch.currentTime ?? 0;
         isPaused.value = liveMatch.isPaused ?? true;
         

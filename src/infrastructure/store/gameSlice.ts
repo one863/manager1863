@@ -172,7 +172,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             if (!match) throw new Error("Match not found");
 
 
-            await MatchService.saveMatchResult(match, finalResult, currentSaveId, currentDate, true, true);
+            await MatchService.saveMatchResult(match, finalResult, currentSaveId, currentDate);
             await db.gameState.where("saveId").equals(currentSaveId).modify({ liveMatch: null });
             useLiveMatchStore.getState().clearLiveMatch(currentSaveId);
             // Purge immédiate des logs des anciens matchs utilisateur

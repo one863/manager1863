@@ -1,3 +1,10 @@
+// Vérifie si un rôle est actif dans une zone donnée, en tenant compte du sens d'attaque
+export function isRoleActiveInZone(role: string, pos: { x: number, y: number }, isHomeTeam: boolean): boolean {
+  const zonesObj = ROLE_ZONES[role as FormationRole];
+  if (!zonesObj) return false;
+  const x = isHomeTeam ? pos.x : 5 - pos.x;
+  return zonesObj.active.some(({ x: zx, y: zy }) => zx === x && zy === pos.y);
+}
 // formations-config.ts — Strictement typé, minimal, pour moteur zone
 
 export type FormationRole = "GK" | "DEF" | "MID" | "FWD";

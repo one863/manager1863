@@ -6,6 +6,14 @@ export interface Token {
   type: string;
   ownerId: number; // ID du joueur ou 0 pour collectif
   teamId: number;
+  // ID du joueur qui réalise l'action (obligatoire)
+  performerId: number;
+  // ID du deuxième joueur impliqué (optionnel)
+  partnerId?: number;
+  // Catégorie pour les statistiques (optionnel)
+  statCategory?: string;
+  // Chaîne narrative avec placeholders (obligatoire)
+  narrativeTemplate: string;
   // Optionnel : nom du joueur associé à l'action (pour les buts, etc.)
   playerName?: string;
   // Optionnel : identifiant de la zone (ex: '2,2')
