@@ -57,6 +57,13 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 
         // Stockage des logs lourds dans la table dédiée matchLogs
         if (saveId && result) {
+            console.log('[DEBUG][initializeLiveMatch] Ecriture matchLogs', {
+                saveId,
+                matchId,
+                debugLogs: result.debugLogs,
+                events: result.events,
+                ballHistory: result.ballHistory
+            });
             await db.matchLogs.put({
                 saveId,
                 matchId,
@@ -118,12 +125,11 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
 
     loadLiveMatchFromDb: async (saveId: number) => {
         const gameState = await db.gameState.where("saveId").equals(saveId).first();
-        
         if (gameState?.liveMatch) {
             const matchId = gameState.liveMatch.matchId;
             // On récupère les logs lourds supprimés du gameState pour reconstruire l'objet complet
             const logs = await db.matchLogs.where({ saveId, matchId }).first();
-            
+            console.log('[DEBUG][loadLiveMatchFromDb] Lecture matchLogs', { saveId, matchId, logs });
             const fullMatchData: LiveMatchData = {
                 ...gameState.liveMatch,
                 result: {
@@ -133,7 +139,6 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
                     ballHistory: logs?.ballHistory || []
                 }
             };
-            
             set({ liveMatch: fullMatchData });
         }
     }

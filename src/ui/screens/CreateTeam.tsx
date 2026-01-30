@@ -126,6 +126,15 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 					throw new Error("Impossible de créer l'équipe utilisateur");
 				}
 
+				console.log('[DEBUG] Avant ajout gameState', {
+					saveId: saveId as number,
+					currentDate: startDate,
+					season: 1,
+					day: 1,
+					userTeamId: finalUserTeamId,
+					isGameOver: false,
+					liveMatch: null
+				});
 				await db.gameState.add({
 					saveId: saveId as number,
 					currentDate: startDate,
@@ -135,6 +144,10 @@ export default function CreateTeam({ onGameCreated, onCancel }: CreateTeamProps)
 					isGameOver: false,
 					liveMatch: null
 				});
+				console.log('[DEBUG] Après ajout gameState');
+			}).catch((err) => {
+				console.error('[ERREUR TRANSACTION GAMESTATE]', err);
+				alert('Erreur lors de la création de la sauvegarde : ' + (err?.message || err));
 			});
 
 			// Initialisation du store et passage à la suite

@@ -213,7 +213,12 @@ export const ClubService = {
 	},
 
 	async processSuspensions(saveId: number, teamId: number) {
-		const players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
+		let players = [];
+		try {
+			players = await db.players.where("[saveId+teamId]").equals([saveId, teamId]).toArray();
+		} catch (err) {
+			throw err;
+		}
 		for (const player of players) {
 			if (player.suspensionMatches > 0) {
 				const playerUpdate = validateOrThrow(
@@ -221,7 +226,11 @@ export const ClubService = {
 					{ suspensionMatches: player.suspensionMatches - 1 },
 					"ClubService.processSuspensions",
 				);
-				await db.players.update(player.id!, playerUpdate as any);
+				try {
+					await db.players.update(player.id!, playerUpdate as any);
+				} catch (err) {
+					throw err;
+				}
 			}
 		}
 	},

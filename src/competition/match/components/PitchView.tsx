@@ -22,7 +22,6 @@ export default function PitchView({
     previousLog,
     possession
 }: PitchViewProps) {
-    
     // Extraction des valeurs des Signals
     const pos = displayPos.value;
     const log = currentLog.value;
@@ -44,13 +43,24 @@ export default function PitchView({
         log?.situation === 'KICK_OFF_RESTART' || 
         (log?.text && /coup d'envoi/i.test(log.text));
 
-    const drawnToken = log?.drawnToken || log?.token;
+    // On veut afficher le tirage du sac N-1 (log précédent)
+    const drawnToken = prevLog?.drawnToken || prevLog?.token;
     const tokenLabel = drawnToken?.type || drawnToken?.action || "Action";
     const showDrawnToken = !!drawnToken && !isKickOffSituation;
 
+    // Couleur dynamique du badge selon le token tiré (home/away)
+    let badgeColor = 'bg-slate-400 text-white border-slate-300';
+    if (isKickOffSituation) {
+        badgeColor = 'bg-slate-900 text-white border-white/50';
+    } else {
+        // Couleur du badge = couleur de l'équipe qui a la possession
+        badgeColor = isHomePossession
+            ? 'bg-blue-600 text-white border-blue-400'
+            : 'bg-orange-500 text-white border-orange-300';
+    }
+
     return (
         <div className="relative w-full max-w-2xl mx-auto aspect-[105/68] bg-emerald-600 border-[3px] border-white/40 shadow-2xl overflow-hidden rounded-3xl">
-            
             {/* Pelouse (Zébrure) */}
             <div className="absolute inset-0 flex z-0">
                 {GRASS_STRIPES.map((_, i) => (
@@ -74,33 +84,27 @@ export default function PitchView({
             <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-30">
                 {GRID_CELLS.map((_, i) => {
                     const x = i % 6;
-                    const y = Math.floor(i / 6);
-                    const hasBall = pos.x === x && pos.y === y;
-                    
+                    // Inversion de l'axe Y pour avoir (0,0) en bas à gauche
+                    const y = 4 - Math.floor(i / 6);
+                    const inGrid = pos.x >= 0 && pos.x <= 5 && pos.y >= 0 && pos.y <= 4;
+                    // Inversion de l'axe Y pour l'affichage : yAffiche = 4 - pos.y
+                    const yAffiche = 4 - pos.y;
+                    const hasBall = inGrid && pos.x === x && yAffiche === y;
+                    // ...
                     return (
                         <div key={i} className="relative flex items-center justify-center border border-white/5">
                             {hasBall && (
                                 <div className="relative flex flex-col items-center justify-center transition-all duration-500 ease-out">
-                                    
                                     {/* Aura de possession animée */}
                                     <div className={`absolute w-10 h-10 ${possessionColor} opacity-30 rounded-full animate-ping`} />
-                                    
                                     {/* Le Ballon */}
                                     <div className={`w-4 h-4 ${possessionColor} rounded-full border-2 border-white shadow-xl z-30 flex items-center justify-center transition-colors duration-300`}>
                                         <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
                                     </div>
-
                                     {/* Badge Action Dynamique */}
                                     {(showDrawnToken || isKickOffSituation) && (
-                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                            <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase whitespace-nowrap shadow-xl border-2 tracking-tighter
-                                                ${isKickOffSituation 
-                                                    ? 'bg-slate-900 text-white border-white/50' 
-                                                    : isHomePossession 
-                                                        ? 'bg-blue-600 text-white border-blue-400' 
-                                                        : 'bg-orange-500 text-white border-orange-300'
-                                                }`}
-                                            >
+                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                            <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase whitespace-nowrap shadow-xl border-2 tracking-tighter ${badgeColor}`}>
                                                 {isKickOffSituation ? "KICKOFF" : tokenLabel}
                                             </div>
                                             {/* Petite flèche sous le badge */}

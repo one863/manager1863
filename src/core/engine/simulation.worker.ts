@@ -75,9 +75,11 @@ async function runSimulation(data: any) {
             events: formattedEvents,
             scorers: goalEvents,
             stats: {
-                shots: { home: 0, away: 0 }, // Tu pourras incrémenter cela plus tard
+                shots: { home: 0, away: 0 },
                 possession: { home: 50, away: 50 }
-            }
+            },
+            debugLogs: engineResult.logs || [],
+            ballHistory: engineResult.ballHistory || []
         };
 
     } catch (err) {

@@ -26,6 +26,7 @@ type TabId = typeof TABS[number]['id'];
 
 const cleanText = (text?: string) => text?.replace(/undefined|Collectif/g, "L'équipe") || '...';
 
+
 export default function MatchLive({ onShowReport }: { onShowReport?: (id: number) => void }) {
     const finalizeLiveMatch = useGameStore((s) => s.finalizeLiveMatch);
     const currentSaveId = useGameStore((s) => s.currentSaveId);
@@ -39,13 +40,24 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentLogIndex = useSignal(0);
     const [activeTab, setActiveTab] = useState<TabId>("live");
 
-    // 1. CHARGEMENT INITIAL
+    // 1. CHARGEMENT INITIAL ROBUSTE + LOGS DEBUG
     useEffect(() => {
-        if (!hasLoaded.current && !liveMatch && currentSaveId) {
-            hasLoaded.current = true;
+        if (!currentSaveId) return;
+        if (liveMatch && liveMatch.matchId) return;
+        loadLiveMatchFromDb(currentSaveId);
+    }, [currentSaveId]);
+
+    useEffect(() => {
+        if (!currentSaveId || (liveMatch && liveMatch.matchId)) return;
+        const timeout = setTimeout(() => {
             loadLiveMatchFromDb(currentSaveId);
-        }
-    }, [currentSaveId, liveMatch, loadLiveMatchFromDb]);
+        }, 1000);
+        return () => clearTimeout(timeout);
+    }, [currentSaveId, liveMatch]);
+
+    useEffect(() => {
+        // ...
+    }, [liveMatch]);
 
     // 2. SYNCHRONISATION INITIALE
     useEffect(() => {
@@ -96,7 +108,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
    // Dans MatchLive.tsx
 
 const handleFinalize = useCallback(async () => {
-    console.log("Tentative de finalisation...", { matchId, hasResult: !!result });
+    // ...
 
     if (!result || !matchId) {
         console.error("Finalisation impossible : Données manquantes", { result, matchId });
@@ -104,18 +116,21 @@ const handleFinalize = useCallback(async () => {
     }
 
     try {
+        // Vérification que le match existe bien en DB avant finalisation
+        const matchInDb = await import("@/core/db/db").then(m => m.db.matches.get(matchId));
+        if (!matchInDb) {
+            console.error("Finalisation impossible : Match non trouvé en base", { matchId });
+            alert("Erreur : Match non trouvé en base de données.");
+            return;
+        }
         // 1. Mise à jour de la DB et purge des données de simulation
-        // Cette fonction dans ton gameSlice doit appeler MatchService.saveMatchResult
         await finalizeLiveMatch(result);
-        
         // 2. Nettoyage de l'état live pour éviter les boucles au rechargement
         updateLiveMatchState({ currentTime: 0, isPaused: true }, currentSaveId ?? undefined);
-
         // 3. Navigation vers le rapport
         if (onShowReport) {
             onShowReport(matchId);
         } else {
-            // Fallback si la prop n'est pas passée
             window.location.hash = `/match-report/${matchId}`;
         }
     } catch (error) {
@@ -124,11 +139,15 @@ const handleFinalize = useCallback(async () => {
     }
 }, [result, matchId, finalizeLiveMatch, onShowReport, updateLiveMatchState, currentSaveId]);
 
-    if (!liveMatch?.result) return (
-        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-slate-50">
-            <Loader2 className="animate-spin text-slate-600" />
-        </div>
-    );
+
+    if (!currentSaveId || !liveMatch?.result) {
+        return (
+            <div className="absolute inset-0 z-[200] flex items-center justify-center bg-slate-50">
+                <Loader2 className="animate-spin text-slate-600" />
+                <span className="ml-2 text-slate-500 text-xs">Chargement du match en cours...</span>
+            </div>
+        );
+    }
 
     // Condition de fin pour les contrôles (si le temps est fini OU si on est au dernier log)
     const isActuallyFinished = isFinished.value || currentLogIndex.value >= allLogs.length - 1;
@@ -183,12 +202,28 @@ const handleFinalize = useCallback(async () => {
                 <div className="flex-1 overflow-y-auto pb-24">
                     {activeTab === "live" && (
                         <div className="flex flex-col gap-4">
+                            {/* Sac du présent (N) */}
                             <TokenBagDisplay 
-                                title="Sac actuel" 
+                                title={`Sac actuel (présent) — Log #${stats.currentLog.value ? stats.allLogs.indexOf(stats.currentLog.value) : 0} - #${stats.currentLog.value?.ballPosition ? `${stats.currentLog.value.ballPosition.x},${stats.currentLog.value.ballPosition.y}` : ''}`}
                                 color="blue" 
                                 log={stats.currentLog.value} 
-                                teamId={stats.homeId}
+                                homeTeamId={stats.homeId}
+                                awayTeamId={stats.awayId}
+                                highlightTokenId={null}
+                                drawnTokenId={null}
                             />
+                            {/* Sac du passé (N-1) */}
+                            {stats.previousLog.value && (
+                                <TokenBagDisplay 
+                                    title={`Sac précédent (passé) — Log #${stats.previousLog.value ? stats.allLogs.indexOf(stats.previousLog.value) : 0} - #${stats.previousLog.value?.ballPosition ? `${stats.previousLog.value.ballPosition.x},${stats.previousLog.value.ballPosition.y}` : ''}`}
+                                    color="orange" 
+                                    log={stats.previousLog.value} 
+                                    homeTeamId={stats.homeId}
+                                    awayTeamId={stats.awayId}
+                                    highlightTokenId={stats.currentLog.value?.drawnToken?.id || null}
+                                    drawnTokenId={stats.currentLog.value?.drawnToken?.id || null}
+                                />
+                            )}
                             <div className="p-3 bg-white rounded-xl border border-slate-100 flex items-start gap-3">
                                 <MessageSquare size={14} className="text-slate-400 mt-0.5" />
                                 <p className="text-xs text-slate-600 italic leading-relaxed">
@@ -217,14 +252,15 @@ const handleFinalize = useCallback(async () => {
     );
 }
 
-function TokenBagDisplay({ title, color, log, teamId }: any) {
+function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, highlightTokenId, drawnTokenId }: any) {
+        // Debug : afficher la structure des jetons du sac
+        // ...
     const bag = log?.bag || log?.tokens || log?.availableTokens || [];
     const colorClass = color === 'blue' ? 'text-blue-600 bg-blue-50' : 'text-orange-600 bg-orange-50';
-    
     return (
         <div className="bg-white rounded-2xl p-4 border border-slate-100">
             <div className="flex items-center justify-between mb-3">
-                <h3 className={`text-[10px] font-black uppercase flex items-center gap-2 ${colorClass.split(' ')[0]}`}>
+                <h3 className={`text-[10px] font-black uppercase flex items-center gap-2 ${colorClass.split(' ')[0]}`}> 
                     <Package size={14} /> {title}
                 </h3>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${colorClass}`}>
@@ -232,18 +268,33 @@ function TokenBagDisplay({ title, color, log, teamId }: any) {
                 </span>
             </div>
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {bag.map((token: any) => (
-                    <div 
-                        key={token.id}
-                        className={`px-2 py-1 rounded text-[9px] font-bold border ${
-                            String(token.teamId) === String(teamId) 
-                            ? 'bg-blue-600 text-white border-blue-400' 
-                            : 'bg-orange-500 text-white border-orange-300'
-                        }`}
-                    >
-                        {token.type}
-                    </div>
-                ))}
+                {bag.map((token: any) => {
+                    // Correction : si le jeton n'a pas de teamId, on lui attribue homeTeamId
+                    let teamId = token.teamId;
+                    if (!teamId || (teamId !== homeTeamId && teamId !== awayTeamId)) {
+                        // Fallback : si le jeton n'a pas d'équipe, on utilise la possession du log
+                        teamId = log?.possessionTeamId ?? homeTeamId;
+                    }
+                    const isHome = String(teamId) === String(homeTeamId);
+                    const isAway = String(teamId) === String(awayTeamId);
+                    const isDrawn = drawnTokenId && token.id === drawnTokenId;
+                    let tokenClass = 'bg-slate-200 text-slate-700 border-slate-300';
+                    if (isDrawn) {
+                        tokenClass = 'bg-green-500 text-white border-green-700 scale-110 shadow-lg';
+                    } else if (isHome) {
+                        tokenClass = 'bg-blue-600 text-white border-blue-400';
+                    } else if (isAway) {
+                        tokenClass = 'bg-orange-500 text-white border-orange-300';
+                    }
+                    return (
+                        <div 
+                            key={token.id}
+                            className={`px-2 py-1 rounded text-[9px] font-bold border transition-all duration-200 ${tokenClass}`}
+                        >
+                            {token.type}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

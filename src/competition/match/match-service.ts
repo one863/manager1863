@@ -47,31 +47,38 @@ export const MatchService = {
     },
 
     async simulateDayByDay(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
-        const todaysMatches = await db.matches.where("[saveId+day]").equals([saveId, day]).toArray();
-        const userMatch = todaysMatches.find((m) => (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) && !m.played);
-        const otherMatches = todaysMatches.filter((m) => !m.played && m.homeTeamId !== userTeamId && m.awayTeamId !== userTeamId);
-        
-        const allPlayers = await db.players.where("saveId").equals(saveId).toArray();
-        const playersByTeam = allPlayers.reduce((acc, player) => {
-            if (!acc[player.teamId]) acc[player.teamId] = [];
-            acc[player.teamId].push(player); 
-            return acc;
-        }, {} as Record<number, Player[]>);
+        let userMatch: any = null;
+        let otherMatches: any[] = [];
+        let playersByTeam: Record<number, Player[]> = {};
+        try {
+            const todaysMatches = await db.matches.where("[saveId+day]").equals([saveId, day]).toArray();
+            userMatch = todaysMatches.find((m) => (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) && !m.played);
+            otherMatches = todaysMatches.filter((m) => !m.played && m.homeTeamId !== userTeamId && m.awayTeamId !== userTeamId);
+            
+            const allPlayers = await db.players.where("saveId").equals(saveId).toArray();
+            playersByTeam = allPlayers.reduce((acc, player) => {
+                if (!acc[player.teamId]) acc[player.teamId] = [];
+                acc[player.teamId].push(player); 
+                return acc;
+            }, {} as Record<number, Player[]>);
 
-        // 1. Lancement des matchs IA (Batch)
-        if (otherMatches.length > 0) {
-            const batchPayload = await Promise.all(otherMatches.map(async (m) => {
-                const [hT, aT] = await Promise.all([db.teams.get(m.homeTeamId), db.teams.get(m.awayTeamId)]);
-                return {
-                    matchId: m.id,
-                    homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
-                    homePlayers: playersByTeam[m.homeTeamId] || [],
-                    awayPlayers: playersByTeam[m.awayTeamId] || [],
-                    homeName: hT?.name, awayName: aT?.name,
-                    hTactic: hT?.tacticType, aTactic: aT?.tacticType
-                };
-            }));
-            this.runBatchSimulation(batchPayload, saveId, date);
+            // 1. Lancement des matchs IA (Batch)
+            if (otherMatches.length > 0) {
+                const batchPayload = await Promise.all(otherMatches.map(async (m) => {
+                    const [hT, aT] = await Promise.all([db.teams.get(m.homeTeamId), db.teams.get(m.awayTeamId)]);
+                    return {
+                        matchId: m.id,
+                        homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
+                        homePlayers: playersByTeam[m.homeTeamId] || [],
+                        awayPlayers: playersByTeam[m.awayTeamId] || [],
+                        homeName: hT?.name, awayName: aT?.name,
+                        hTactic: hT?.tacticType, aTactic: aT?.tacticType
+                    };
+                }));
+                await this.runBatchSimulation(batchPayload, saveId, date);
+            }
+        } catch (err) {
+            throw err;
         }
 
         // 2. Traitement du match utilisateur
@@ -85,13 +92,14 @@ export const MatchService = {
                 homeName: homeT?.name, awayName: awayT?.name
             }, i18next.language);
 
-            // --- NOUVEAU : Stockage temporaire des logs pour le Live ---
+            // --- Stockage temporaire des logs pour le Live ---
             await db.matchLogs.put({
                 saveId: saveId,
                 matchId: userMatch.id!,
-                debugLogs: result.debugLogs,
+                debugLogs: result.debugLogs ?? [],
                 events: result.events || [],
-                ballHistory: result.ballHistory || []
+                // Conversion BallPosition[] -> number[] (stockage limité à l'index du temps)
+                ballHistory: Array.isArray(result.ballHistory) ? result.ballHistory.map(b => b.timestamp) : []
             });
 
             return { matchId: userMatch.id!, homeTeam: homeT, awayTeam: awayT, result };
@@ -99,25 +107,38 @@ export const MatchService = {
         return null;
     },
 
-    runBatchSimulation(matches: any[], saveId: number, date: Date) {
-        simulationWorker.postMessage({ 
-            type: "SIMULATE_BATCH", 
-            payload: { matches, saveId, language: i18next.language } 
-        });
+    async runBatchSimulation(matches: any[], saveId: number, date: Date) {
+        return new Promise<void>((resolve) => {
+            simulationWorker.postMessage({ 
+                type: "SIMULATE_BATCH", 
+                payload: { matches, saveId, language: i18next.language } 
+            });
 
-        const handler = async (e: MessageEvent) => {
-            const { type, payload } = e.data;
-            if (type === "BATCH_COMPLETE" && payload.saveId === saveId) {
-                simulationWorker.removeEventListener("message", handler);
-                await db.transaction('rw', [db.matches, db.teams, db.news], async () => {
-                    for (const res of payload.results) {
-                        const m = await db.matches.get(res.matchId);
-                        if (m && !m.played) await this.saveMatchResult(m, res.result, saveId, date, false);
+            const handler = async (e: MessageEvent) => {
+                const { type, payload } = e.data;
+                if (type === "BATCH_COMPLETE" && payload.saveId === saveId) {
+                    simulationWorker.removeEventListener("message", handler);
+                    // 1. Effectuer les updates transactionnelles (matches, teams, news)
+                    const updatedMatches: {match: any, result: any}[] = [];
+                    await db.transaction('rw', [db.matches, db.teams, db.news], async () => {
+                        for (const res of payload.results) {
+                            const m = await db.matches.get(res.matchId);
+                            if (m && !m.played) {
+                                await this.saveMatchResult(m, res.result, saveId, date, false);
+                                updatedMatches.push({ match: m, result: res.result });
+                            }
+                        }
+                    });
+                    // 2. Appeler processSuspensions en dehors de la transaction
+                    for (const { match } of updatedMatches) {
+                        await ClubService.processSuspensions(saveId, match.homeTeamId);
+                        await ClubService.processSuspensions(saveId, match.awayTeamId);
                     }
-                });
-            }
-        };
-        simulationWorker.addEventListener("message", handler);
+                    resolve();
+                }
+            };
+            simulationWorker.addEventListener("message", handler);
+        });
     },
 
     /**
@@ -125,29 +146,41 @@ export const MatchService = {
      */
     async saveMatchResult(match: Match, result: MatchResult, saveId: number, date: Date, generateNews = true) {
         // Selon ta doc : On ne garde QUE les stats/butteurs/notes dans la table matches
-        const lightDetails = {
+        const lightDetails: MatchResult = {
+            matchId: match.id!,
+            homeTeamId: match.homeTeamId,
+            awayTeamId: match.awayTeamId,
+            homeScore: result.homeScore,
+            awayScore: result.awayScore,
+            events: [], // on ne stocke pas les events ici
             stats: result.stats,
-            scorers: [
-                ...(Array.isArray(result.homeScorers) ? result.homeScorers : []),
-                ...(Array.isArray(result.awayScorers) ? result.awayScorers : [])
-            ],
-            ratings: result.ratings,
-            stoppageTime: result.stoppageTime || 0
+            ballHistory: [], // pas de ballHistory ici
+            debugLogs: undefined,
+            stoppageTime: result.stoppageTime || 0,
+            scorers: result.scorers ?? [],
+            ratings: result.ratings ?? []
         };
 
-        await db.matches.update(match.id!, { 
-            homeScore: result.homeScore, 
-            awayScore: result.awayScore, 
-            played: true, 
-            details: lightDetails // ❌ debugLogs, events, ballHistory exclus
-        });
+        try {
+            await db.matches.update(match.id!, { 
+                homeScore: result.homeScore, 
+                awayScore: result.awayScore, 
+                played: true, 
+                details: lightDetails // debugLogs, events, ballHistory exclus
+            });
+        } catch (err) {
+            throw err;
+        }
 
-        await Promise.all([
-            this.updateTeamStats(match.homeTeamId, result.homeScore, result.awayScore), 
-            this.updateTeamStats(match.awayTeamId, result.awayScore, result.homeScore),
-            ClubService.processSuspensions(saveId, match.homeTeamId), 
-            ClubService.processSuspensions(saveId, match.awayTeamId)
-        ]);
+        try {
+            await Promise.all([
+                this.updateTeamStats(match.homeTeamId, result.homeScore, result.awayScore), 
+                this.updateTeamStats(match.awayTeamId, result.awayScore, result.homeScore)
+            ]);
+        } catch (err) {
+            throw err;
+        }
+        // ⚠️ L'appel à ClubService.processSuspensions doit être fait explicitement APRÈS saveMatchResult, hors de toute transaction Dexie.
 
         if (generateNews) {
             await NewsService.generateMatchNews(saveId, date, match.homeTeamId, match.awayTeamId, result.homeScore, result.awayScore);
@@ -170,7 +203,7 @@ export const MatchService = {
             goalsFor: (team.goalsFor || 0) + goalsFor,
             goalsAgainst: (team.goalsAgainst || 0) + goalsAgainst,
             goalDifference: (team.goalsFor || 0) + goalsFor - ((team.goalsAgainst || 0) + goalsAgainst),
-        }, "MatchService.updateTeamStats");
+        }, "MatchService.updateTeamStats") as Partial<typeof team>;
 
         await db.teams.update(teamId, update);
     },
@@ -222,7 +255,6 @@ export const MatchService = {
      */
     async clearLiveMatchLogs(saveId: number, matchId: number) {
         await db.matchLogs.where({ saveId, matchId }).delete();
-        console.log(`[Nettoyage] matchLogs supprimés pour le match ${matchId}`);
     },
 
     /**

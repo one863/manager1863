@@ -16,14 +16,17 @@ export function getKickoffEvent(team: 'home' | 'away'): {
   ballPosition: { x: number; y: number };
   possessionTeam: 'home' | 'away';
 } {
+  const pos = team === 'home' ? { x: 2, y: 2 } : { x: 3, y: 2 };
+  console.log(`[DEBUG][getKickoffEvent] team: ${team} ballPosition: x=${pos.x}, y=${pos.y}`);
+  const zone = team === 'home' ? '2,2' : '3,2';
   return {
     bag: [
-      { id: 'ko1', type: 'PASS_SHORT', teamId: team === 'home' ? 1 : 2, ownerId: 0 },
-      { id: 'ko2', type: 'PASS_LATERAL', teamId: team === 'home' ? 1 : 2, ownerId: 0 }
+      { id: 'ko1', type: 'PASS_SHORT', teamId: team === 'home' ? 1 : 2, ownerId: 0, zone },
+      { id: 'ko2', type: 'PASS_LATERAL', teamId: team === 'home' ? 1 : 2, ownerId: 0, zone }
     ],
     text: `Coup d'envoi pour l'équipe ${team === 'home' ? 'domicile' : 'extérieure'}.`,
-    // Position de coup d'envoi : centrer pour home sur 2,2 ; pour away sur 3,3
-    ballPosition: team === 'home' ? { x: 2, y: 2 } : { x: 3, y: 3 },
+    // Position de coup d'envoi : centrer pour home sur 2,2 ; pour away sur 3,2
+    ballPosition: pos,
     possessionTeam: team
   };
 }

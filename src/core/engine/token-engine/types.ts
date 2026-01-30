@@ -5,6 +5,10 @@ export interface Token {
   type: string;
   ownerId: number; // ID du joueur ou 0 pour collectif
   teamId: number;
+  // Optionnel : nom du joueur associé à l'action (pour les buts, etc.)
+  playerName?: string;
+  // Optionnel : identifiant de la zone (ex: '2,2')
+  zone?: string;
 }
 
 // Interface complète pour un log d'événement de match, utilisée pour l'export Worker/UI
@@ -30,4 +34,13 @@ export interface MatchLog {
     possessionTeamId: string | number;
     bag: Token[];
     drawnToken: Token;
+    // Optionnel : événement de match structuré (pour les buts, etc.)
+    matchEvent?: {
+      type: string;
+      scorerId?: string | number;
+      scorerName?: string;
+      assistId?: string | number;
+      assistName?: string;
+      [key: string]: any;
+    };
 }

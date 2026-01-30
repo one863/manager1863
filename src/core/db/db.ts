@@ -12,7 +12,7 @@ export type { League, Match, MatchResult, NewsArticle, Player, Team };
 
 // Inscription de la nouvelle version pour supporter Condition, Moral et Potentiel persistants
 // Version 21: Ajout table matchLogs séparée pour les logs de match temporaires
-export const CURRENT_DATA_VERSION = 21; 
+export const CURRENT_DATA_VERSION = 30; 
 
 export interface SaveSlot {
 	id?: number;
@@ -87,8 +87,15 @@ export class AppDatabase extends Dexie {
 
 	constructor() {
 		super("Manager1863DB");
-		
-		this.version(CURRENT_DATA_VERSION).stores({
+
+		const dbName = "Manager1863DB";
+
+		// Patch auto : suppression si version incompatible (dev uniquement)
+		if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+			// Patch auto désactivé : suppression manuelle recommandée lors d'un changement de schéma.
+		}
+
+		const stores = {
 			saveSlots: "++id, lastPlayedDate", 
 			gameState: "++id, saveId", 
 			leagues: "++id, saveId",
@@ -98,13 +105,30 @@ export class AppDatabase extends Dexie {
 			news: "++id, saveId, day, [saveId+day]",
 			staff: "++id, saveId, teamId, [saveId+teamId]",
 			history: "++id, saveId, teamId",
-            backups: "++id, saveId, timestamp, [saveId+timestamp]",
-            matchLogs: "++id, saveId, matchId, [saveId+matchId]"
-		});
+			backups: "++id, saveId, timestamp, [saveId+timestamp]",
+			matchLogs: "++id, saveId, matchId, [saveId+matchId]"
+		};
+		this.version(CURRENT_DATA_VERSION).stores(stores);
 	}
 }
 
 export const db = new AppDatabase();
+
+// Test d'accès réel à la base et à la table players
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+	(async () => {
+		try {
+			const testPlayer = { id: 999999, saveId: -1, teamId: -1, firstName: "Test", lastName: "Player", role: "TEST", skill: 0, wage: 0, age: 0, dna: "", stats: {}, confidence: 0, joinedDay: 0, joinedSeason: 0 };
+			await db.players.put(testPlayer);
+			const found = await db.players.get(999999);
+			if (found) {
+				await db.players.delete(999999);
+			}
+		} catch (err) {
+			// Suppression des logs de test
+		}
+	})();
+}
 
 export async function persistStorage() {
   if (navigator.storage && navigator.storage.persist) {

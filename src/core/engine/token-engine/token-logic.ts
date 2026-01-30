@@ -6,15 +6,16 @@ function rnd(min: number, max: number) {
 
 export const TOKEN_LOGIC = {
   // --- CONSTRUCTION ---
-  'PASS_SHORT': (t: Token, p: string, h: boolean) => ({
-    moveX: h ? 1 : -1, moveY: rnd(-1, 1),
+  'PASS_SHORT': (t: Token, p: string, h: boolean, b: { y: number }) => ({
+    moveX: h ? 1 : -1,
+    moveY: b.y === 0 ? rnd(0, 1) : b.y === 4 ? rnd(-1, 0) : rnd(-1, 1),
     logMessage: `${p} assure une passe courte.`,
     customDuration: 4
   }),
 
   'PASS_LATERAL': (t: Token, p: string, h: boolean, b: { y: number }) => ({
-    moveX: 0, 
-    moveY: b.y <= 1 ? 1 : (b.y >= 3 ? -1 : (Math.random() > 0.5 ? 1 : -1)),
+    moveX: 0,
+    moveY: b.y === 0 ? rnd(0, 1) : b.y === 4 ? rnd(-1, 0) : (Math.random() > 0.5 ? 1 : -1),
     logMessage: `${p} écarte le jeu sur l'aile.`,
     customDuration: 5
   }),
@@ -23,6 +24,7 @@ export const TOKEN_LOGIC = {
   'SHOOT_GOAL': (t: Token, p: string, h: boolean) => ({
     isGoal: true,
     logMessage: `BUT !!! Frappe chirurgicale de ${p} !`,
+    playerName: p,
     customDuration: 15
   }),
 
@@ -45,8 +47,9 @@ export const TOKEN_LOGIC = {
     customDuration: 3
   }),
 
-  'CLEARANCE': (t: Token, p: string, h: boolean) => ({
-    moveX: h ? 2 : -2, moveY: rnd(-1, 1),
+  'CLEARANCE': (t: Token, p: string, h: boolean, b: { y: number }) => ({
+    moveX: h ? 2 : -2,
+    moveY: b.y === 0 ? rnd(0, 1) : b.y === 4 ? rnd(-1, 0) : rnd(-1, 1),
     turnover: true, // Un dégagement rend souvent la balle à l'adversaire ou la met loin
     logMessage: `${p} dégage loin devant !`,
     customDuration: 5

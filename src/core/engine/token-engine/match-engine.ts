@@ -30,7 +30,7 @@ export class TokenMatchEngine {
   private buildBagForZone(x: number, y: number): Token[] {
     const key = `${x},${y}`;
     let zone = ZONES_CONFIG[key] || DEFAULT_ZONE_CONFIG;
-    
+
     // Détermination de qui attaque et qui défend
     const offense = this.possession === 'home' ? zone.offenseTokensHome : zone.offenseTokensAway;
     const defense = this.possession === 'home' ? zone.defenseTokensAway : zone.defenseTokensHome;
@@ -41,13 +41,15 @@ export class TokenMatchEngine {
         id: `off-${idCounter++}-${this.currentTime}`,
         type: t.type ?? 'UNKNOWN',
         teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
-        ownerId: 0
+        ownerId: 0,
+        zone: key
       })),
       ...defense.map((t: any) => ({
         id: `def-${idCounter++}-${this.currentTime}`,
         type: t.type ?? 'UNKNOWN',
         teamId: this.possession === 'home' ? this.awayTeamId : this.homeTeamId,
-        ownerId: 0
+        ownerId: 0,
+        zone: key
       })),
     ];
   }
@@ -76,6 +78,7 @@ export class TokenMatchEngine {
     let pendingKickoff = false;
 
     // 2. Boucle principale de simulation
+    let firstLogBallPosition: BallPosition | null = null;
     while (this.currentTime < matchDuration) {
       let bag: Token[] = [];
       let specialSituation: string | undefined;
@@ -90,8 +93,11 @@ export class TokenMatchEngine {
         // ... (ton code de gestion de séquence ici est très bien structuré)
       } else if (isFirstAction) {
         const ev = getKickoffEvent(kickoffTeam);
+        console.log('[DEBUG][simulateMatch] Coup d\'envoi pour', kickoffTeam, 'ballPosition:', ev.ballPosition);
         bag = ev.bag; specialSituation = 'KICK_OFF'; specialText = ev.text;
         specialBall = ev.ballPosition; specialPoss = ev.possessionTeam;
+        // Force la position du ballon à la zone de coup d'envoi
+        this.ball = { ...ev.ballPosition };
         isFirstAction = false;
       } else if (currentHalf === 1 && this.currentTime >= 2700) {
         // Mi-temps
@@ -110,21 +116,37 @@ export class TokenMatchEngine {
       const token = bag[Math.floor(Math.random() * bag.length)];
       const logicFn = (TOKEN_LOGIC as any)[token.type];
       let rawLog = "";
-
+      let result: any = {};
       if (logicFn) {
-        const result = logicFn(token, "Un joueur", token.teamId === this.homeTeamId, { ...this.ball });
+        result = logicFn(token, "Un joueur", token.teamId === this.homeTeamId, { ...this.ball });
         this.updateMatchState(result, token);
         rawLog = result.logMessage || `Action: ${token.type}`;
         this.currentTime += specialDuration || result.customDuration || 10;
       } else {
         this.currentTime += 10;
       }
+      // Ajoute le nom du buteur dans le log si présent
+      if (result.isGoal && result.playerName) {
+        token.playerName = result.playerName;
+      }
 
       // 4. Enregistrement du log
       this.addLog(specialText || rawLog, teamNames, token, bag, specialSituation, specialBall);
+      // Debug : log la position du ballon du tout premier log
+      if (this.logs.length === 1) {
+        firstLogBallPosition = specialBall || { ...this.ball };
+        if (firstLogBallPosition)
+          console.log(`[DEBUG][simulateMatch] Premier log ballPosition: x=${firstLogBallPosition.x}, y=${firstLogBallPosition.y}`);
+      }
     }
 
-    return { events: this.logs, homeScore: this.homeScore, awayScore: this.awayScore };
+    return {
+      events: this.logs,
+      homeScore: this.homeScore,
+      awayScore: this.awayScore,
+      logs: this.logs, // debugLogs pour le live
+      ballHistory: this.logs.map(l => l.ballPosition) // simple historique des positions
+    };
   }
 
   private resetMatch() {
@@ -156,6 +178,10 @@ export class TokenMatchEngine {
 
   private addLog(text: string, names: any, token: Token, bag: Token[], situation?: string, startBall?: BallPosition) {
     const finalText = text.replace(/L'équipe domicile/g, names.home).replace(/L'équipe extérieure/g, names.away);
+    // Correction : possessionTeamId doit toujours refléter la possession réelle
+    let possessionTeamId: number | string = this.possession === 'home' ? this.homeTeamId : this.awayTeamId;
+    // Fallback si turnover ou situation spéciale
+    if (situation === 'KICK_OFF' && token.teamId) possessionTeamId = token.teamId;
     this.logs.push({
       time: this.currentTime,
       type: finalText.includes("BUT") ? 'GOAL' : 'ACTION',
@@ -166,7 +192,21 @@ export class TokenMatchEngine {
       ballPosition: { ...this.ball },
       startBallPosition: startBall ? { ...startBall } : undefined,
       situation,
-      possessionTeamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId
+      possessionTeamId
     });
+      // Ajoute un événement de but pour le live/highlights si c'est un but
+      let matchEvent = undefined;
+      if (finalText.includes("BUT") || situation === 'GOAL') {
+        matchEvent = {
+          timestamp: this.currentTime,
+          type: 'GOAL',
+          team: token.teamId === this.homeTeamId ? 'HOME' : 'AWAY',
+          teamId: token.teamId,
+          description: finalText,
+          minute: Math.floor(this.currentTime / 60),
+          scorerName: token.playerName || 'Un joueur'
+        };
+      }
+      this.logs[this.logs.length - 1].matchEvent = matchEvent; // Add matchEvent to the last log entry
   }
 }
