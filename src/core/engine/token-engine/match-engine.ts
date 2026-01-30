@@ -98,6 +98,11 @@ export class TokenMatchEngine {
         specialBall = ev.ballPosition; specialPoss = ev.possessionTeam;
         // Force la position du ballon à la zone de coup d'envoi
         this.ball = { ...ev.ballPosition };
+        // Correction : force le teamId du token tiré à possessionTeamId pour le kickoff
+        if (bag.length > 0) {
+          const kickoffTeamId = kickoffTeam === 'home' ? this.homeTeamId : this.awayTeamId;
+          bag[0].teamId = kickoffTeamId;
+        }
         isFirstAction = false;
       } else if (currentHalf === 1 && this.currentTime >= 2700) {
         // Mi-temps
@@ -154,7 +159,12 @@ export class TokenMatchEngine {
     this.currentTime = 0;
     this.homeScore = 0;
     this.awayScore = 0;
-    this.ball = { x: 2, y: 2 };
+    // Initialisation stricte selon l'équipe qui engage
+    if (this.possession === 'home') {
+      this.ball = { x: 2, y: 2 };
+    } else {
+      this.ball = { x: 3, y: 2 };
+    }
   }
 
   private updateMatchState(result: any, token: Token) {
@@ -170,8 +180,22 @@ export class TokenMatchEngine {
     this.ball.y = Math.max(0, Math.min(4, this.ball.y));
 
     // Score et possession
+    // Empêche le but si la balle n'est pas dans une surface
     if (result.isGoal) {
-      token.teamId === this.homeTeamId ? this.homeScore++ : this.awayScore++;
+      if (this.ball.x === 0 || this.ball.x === 5) {
+        token.teamId === this.homeTeamId ? this.homeScore++ : this.awayScore++;
+      } else {
+        // Annule le but si hors surface
+        result.isGoal = false;
+      }
+    }
+    // Repositionnement automatique après un arrêt
+    if (token.type === 'SHOOT_SAVED') {
+      // La balle va dans la surface du gardien
+      this.ball = {
+        x: token.teamId === this.homeTeamId ? 0 : 5,
+        y: 2
+      };
     }
     if (result.turnover) this.possession = this.possession === 'home' ? 'away' : 'home';
   }

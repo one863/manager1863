@@ -16,7 +16,9 @@ export function getKickoffEvent(team: 'home' | 'away'): {
   ballPosition: { x: number; y: number };
   possessionTeam: 'home' | 'away';
 } {
+  // Placement strict sur la ligne médiane
   const pos = team === 'home' ? { x: 2, y: 2 } : { x: 3, y: 2 };
+  // Possession attribuée immédiatement
   console.log(`[DEBUG][getKickoffEvent] team: ${team} ballPosition: x=${pos.x}, y=${pos.y}`);
   const zone = team === 'home' ? '2,2' : '3,2';
   return {
@@ -25,9 +27,8 @@ export function getKickoffEvent(team: 'home' | 'away'): {
       { id: 'ko2', type: 'PASS_LATERAL', teamId: team === 'home' ? 1 : 2, ownerId: 0, zone }
     ],
     text: `Coup d'envoi pour l'équipe ${team === 'home' ? 'domicile' : 'extérieure'}.`,
-    // Position de coup d'envoi : centrer pour home sur 2,2 ; pour away sur 3,2
     ballPosition: pos,
-    possessionTeam: team
+    possessionTeam: team // Possession immédiate
   };
 }
 

@@ -18,7 +18,7 @@ export function getFormationRoles(formation: string): FormationRole[] {
 
 // Pour compatibilité UI (zones fictives par rôle)
 export const ROLE_ZONES: Record<FormationRole, { active: { x: number; y: number }[] }> = {
-  GK: { active: [{ x: 2, y: 4 }] },
+  GK: { active: [{ x: 0, y: 2 }, { x: 5, y: 2 }] },
   DEF: { active: [{ x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 }] },
   MID: { active: [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 }] },
   FWD: { active: [{ x: 2, y: 1 }, { x: 3, y: 1 }] },
