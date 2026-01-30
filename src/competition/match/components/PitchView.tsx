@@ -23,8 +23,12 @@ export default function PitchView({
     possession
 }: PitchViewProps) {
     // Extraction des valeurs des Signals
-    const pos = displayPos.value;
+    let pos = displayPos.value;
+    // Correction visuelle : si KICK_OFF, force la position du ballon au centre
     const log = currentLog.value;
+    if (log?.situation === 'KICK_OFF') {
+        pos = { x: 2, y: 2 };
+    }
     const prevLog = previousLog.value;
     const effectiveId = effectiveTeamId?.value;
     const possessionVals = (possession as any)?.value;
@@ -94,10 +98,10 @@ export default function PitchView({
                             {hasBall && (
                                 <div className="relative flex flex-col items-center justify-center transition-all duration-500 ease-out">
                                     {/* Aura de possession animée */}
-                                    <div className={`absolute w-10 h-10 ${possessionColor} opacity-30 rounded-full animate-ping`} />
+                                    <div className={`absolute w-12 h-12 ${possessionColor} opacity-30 rounded-full animate-ping`} />
                                     {/* Le Ballon */}
-                                    <div className={`w-4 h-4 ${possessionColor} rounded-full border-2 border-white shadow-xl z-30 flex items-center justify-center transition-colors duration-300`}>
-                                        <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
+                                    <div className={`w-6 h-6 ${possessionColor} rounded-full border-2 border-white shadow-xl z-30 flex items-center justify-center transition-colors duration-300`}>
+                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                                     </div>
                                 </div>
                             )}

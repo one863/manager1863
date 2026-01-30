@@ -118,7 +118,54 @@ export const db = new AppDatabase();
 if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
 	(async () => {
 		try {
-			const testPlayer = { id: 999999, saveId: -1, teamId: -1, firstName: "Test", lastName: "Player", role: "TEST", skill: 0, wage: 0, age: 0, dna: "", stats: {}, confidence: 0, joinedDay: 0, joinedSeason: 0 };
+			const testPlayer = {
+				id: 999999,
+				saveId: -1,
+				teamId: -1,
+				firstName: "Test",
+				lastName: "Player",
+				role: "TEST",
+				skill: 0,
+				wage: 0,
+				age: 0,
+				dna: "",
+				position: "MID",
+				side: "C",
+				potential: 0,
+				marketValue: 0,
+				energy: 0,
+				morale: 0,
+				condition: 0,
+				isStarter: false,
+				stats: {
+					technical: 0,
+					finishing: 0,
+					defense: 0,
+					physical: 0,
+					mental: 0,
+					goalkeeping: 0
+				},
+				traits: [],
+				joinedDay: 0,
+				joinedSeason: 0,
+				injuryDays: 0,
+				suspensionMatches: 0,
+				playedThisWeek: false,
+				lastRatings: [],
+				seasonStats: {
+					matches: 0,
+					goals: 0,
+					assists: 0,
+					avgRating: 0,
+					xg: 0,
+					xa: 0,
+					distance: 0,
+					duelsWinRate: 0,
+					passAccuracy: 0
+				},
+				form: 0,
+				formBackground: 0
+			};
 			await db.players.put(testPlayer);
 			const found = await db.players.get(999999);
 			if (found) {
@@ -131,12 +178,12 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
 }
 
 export async function persistStorage() {
-  if (navigator.storage && navigator.storage.persist) {
-    const isPersisted = await navigator.storage.persisted();
-    if (!isPersisted) {
-      await navigator.storage.persist();
-    }
-  }
+	if (navigator.storage && navigator.storage.persist) {
+		const isPersisted = await navigator.storage.persisted();
+		if (!isPersisted) {
+			await navigator.storage.persist();
+		}
+	}
 }
 
 export async function clearAllData() {

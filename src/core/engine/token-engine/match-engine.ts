@@ -22,6 +22,7 @@ export class TokenMatchEngine {
   private possession: 'home' | 'away' = 'home';
   private homeTeamId: number = 1;
   private awayTeamId: number = 2;
+  private lastSituation?: string;
 
   /**
    * Construit le sac de jetons disponibles selon la position de la balle.
@@ -30,6 +31,29 @@ export class TokenMatchEngine {
   private buildBagForZone(x: number, y: number): Token[] {
     const key = `${x},${y}`;
     let zone = ZONES_CONFIG[key] || DEFAULT_ZONE_CONFIG;
+
+    // Filtrage spatial pour l'engagement
+    if (this.lastSituation === 'KICK_OFF') {
+      let kickoffKey = key;
+      if (this.possession === 'home') {
+        kickoffKey = '2,2';
+      } else {
+        kickoffKey = '3,2';
+      }
+      const kickoffZone = ZONES_CONFIG[kickoffKey] || DEFAULT_ZONE_CONFIG;
+      const offense = (this.possession === 'home' ? kickoffZone.offenseTokensHome : kickoffZone.offenseTokensAway)
+        .filter(t => t.type === 'PASS_SHORT' || t.type === 'PASS_BACK');
+      let idCounter = 0;
+      return [
+        ...offense.map((t: any) => ({
+          id: `off-${idCounter++}-${this.currentTime}`,
+          type: t.type ?? 'UNKNOWN',
+          teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
+          ownerId: 0,
+          zone: kickoffKey
+        }))
+      ];
+    }
 
     // Détermination de qui attaque et qui défend
     const offense = this.possession === 'home' ? zone.offenseTokensHome : zone.offenseTokensAway;
@@ -76,6 +100,7 @@ export class TokenMatchEngine {
     let afterGoalSequence: null | { team: 'home' | 'away' } = null;
     let pendingPlacement = false;
     let pendingKickoff = false;
+    this.lastSituation = undefined;
 
     // 2. Boucle principale de simulation
     let firstLogBallPosition: BallPosition | null = null;
@@ -89,30 +114,60 @@ export class TokenMatchEngine {
 
       // Gestion des phases spéciales (Engagements, Mi-temps, Buts)
       if (afterGoalSequence) {
-        // Logique de séquence après but : Célébration -> Placement -> Engagement
-        // ... (ton code de gestion de séquence ici est très bien structuré)
+        // Séquence après but : CELEBRATION -> PLACEMENT -> KICK_OFF
+        if (!pendingPlacement) {
+          const ev = getCelebrationEvent(afterGoalSequence.team);
+          bag = ev.bag; specialSituation = 'CELEBRATION'; specialText = ev.text;
+          specialBall = ev.ballPosition; specialPoss = afterGoalSequence.team;
+          specialDuration = ev.duration;
+          this.ball = { ...ev.ballPosition };
+          pendingPlacement = true;
+          this.lastSituation = 'CELEBRATION';
+        } else if (pendingPlacement && !pendingKickoff) {
+          const nextTeam = afterGoalSequence.team === 'home' ? 'away' : 'home';
+          const ev = getPlacementEvent(nextTeam);
+          bag = ev.bag; specialSituation = 'PLACEMENT'; specialText = ev.text;
+          specialBall = ev.ballPosition; specialPoss = nextTeam;
+          specialDuration = ev.duration;
+          this.ball = { x: 2, y: 2 };
+          pendingKickoff = true;
+          this.lastSituation = 'PLACEMENT';
+        } else if (pendingKickoff) {
+          const nextTeam = afterGoalSequence.team === 'home' ? 'away' : 'home';
+          const ev = getKickoffEvent(nextTeam);
+          bag = ev.bag; specialSituation = 'KICK_OFF'; specialText = ev.text;
+          specialBall = ev.ballPosition; specialPoss = nextTeam;
+          this.ball = { x: 2, y: 2 };
+          afterGoalSequence = null;
+          pendingPlacement = false;
+          pendingKickoff = false;
+          this.lastSituation = 'KICK_OFF';
+        }
       } else if (isFirstAction) {
         const ev = getKickoffEvent(kickoffTeam);
-        console.log('[DEBUG][simulateMatch] Coup d\'envoi pour', kickoffTeam, 'ballPosition:', ev.ballPosition);
         bag = ev.bag; specialSituation = 'KICK_OFF'; specialText = ev.text;
-        specialBall = ev.ballPosition; specialPoss = ev.possessionTeam;
-        // Force la position du ballon à la zone de coup d'envoi
+        specialBall = ev.ballPosition;
+        specialPoss = ev.possessionTeam;
         this.ball = { ...ev.ballPosition };
-        // Correction : force le teamId du token tiré à possessionTeamId pour le kickoff
         if (bag.length > 0) {
           const kickoffTeamId = kickoffTeam === 'home' ? this.homeTeamId : this.awayTeamId;
           bag[0].teamId = kickoffTeamId;
         }
         isFirstAction = false;
+        this.lastSituation = 'KICK_OFF';
       } else if (currentHalf === 1 && this.currentTime >= 2700) {
         // Mi-temps
         const ev = getKickoffEvent(nextKickoffTeam);
         bag = ev.bag; specialSituation = 'KICK_OFF'; specialText = "Début de la seconde mi-temps !";
-        specialBall = ev.ballPosition; specialPoss = ev.possessionTeam;
+        specialBall = ev.ballPosition;
+        specialPoss = ev.possessionTeam;
         currentHalf = 2;
         this.currentTime = 2700;
+        this.ball = { ...ev.ballPosition };
+        this.lastSituation = 'KICK_OFF';
       } else {
         bag = this.buildBagForZone(this.ball.x, this.ball.y);
+        this.lastSituation = undefined;
       }
 
       if (bag.length === 0) break;
@@ -127,6 +182,11 @@ export class TokenMatchEngine {
         this.updateMatchState(result, token);
         rawLog = result.logMessage || `Action: ${token.type}`;
         this.currentTime += specialDuration || result.customDuration || 10;
+        // Si but marqué, déclenche la séquence afterGoalSequence
+        if (result.isGoal) {
+          afterGoalSequence = { team: token.teamId === this.homeTeamId ? 'home' : 'away' };
+          this.ball = { x: 2, y: 2 };
+        }
       } else {
         this.currentTime += 10;
       }
@@ -159,12 +219,8 @@ export class TokenMatchEngine {
     this.currentTime = 0;
     this.homeScore = 0;
     this.awayScore = 0;
-    // Initialisation stricte selon l'équipe qui engage
-    if (this.possession === 'home') {
-      this.ball = { x: 2, y: 2 };
-    } else {
-      this.ball = { x: 3, y: 2 };
-    }
+    // Toujours initialiser au centre
+    this.ball = { x: 2, y: 2 };
   }
 
   private updateMatchState(result: any, token: Token) {
