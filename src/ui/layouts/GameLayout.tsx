@@ -62,10 +62,11 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 	const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 
 	useEffect(() => {
+		// Ne change la vue que si on n'est pas déjà en live-match
 		if (liveMatch && currentView !== "live-match" && currentView !== "match-report") {
 			setCurrentView("live-match");
 		}
-	}, [liveMatch]);
+	}, [liveMatch, currentView]);
 
 	const handleContinueClick = async () => {
 		if (isGameOver || isProcessing) return;

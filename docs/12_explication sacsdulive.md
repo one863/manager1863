@@ -33,6 +33,6 @@ L'ordre vertical suit la chronologie de l'action :
   - **Badge :** Affiche le type du jeton tiré au LOG $N-1$ pour justifier la position du ballon. Sauf lors du coup d'envoi d'une mi-temps, car aucun jeton n'a encore été tiré.
 
   
-affichette dans chaque sac le numero de log en cours. met en bleu les jetons home et en orange les jetons away. dans le sac n-1 met en vert le jeton tiré. c'est ce jeton qui doit etre affiché dans le badge au dessus du ballon sur le terrain. sauf pour le coup d'envoi ou c'est kick off affiché  
+Note : Il faut afficher dans chaque sac le numero de log en cours. met en bleu les jetons home et en orange les jetons away. dans le sac n-1 met en vert le jeton tiré. c'est ce jeton qui doit etre affiché dans le badge au dessus du ballon sur le terrain. sauf pour le coup d'envoi ou c'est kick off affiché  
 
 ```

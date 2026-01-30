@@ -47,12 +47,12 @@ export default function PitchView({
     const posColorClass = isHomePossession ? 'bg-blue-600' : 'bg-orange-500';
     const posBorderClass = isHomePossession ? 'border-blue-400' : 'border-orange-300';
 
-    // Logique du badge d'action
+    // Badge = type du jeton tiré du sac N-1 (drawnToken du log N), sauf coup d'envoi
     const isKickOff = log?.situation === 'KICK_OFF' || (log?.text && /coup d'envoi/i.test(log.text));
-    
-    // On affiche l'action du log actuel
-    const drawnToken = log?.drawnToken;
-    const tokenLabel = isKickOff ? "COUP D'ENVOI" : (drawnToken?.type?.replace('_', ' ') || "Action");
+    const prevDrawnToken = log?.drawnToken; // drawnToken du log N (tiré dans le sac N-1)
+    const tokenLabel = isKickOff
+        ? "COUP D'ENVOI"
+        : (prevDrawnToken?.type?.replace('_', ' ') || "Action");
 
     return (
         <div className="relative w-full max-w-2xl mx-auto aspect-[105/68] bg-emerald-600 border-[3px] border-white/40 shadow-2xl overflow-hidden rounded-3xl">
@@ -82,25 +82,28 @@ export default function PitchView({
                     const y = 4 - Math.floor(i / 6); // Inverse l'axe Y pour que 0 soit en bas
                     const hasBall = pos.x === x && pos.y === y;
 
+                    // Détermine si c'est la ligne supérieure (y=0 dans le système inversé)
+                    const isTopRow = (y === 0);
+                    const badgePositionClass = isTopRow ? 'top-full mt-2' : 'bottom-full mb-2';
+                    const arrowClass = isTopRow ? 'border-b-[4px] border-b-white/80' : 'border-t-[4px] border-t-white/80';
+
                     return (
                         <div key={i} className="relative flex items-center justify-center">
                             {hasBall && (
                                 <div className="relative flex flex-col items-center justify-center">
                                     {/* Aura de possession animée */}
                                     <div className={`absolute w-12 h-12 ${posColorClass} opacity-30 rounded-full animate-ping`} />
-                                    
                                     {/* Le Ballon */}
                                     <div className={`w-6 h-6 ${posColorClass} rounded-full border-2 border-white shadow-xl z-30 flex items-center justify-center transition-all duration-500`}>
                                         <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                                     </div>
-
-                                    {/* Badge Action Dynamique (Flottant au dessus du ballon) */}
-                                    <div className="absolute bottom-full mb-2 z-50 animate-bounce-short">
+                                    {/* Badge Action Dynamique (au-dessus/en-dessous du ballon) */}
+                                    <div className={`absolute z-50 animate-bounce-short ${badgePositionClass}`}>
                                         <div className={`px-2 py-0.5 rounded shadow-lg border-2 text-[8px] font-black uppercase whitespace-nowrap ${posColorClass} ${posBorderClass} text-white`}>
                                             {tokenLabel}
                                         </div>
-                                        {/* Petite flèche du badge */}
-                                        <div className={`w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-white/80 mx-auto`} />
+                                        {/* Petite flèche du badge (s'adapte à la position du badge) */}
+                                        <div className={`w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent mx-auto ${arrowClass}`} />
                                     </div>
                                 </div>
                             )}

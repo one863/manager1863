@@ -50,8 +50,7 @@ export const MatchService = {
 
 
         // 1. Récupération des données
-        const todaysMatches = await db.matches.where("[saveId+day]").equals([saveId, day]).toArray();
-        console.debug('[simulateDayByDay] todaysMatches', todaysMatches);
+        let todaysMatches = await db.matches.where("[saveId+day]").equals([saveId, day]).toArray();
         const allPlayers = await db.players.where("saveId").equals(saveId).toArray();
 
         // Groupement des joueurs par équipe
@@ -126,9 +125,11 @@ export const MatchService = {
                 };
             }
         }
-
-        // Aucun match utilisateur à simuler : on retourne un objet par défaut
-        console.debug('[simulateDayByDay] Aucun match utilisateur à simuler pour cette journée', { saveId, day, userTeamId });
+                // Vérification stricte des paramètres
+                if (typeof saveId !== 'number' || typeof day !== 'number' || isNaN(saveId) || isNaN(day)) {
+                    throw new Error(`[simulateDayByDay] saveId ou day invalide : saveId=${saveId}, day=${day}`);
+                }
+                // (suppression de la redéclaration inutile de todaysMatches)
         return {
             matchId: null,
             homeTeam: null,
@@ -140,7 +141,6 @@ export const MatchService = {
     },
 
     /**
-     * Gère la simulation en masse des matchs de l'IA.
      */
     runBatchSimulation: async (matches: any[], saveId: number, date: Date) => {
         return new Promise<void>((resolve) => {
@@ -190,8 +190,8 @@ export const MatchService = {
             awayTeamId: match.awayTeamId,
             homeScore: result.homeScore,
             awayScore: result.awayScore,
-            events: [], 
-            stats: result.stats,
+            events: [],
+            stats: result.stats ?? {},
             ballHistory: [],
             stoppageTime: result.stoppageTime || 0,
             scorers: result.scorers ?? [],
@@ -205,7 +205,6 @@ export const MatchService = {
             played: true, 
             details: lightDetails 
         });
-
         // 3. Mise à jour des stats d'équipes (Classement)
         await Promise.all([
             MatchService.updateTeamStats(match.homeTeamId, result.homeScore, result.awayScore), 

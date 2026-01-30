@@ -63,7 +63,13 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     // 1. CHARGEMENT INITIAL (Logique consolidée)
     useEffect(() => {
         if (!currentSaveId || hasLoaded.current) return;
-
+        // Si le match est déjà chargé en mémoire AVEC les logs, ne rien faire
+        // Correction : On vérifie que les logs sont bien présents pour éviter le bug du "match fini" sur refresh
+        const hasLogs = liveMatch?.result?.debugLogs?.length > 0 || liveMatch?.result?.events?.length > 0;
+        if (liveMatch && liveMatch.matchId && hasLogs) {
+            hasLoaded.current = true;
+            return;
+        }
         const init = async () => {
             console.log('[MatchLive] Chargement du match...', currentSaveId);
             await loadLiveMatchFromDb(currentSaveId);
@@ -75,9 +81,8 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
             }
             hasLoaded.current = true;
         };
-
         init();
-    }, [currentSaveId, loadLiveMatchFromDb]);
+    }, [currentSaveId, loadLiveMatchFromDb, liveMatch]);
 
     // 2. SYNCHRONISATION DE L'ÉTAT DU MATCH
     useEffect(() => {
@@ -221,21 +226,35 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                 <div className="flex-1 overflow-y-auto pb-24">
                     {activeTab === "live" && (
                         <div className="flex flex-col gap-4">
+                            {/* Sac N */}
                             <TokenBagDisplay 
-                                title="Actions possibles (Zone)"
+                                title={`Sac (Zone ${typeof stats.currentLog.value?.pos?.x === 'number' && typeof stats.currentLog.value?.pos?.y === 'number' ? `${stats.currentLog.value.pos.x},${stats.currentLog.value.pos.y}` : '-'})`}
                                 color="blue" 
                                 log={stats.currentLog.value} 
                                 homeTeamId={stats.homeId}
                                 awayTeamId={stats.awayId}
-                                drawnTokenId={stats.currentLog.value?.drawnToken?.id}
+                                drawnTokenId={null}
+                                logIndex={typeof stats.currentLog.value?.logIndex === 'number' ? stats.currentLog.value.logIndex : currentLogIndex.value}
+                                highlightDrawn={false}
                             />
-                            
+                            {/* Commentaire */}
                             <div className="p-3 bg-white rounded-xl border border-slate-100 flex items-start gap-3 shadow-sm">
                                 <MessageSquare size={14} className="text-blue-500 mt-0.5" />
                                 <p className="text-xs text-slate-600 italic leading-relaxed">
                                     {cleanText(stats.currentLog.value?.text, stats.currentLog.value?.drawnToken)}
                                 </p>
                             </div>
+                            {/* Sac N-1 */}
+                            <TokenBagDisplay 
+                                title={`Sac (Zone ${typeof stats.previousLog.value?.pos?.x === 'number' && typeof stats.previousLog.value?.pos?.y === 'number' ? `${stats.previousLog.value.pos.x},${stats.previousLog.value.pos.y}` : '-'})`}
+                                color="orange" 
+                                log={stats.previousLog.value} 
+                                homeTeamId={stats.homeId}
+                                awayTeamId={stats.awayId}
+                                drawnTokenId={stats.currentLog.value?.drawnToken?.id}
+                                logIndex={typeof stats.previousLog.value?.logIndex === 'number' ? stats.previousLog.value.logIndex : (typeof currentLogIndex.value === 'number' ? currentLogIndex.value - 1 : '-')}
+                                highlightDrawn={true}
+                            />
                         </div>
                     )}
                     {activeTab === "highlights" && <HighlightsTab logs={stats.currentLogsByIndex.value} />}
@@ -258,7 +277,7 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     );
 }
 
-function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, drawnTokenId }: any) {
+function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, drawnTokenId, logIndex, highlightDrawn }: any) {
     const bag = log?.bag || [];
     const colorClass = color === 'blue' ? 'text-blue-600 bg-blue-50' : 'text-orange-600 bg-orange-50';
 
@@ -268,26 +287,30 @@ function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, drawnToken
                 <h3 className={`text-[10px] font-black uppercase flex items-center gap-2 ${colorClass.split(' ')[0]}`}> 
                     <Package size={14} /> {title}
                 </h3>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${colorClass}`}>
-                    {bag.length} options
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border border-slate-200 bg-slate-50 text-slate-700"> 
+                    Log #{logIndex ?? '?'}
                 </span>
             </div>
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {bag.map((token: any) => {
                     const isHomeToken = Number(token.teamId) === Number(homeTeamId);
+                    const isAwayToken = Number(token.teamId) === Number(awayTeamId);
                     const isDrawn = drawnTokenId && String(token.id) === String(drawnTokenId);
-
+                    let bgClass;
+                    if (highlightDrawn && isDrawn) {
+                        bgClass = 'bg-emerald-500 text-white'; // Vert sans bordure
+                    } else if (isHomeToken) {
+                        bgClass = 'bg-blue-600 border-blue-400 text-white';
+                    } else if (isAwayToken) {
+                        bgClass = 'bg-orange-500 border-orange-300 text-white';
+                    } else {
+                        bgClass = 'bg-gray-300 border-gray-400 text-gray-700';
+                    }
                     return (
                         <div key={token.id} className="relative group">
                             <div 
                                 title={`${token.type} - ${token.playerName || 'Collectif'}`}
-                                className={`
-                                    px-2 py-1 rounded border text-[8px] font-bold transition-all
-                                    ${isHomeToken 
-                                        ? 'bg-blue-600 border-blue-400 text-white' 
-                                        : 'bg-orange-500 border-orange-300 text-white'}
-                                    ${isDrawn ? 'ring-2 ring-slate-900 ring-offset-1 scale-105 z-10' : 'opacity-70'}
-                                `}
+                                className={`px-2 py-1 rounded text-[8px] font-bold transition-all ${bgClass} ${isDrawn && highlightDrawn ? 'scale-105 z-10' : 'opacity-90'} ${!isDrawn || !highlightDrawn ? 'border' : ''}`}
                             >
                                 {token.type?.replace('_', ' ')}
                             </div>

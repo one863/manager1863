@@ -54,9 +54,9 @@ export default defineConfig(({ mode }) => ({
 			},
 			includeAssets: ["favicon.ico", "apple-touch-icon.png", "mask-icon.svg"],
 			manifest: {
-				name: "Football Manager 1863",
-				short_name: "FM1863",
-				description: "Historical Football Management Simulation",
+				name: "1863 Football",
+				short_name: "1863F",
+				description: "Club Football Management Simulation",
 				theme_color: "#3d1d13",
 				background_color: "#fdf8f1",
 				display: "standalone",
@@ -88,6 +88,12 @@ export default defineConfig(({ mode }) => ({
 		alias: {
 			"@": path.resolve(__dirname, "./src"),
 		},
+	},
+	server: {
+		host: '0.0.0.0', // Permet l'accès depuis d'autres appareils (ex: Chromebook)
+		port: 5173, // Port par défaut de Vite, à adapter si besoin
+		strictPort: false, // Permet de choisir un autre port si 5173 est occupé
+		cors: true, // Active CORS pour faciliter l'accès inter-appareils
 	},
 		test: {
 			globals: true,

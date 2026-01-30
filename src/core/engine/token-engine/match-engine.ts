@@ -11,8 +11,18 @@ import {
 } from "./special-events";
 import { Player } from "../../domain/player/types";
 
+// Générateur d'UUID compatible navigateur et Node
+function generateUUID() {
+  // https://stackoverflow.com/a/2117523/133327
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export class TokenMatchEngine {
   private logs: MatchLog[] = [];
+  private logIndex: number = 0;
   private currentTime: number = 0;
   private homeScore: number = 0;
   private awayScore: number = 0;
@@ -106,7 +116,7 @@ export class TokenMatchEngine {
         }
       }
       bag.push({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         type: t.type!, 
         teamId: isHomeAttacking ? this.homeTeamId : this.awayTeamId,
         primaryPlayerId: p.id as number, 
@@ -130,7 +140,7 @@ export class TokenMatchEngine {
         }
       }
       bag.push({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         type: t.type!, 
         teamId: isHomeAttacking ? this.awayTeamId : this.homeTeamId,
         primaryPlayerId: p.id as number, 
@@ -150,10 +160,10 @@ export class TokenMatchEngine {
     const kickoffOrder = drawKickoffTeam();
     let isFirstAction = true;
     let currentHalf = 1;
-
+    // Le sac pour la prochaine action. Initialisé par les événements de coup d'envoi.
+    let nextBag: Token[] = [];
 
     while (this.currentTime < matchDuration) {
-      let bag: Token[] = [];
       let result: any = null;
       let situation: string | undefined = undefined;
 
@@ -161,14 +171,15 @@ export class TokenMatchEngine {
       // Coup d'envoi initial
       if (isFirstAction) {
         const ev = getKickoffEvent(kickoffOrder.first);
-        this.ball = ev.ballPosition;
         this.possession = ev.possessionTeam;
+        const kickoffX = this.possession === 'home' ? 2 : 3;
+        this.ball = { x: kickoffX, y: 2 };
         situation = 'KICK_OFF';
         // Bag spécial coup d'envoi : PASS_SHORT et PASS_LATERAL pour l'équipe qui engage
-        const kickoffBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
-          const p = this.getPlayerForZone(this.possession, 2, 2);
+        nextBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
+          const p = this.getPlayerForZone(this.possession, kickoffX, 2);
           return {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type,
             teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
             primaryPlayerId: p.id as number,
@@ -176,7 +187,7 @@ export class TokenMatchEngine {
             narrativeTemplate: type === 'PASS_SHORT'
               ? '{p1} joue court pour construire.'
               : '{p1} écarte le jeu sur l\'aile.',
-            zone: '2,2'
+            zone: `${kickoffX},2`
           };
         });
         this.logs.push({
@@ -186,11 +197,14 @@ export class TokenMatchEngine {
           teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
           ballPosition: { ...this.ball },
           possessionTeamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
-          bag: kickoffBag,
+          bag: nextBag, // Ce sac sera utilisé au prochain tour (Log 1)
           drawnToken: undefined,
           statsUpdate: {},
-          situation: 'KICK_OFF'
+          situation: 'KICK_OFF',
+          logIndex: this.logIndex,
+          pos: { ...this.ball }
         });
+        this.logIndex++;
         isFirstAction = false;
         this.currentTime += 5; // Petite avance pour le coup d'envoi
         continue; // Passe à l'action suivante
@@ -198,16 +212,17 @@ export class TokenMatchEngine {
       // Mi-temps
       else if (currentHalf === 1 && this.currentTime >= 2700) {
         const ev = getKickoffEvent(kickoffOrder.second);
-        this.ball = ev.ballPosition;
         this.possession = ev.possessionTeam;
+        const kickoffX = this.possession === 'home' ? 2 : 3;
+        this.ball = { x: kickoffX, y: 2 };
         this.currentTime = 2700;
         currentHalf = 2;
         situation = 'KICK_OFF';
         // Bag spécial coup d'envoi 2e mi-temps
-        const kickoffBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
-          const p = this.getPlayerForZone(this.possession, 2, 2);
+        nextBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
+          const p = this.getPlayerForZone(this.possession, kickoffX, 2);
           return {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type,
             teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
             primaryPlayerId: p.id as number,
@@ -215,7 +230,7 @@ export class TokenMatchEngine {
             narrativeTemplate: type === 'PASS_SHORT'
               ? '{p1} joue court pour construire.'
               : '{p1} écarte le jeu sur l\'aile.',
-            zone: '2,2'
+            zone: `${kickoffX},2`
           };
         });
         this.logs.push({
@@ -225,11 +240,14 @@ export class TokenMatchEngine {
           teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
           ballPosition: { ...this.ball },
           possessionTeamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
-          bag: kickoffBag,
+          bag: nextBag,
           drawnToken: undefined,
           statsUpdate: {},
-          situation: 'KICK_OFF'
+          situation: 'KICK_OFF',
+          logIndex: this.logIndex,
+          pos: { ...this.ball }
         });
+        this.logIndex++;
         this.currentTime += 5;
         continue;
       }
@@ -238,14 +256,15 @@ export class TokenMatchEngine {
         // On alterne l'équipe qui engage à chaque période supplémentaire
         const team = (currentHalf % 2 === 0) ? kickoffOrder.first : kickoffOrder.second;
         const ev = getKickoffEvent(team);
-        this.ball = ev.ballPosition;
         this.possession = ev.possessionTeam;
+        const kickoffX = this.possession === 'home' ? 2 : 3;
+        this.ball = { x: kickoffX, y: 2 };
         situation = 'KICK_OFF';
         // Bag spécial coup d'envoi prolongations
-        const kickoffBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
-          const p = this.getPlayerForZone(this.possession, 2, 2);
+        nextBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
+          const p = this.getPlayerForZone(this.possession, kickoffX, 2);
           return {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type,
             teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
             primaryPlayerId: p.id as number,
@@ -253,7 +272,7 @@ export class TokenMatchEngine {
             narrativeTemplate: type === 'PASS_SHORT'
               ? '{p1} joue court pour construire.'
               : '{p1} écarte le jeu sur l\'aile.',
-            zone: '2,2'
+            zone: `${kickoffX},2`
           };
         });
         this.logs.push({
@@ -263,7 +282,7 @@ export class TokenMatchEngine {
           teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
           ballPosition: { ...this.ball },
           possessionTeamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
-          bag: kickoffBag,
+          bag: nextBag,
           drawnToken: undefined,
           statsUpdate: {},
           situation: 'KICK_OFF'
@@ -273,11 +292,14 @@ export class TokenMatchEngine {
         continue;
       }
 
-      bag = this.buildBagForZone(this.ball.x, this.ball.y);
+      // --- ACTION NORMALE ---
+      // On utilise le sac préparé au tour précédent (ou par le coup d'envoi)
+      const bagToDraw = (nextBag && nextBag.length > 0) ? nextBag : this.buildBagForZone(this.ball.x, this.ball.y);
+
       // Toujours tirer un jeton si le sac n'est pas vide, sinon on saute le tour
-      if (bag.length > 0) {
+      if (bagToDraw.length > 0) {
         // Tirage du jeton (aléatoire)
-        const token = bag[Math.floor(Math.random() * bag.length)];
+        const token = bagToDraw[Math.floor(Math.random() * bagToDraw.length)];
         const logicFn = (TOKEN_LOGIC as any)[token.type];
         if (logicFn) {
           result = logicFn(token, token.playerName, token.teamId === this.homeTeamId, { ...this.ball });
@@ -287,6 +309,14 @@ export class TokenMatchEngine {
           }
           // 2. Mise à jour de l'état du match
           this.applyActionResult(result, token);
+
+          // Préparation du sac pour le PROCHAIN tour
+          if (result.isGoal) {
+             nextBag = []; // Pas de sac pendant la célébration
+          } else {
+             nextBag = this.buildBagForZone(this.ball.x, this.ball.y);
+          }
+
           // 3. Enregistrement du log complet (bag, drawnToken, stats, texte...)
           this.logs.push({
             time: this.currentTime,
@@ -295,11 +325,14 @@ export class TokenMatchEngine {
             teamId: token.teamId,
             ballPosition: { ...this.ball },
             possessionTeamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
-            bag: [...bag],
+            bag: nextBag, // Le sac du futur
             drawnToken: { ...token },
             statsUpdate: result.stats || {},
-            situation
+            situation,
+            logIndex: this.logIndex,
+            pos: { ...this.ball }
           });
+          this.logIndex++;
           // 4. Gestion de la suite après un but (séquence narrative)
           if (result.isGoal) {
             this.currentTime += 15;
@@ -314,8 +347,11 @@ export class TokenMatchEngine {
               bag: [],
               drawnToken: undefined,
               statsUpdate: {},
-              situation: 'CELEBRATION'
+              situation: 'CELEBRATION',
+              logIndex: this.logIndex,
+              pos: { ...this.ball }
             });
+            this.logIndex++;
             this.currentTime += celeb.duration;
             const place = getPlacementEvent(this.possession);
             this.logs.push({
@@ -328,18 +364,59 @@ export class TokenMatchEngine {
               bag: [],
               drawnToken: undefined,
               statsUpdate: {},
-              situation: 'PLACEMENT'
+              situation: 'PLACEMENT',
+              logIndex: this.logIndex,
+              pos: { ...this.ball }
             });
+            this.logIndex++;
             this.currentTime += place.duration;
+
+            // Préparation du coup d'envoi après but
+            const kickoffX = this.possession === 'home' ? 2 : 3;
+            // Note: this.ball et this.possession ont déjà été mis à jour par applyActionResult
+            
+            nextBag = ['PASS_SHORT', 'PASS_LATERAL'].map(type => {
+                const p = this.getPlayerForZone(this.possession, kickoffX, 2);
+                return {
+                    id: generateUUID(),
+                    type,
+                    teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
+                    primaryPlayerId: p.id as number,
+                    playerName: p.lastName,
+                    narrativeTemplate: type === 'PASS_SHORT'
+                    ? '{p1} joue court pour construire.'
+                    : '{p1} écarte le jeu sur l\'aile.',
+                    zone: `${kickoffX},2`
+                };
+            });
+
+            this.logs.push({
+              time: this.currentTime,
+              type: 'KICK_OFF',
+              text: `Coup d'envoi pour ${this.possession === 'home' ? 'domicile' : 'extérieur'}.`,
+              teamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
+              ballPosition: { ...this.ball },
+              possessionTeamId: this.possession === 'home' ? this.homeTeamId : this.awayTeamId,
+              bag: nextBag,
+              drawnToken: undefined,
+              statsUpdate: {},
+              situation: 'KICK_OFF',
+              logIndex: this.logIndex,
+              pos: { ...this.ball }
+            });
+            this.logIndex++;
+            this.currentTime += 5;
           }
           this.currentTime += result.customDuration || 10;
         } else {
           // Si pas de logique, on saute le tour
           this.currentTime += 10;
+          nextBag = this.buildBagForZone(this.ball.x, this.ball.y);
         }
       } else {
         // Si le sac est vide, on saute le tour
         this.currentTime += 10;
+        nextBag = this.buildBagForZone(this.ball.x, this.ball.y);
       }
     }
 
@@ -358,9 +435,9 @@ export class TokenMatchEngine {
   private applyActionResult(result: any, token: Token) {
     if (result.isGoal) {
       token.teamId === this.homeTeamId ? this.homeScore++ : this.awayScore++;
-      this.ball = { x: 2, y: 2 };
       // L'équipe qui a encaissé le but récupère la balle pour l'engagement
       this.possession = token.teamId === this.homeTeamId ? 'away' : 'home';
+      this.ball = { x: this.possession === 'home' ? 2 : 3, y: 2 };
       return;
     }
 
