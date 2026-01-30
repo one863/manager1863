@@ -12,7 +12,11 @@ export async function exportSaveToJSON(saveId: number): Promise<string> {
 	const leagues = await db.leagues.where("saveId").equals(saveId).toArray();
 	const news = await db.news.where("saveId").equals(saveId).toArray();
 	const history = await db.history.where("saveId").equals(saveId).toArray();
-	
+
+	// S'assurer que matchLogs N'EST JAMAIS exporté (table temporaire, volumineuse)
+	// (Si jamais on ajoute d'autres tables, ne pas les inclure ici)
+	// Pas de db.matchLogs dans l'export !
+
 	// FIXED: Search for gameState by saveId properly since it's no longer the primary key
 	const gameState = await db.gameState.where("saveId").equals(saveId).first();
 

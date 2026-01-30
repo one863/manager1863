@@ -240,21 +240,33 @@ export const NewsService = {
 		const teamLink = `[[team:${userTeamId}|${teamName}]]`;
 		const opponentLink = `[[team:${isHome ? awayTeamId : homeTeamId}|${opponentName}]]`;
 
-		const narrative = getNarrative("news", type, {
+
+		let narrative = getNarrative("news", type, {
 			team: teamLink,
 			opponent: opponentLink,
 			score: `${homeScore}-${awayScore}`,
 			stadium: homeT.stadiumName || "le stade",
 		});
+		// Fallback si le narratif est manquant ou incomplet
+		if (!narrative || typeof narrative !== 'object') {
+			narrative = { title: "Résultat du match", content: `${teamName} ${homeScore}-${awayScore} ${opponentName}` };
+		} else {
+			if (!narrative.title) narrative.title = "Résultat du match";
+			if (!narrative.content) narrative.content = `${teamName} ${homeScore}-${awayScore} ${opponentName}`;
+		}
 
-		   await this.addNews(saveId, {
-			   day: state?.day || 0,
-			   date,
-			   title: narrative.title || "Résultat du match",
-			   content: narrative.content,
-			   category: "MATCH",
-			   importance: isWin ? 2 : 1,
-		   });
+		   try {
+			   await this.addNews(saveId, {
+				   day: state?.day || 0,
+				   date,
+				   title: narrative.title || "Résultat du match",
+				   content: narrative.content,
+				   category: "MATCH",
+				   importance: isWin ? 2 : 1,
+			   });
+		   } catch (err) {
+			   console.error('[NewsService][generateMatchNews] Erreur lors de l\'ajout de la news MATCH', err, {saveId, day: state?.day, homeTeamId, awayTeamId, homeScore, awayScore});
+		   }
 	},
 
 	async generateSundayBoardReport(saveId: number, date: Date, teamId: number, forcedDay?: number) {

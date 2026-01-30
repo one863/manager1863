@@ -1,105 +1,83 @@
-import { Token } from './types';
+import { FormationRole } from "./formations-config";
 
-export interface PlayerStats {
-  passesAttempted: number;
-  passesCompleted: number;
-  shotsOnTarget: number;
-  goals: number;
-  tackles: number;
-  possessionTime: number;
-}
-
-export interface TeamStats {
-  passesAttempted: number;
-  passesCompleted: number;
-  shotsOnTarget: number;
-  goals: number;
-  tackles: number;
-  possessionTime: number;
-}
-
-export interface MatchStats {
-  teams: Record<number, TeamStats>;
-  players: Record<number, PlayerStats>;
-  possession: Record<number, number>; // teamId → temps de possession
-}
+export type StatMap = Record<string, number>;
 
 export class StatTracker {
-  private matchStats: MatchStats;
-  private lastTeamId: number | null = null;
-  private lastTokenTime: number = 0;
+  private playerStats: Map<number, StatMap> = new Map();
+  private teamStats: Map<number, StatMap> = new Map();
+  // Nouveau : Stats par rôle pour l'analyse tactique
+  private roleStats: Map<FormationRole, StatMap> = new Map();
+  // Nouveau : Mapping pour savoir quel joueur a quel rôle
+  private playerToRole: Map<number, FormationRole> = new Map();
 
-  constructor(teamIds: number[], playerIds: number[]) {
-    this.matchStats = {
-      teams: {},
-      players: {},
-      possession: {},
+  /**
+   * @param teamIds IDs des équipes
+   * @param players Liste des joueurs avec leurs rôles assignés par le moteur
+   */
+  constructor(teamIds: number[], players: { id: number, role: FormationRole }[]) {
+    teamIds.forEach(id => this.teamStats.set(id, {}));
+    
+    // Initialisation des joueurs et du mapping de rôle
+    players.forEach(p => {
+      this.playerStats.set(p.id, {});
+      this.playerToRole.set(p.id, p.role);
+      
+      // Initialisation de la map des rôles (GK, DEF, etc.)
+      if (!this.roleStats.has(p.role)) {
+        this.roleStats.set(p.role, {});
+      }
+    });
+  }
+
+  public trackAction(playerId: number, teamId: number, increments: StatMap) {
+    if (!increments) return;
+
+    // 1. Stats Joueur
+    this.updateEntry(this.playerStats, playerId, increments);
+
+    // 2. Stats Équipe
+    this.updateEntry(this.teamStats, teamId, increments);
+
+    // 3. Stats par Rôle (Adaptation tactique)
+    const role = this.playerToRole.get(playerId);
+    if (role) {
+      this.updateEntry(this.roleStats, role, increments);
+    }
+  }
+
+  private updateEntry(map: Map<any, StatMap>, key: any, increments: StatMap) {
+    const current = map.get(key) || {};
+    for (const [statName, value] of Object.entries(increments)) {
+      current[statName] = (current[statName] || 0) + value;
+    }
+    map.set(key, current);
+  }
+
+  public getSummary() {
+    return {
+      players: Object.fromEntries(this.playerStats),
+      teams: Object.fromEntries(this.teamStats),
+      roles: Object.fromEntries(this.roleStats), // Permet de voir "Performance des DEF", etc.
+      totals: this.calculateGlobalTotals()
     };
-    teamIds.forEach(id => {
-      this.matchStats.teams[id] = {
-        passesAttempted: 0,
-        passesCompleted: 0,
-        shotsOnTarget: 0,
-        goals: 0,
-        tackles: 0,
-        possessionTime: 0,
-      };
-      this.matchStats.possession[id] = 0;
-    });
-    playerIds.forEach(id => {
-      this.matchStats.players[id] = {
-        passesAttempted: 0,
-        passesCompleted: 0,
-        shotsOnTarget: 0,
-        goals: 0,
-        tackles: 0,
-        possessionTime: 0,
-      };
-    });
   }
 
-  trackAction(token: Token, result: any) {
-    const teamId = token.teamId;
-    const performerId = token.performerId;
-    const partnerId = token.partnerId;
-    // Possession
-    if (this.lastTeamId !== null && teamId !== this.lastTeamId) {
-      // Turnover, calcul du temps de possession
-      this.matchStats.teams[this.lastTeamId].possessionTime += this.lastTokenTime;
-      this.matchStats.possession[this.lastTeamId] += this.lastTokenTime;
-      this.lastTokenTime = 0;
-    }
-    this.lastTeamId = teamId;
-    this.lastTokenTime += result.duration || 1;
-    // Statistiques
-    if (result.isPass) {
-      this.matchStats.teams[teamId].passesAttempted++;
-      this.matchStats.players[performerId].passesAttempted++;
-      if (result.success) {
-        this.matchStats.teams[teamId].passesCompleted++;
-        this.matchStats.players[performerId].passesCompleted++;
-        if (partnerId) {
-          this.matchStats.players[partnerId].passesCompleted++;
-        }
-      }
-    }
-    if (result.isShot) {
-      this.matchStats.teams[teamId].shotsOnTarget++;
-      this.matchStats.players[performerId].shotsOnTarget++;
-      if (result.isGoal) {
-        this.matchStats.teams[teamId].goals++;
-        this.matchStats.players[performerId].goals++;
-      }
-    }
-    if (result.isTackle) {
-      this.matchStats.teams[teamId].tackles++;
-      this.matchStats.players[performerId].tackles++;
-    }
-    // Possession individuelle
-    this.matchStats.players[performerId].possessionTime += result.duration || 1;
-  }
+  private calculateGlobalTotals() {
+    const teamIds = Array.from(this.teamStats.keys());
+    const stats: any = {
+      shots: { home: 0, away: 0 },
+      passes: { home: 0, away: 0 },
+      interceptions: { home: 0, away: 0 }
+    };
 
-  getMatchStats(): MatchStats {
-    return this.matchStats;
+    teamIds.forEach((id, index) => {
+      const side = index === 0 ? 'home' : 'away';
+      const data = this.teamStats.get(id) || {};
+      stats.shots[side] = data.shots || 0;
+      stats.passes[side] = data.passes || 0;
+      stats.interceptions[side] = data.interceptions || 0;
+    });
+
+    return stats;
   }
 }

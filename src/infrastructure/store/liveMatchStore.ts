@@ -51,35 +51,62 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
         activeTab: "highlights" | "live" | "stats" | "players" = "live"
     ) => {
         // Purge des logs précédents
-        if (saveId) {
-            await db.matchLogs.where("saveId").equals(saveId).delete();
+        try {
+            if (saveId) {
+                console.log('[LiveMatchStore] Purge logs...');
+                await db.matchLogs.where("saveId").equals(saveId).delete();
+                console.log('[LiveMatchStore] Purge OK');
+            }
+        } catch (e) {
+            console.error('[LiveMatchStore] Erreur purge logs', e);
         }
 
         // Stockage des logs lourds dans la table dédiée matchLogs
-        if (saveId && result) {
-            console.log('[DEBUG][initializeLiveMatch] Ecriture matchLogs', {
-                saveId,
-                matchId,
-                debugLogs: result.debugLogs,
-                events: result.events,
-                ballHistory: result.ballHistory
-            });
-            await db.matchLogs.put({
-                saveId,
-                matchId,
-                debugLogs: result.debugLogs || [],
-                events: result.events || [],
-                ballHistory: result.ballHistory || []
-            });
+        try {
+            if (saveId && result) {
+                console.log('[LiveMatchStore] Ecriture matchLogs...', {
+                    saveId,
+                    matchId,
+                    debugLogs: result.debugLogs,
+                    events: result.events,
+                    ballHistory: result.ballHistory
+                });
+                await db.matchLogs.put({
+                    saveId,
+                    matchId,
+                    debugLogs: result.debugLogs || [],
+                    events: result.events || [],
+                    ballHistory: result.ballHistory || []
+                });
+                console.log('[LiveMatchStore] Ecriture matchLogs OK');
+            }
+        } catch (e) {
+            console.error('[LiveMatchStore] Erreur écriture matchLogs', e);
         }
 
         // Préparation du résultat "léger" pour le gameState (sans les logs)
-        const lightResult = result ? {
-            ...result,
-            debugLogs: [],
-            events: [],
-            ballHistory: []
-        } : null;
+        let lightResult = null;
+        try {
+            lightResult = result ? {
+                ...result,
+                debugLogs: [],
+                events: [],
+                ballHistory: []
+            } : null;
+            console.log('[LiveMatchStore] lightResult créé', lightResult);
+        } catch (e) {
+            console.error('[LiveMatchStore] Erreur création lightResult', e);
+        }
+
+        // On ne sauvegarde pas de liveMatch vide (matchId null)
+        if (matchId === null || matchId === undefined) {
+            set({ liveMatch: null });
+            if (saveId) {
+                await db.gameState.where("saveId").equals(saveId).modify({ liveMatch: null });
+            }
+            console.warn('[LiveMatchStore] Aucun match utilisateur à sauvegarder, liveMatch ignoré');
+            return;
+        }
 
         const initialData: LiveMatchData = {
             matchId, homeTeam, awayTeam, homePlayers, awayPlayers,
@@ -87,12 +114,19 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
             currentTime: startTime, isPaused, activeTab
         };
 
-        if (saveId) {
-            await db.gameState.where("saveId").equals(saveId).modify({ 
-                liveMatch: { ...initialData, result: lightResult }
-            });
+        try {
+            if (saveId) {
+                console.log('[LiveMatchStore] Ecriture gameState...');
+                await db.gameState.where("saveId").equals(saveId).modify({ 
+                    liveMatch: { ...initialData, result: lightResult }
+                });
+                console.log('[LiveMatchStore] Ecriture gameState OK');
+            }
+        } catch (e) {
+            console.error('[LiveMatchStore] Erreur écriture gameState', e);
         }
-        
+
+        console.log('[LiveMatchStore] set liveMatch', initialData);
         set({ liveMatch: initialData });
     },
 
@@ -127,9 +161,17 @@ export const useLiveMatchStore = create<LiveMatchState>((set, get) => ({
         const gameState = await db.gameState.where("saveId").equals(saveId).first();
         if (gameState?.liveMatch) {
             const matchId = gameState.liveMatch.matchId;
+            if (!matchId) {
+                console.error('[ERROR][loadLiveMatchFromDb] matchId absent dans gameState.liveMatch', { gameState });
+                return;
+            }
             // On récupère les logs lourds supprimés du gameState pour reconstruire l'objet complet
             const logs = await db.matchLogs.where({ saveId, matchId }).first();
             console.log('[DEBUG][loadLiveMatchFromDb] Lecture matchLogs', { saveId, matchId, logs });
+            if (!logs) {
+                console.error('[ERROR][loadLiveMatchFromDb] Aucun logs trouvés pour le match', { saveId, matchId });
+                return;
+            }
             const fullMatchData: LiveMatchData = {
                 ...gameState.liveMatch,
                 result: {

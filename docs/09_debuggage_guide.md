@@ -264,13 +264,23 @@ Ce document liste les problèmes courants et leurs solutions pour le Token Engin
    {/* ✅ BON - Conditionnel selon position */}
    <div className={x === 0 ? "absolute left-0" : "absolute left-1/2 -translate-x-1/2"}>
    ```
-
+2
 **Solutions :**
 - `overflow-visible` sur conteneur de terrain
 - Positionnement conditionnel sur bords (x=0, x=5)
 - Z-index élevé pour garantir visibilité (`z-50`)
+. **Positionnement d'acces au live**
+**Solutions :**
+Le bug venait du fait que la méthode qui simulait les matchs IA contre IA (runBatchSimulation) était asynchrone mais n’était pas attendue (pas de await) dans simulateDayByDay. Résultat : les résultats des matchs IA vs IA n’étaient pas toujours sauvegardés ou à jour au moment où tu consultais les données.
 
----
+En rendant runBatchSimulation asynchrone et en l’attendant avec await, on garantit que tous les résultats IA vs IA sont bien simulés et enregistrés avant de continuer. Cela corrige le problème de non-mise à jour des matchs IA contre IA.
+
+c'etait dans quel fichier le bug ?
+
+Le bug était dans le fichier src/competition/match/match-service.ts.
+C’est là que la gestion de la simulation et de la sauvegarde des résultats des matchs IA contre IA n’était pas correctement synchronisée.
+
+
 
 ## 🔧 Outils de Débogage
 

@@ -12,7 +12,7 @@ export type { League, Match, MatchResult, NewsArticle, Player, Team };
 
 // Inscription de la nouvelle version pour supporter Condition, Moral et Potentiel persistants
 // Version 21: Ajout table matchLogs séparée pour les logs de match temporaires
-export const CURRENT_DATA_VERSION = 30; 
+export const CURRENT_DATA_VERSION = 31; 
 
 export interface SaveSlot {
 	id?: number;
@@ -86,9 +86,9 @@ export class AppDatabase extends Dexie {
     matchLogs!: Table<MatchLogsEntry>;
 
 	constructor() {
-		super("Manager1863DB");
+		super("Manager1863DBv2");
 
-		const dbName = "Manager1863DB";
+		const dbName = "Manager1863DBv2";
 
 		// Patch auto : suppression si version incompatible (dev uniquement)
 		if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
@@ -101,7 +101,7 @@ export class AppDatabase extends Dexie {
 			leagues: "++id, saveId",
 			teams: "++id, saveId, leagueId",
 			players: "++id, saveId, teamId, isStarter, [saveId+teamId]",
-			matches: "++id, saveId, leagueId, day, played, [saveId+day]",
+			matches: "++id, saveId, leagueId, day, played, [saveId+day], [saveId+day+played]",
 			news: "++id, saveId, day, [saveId+day]",
 			staff: "++id, saveId, teamId, [saveId+teamId]",
 			history: "++id, saveId, teamId",
@@ -129,8 +129,8 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
 				wage: 0,
 				age: 0,
 				dna: "",
-				position: "MID",
-				side: "C",
+				position: "MID" as import("../domain/common/types").PlayerPosition,
+				side: "C" as import("../domain/common/types").PlayerSide,
 				potential: 0,
 				marketValue: 0,
 				energy: 0,

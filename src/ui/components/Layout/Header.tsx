@@ -31,6 +31,7 @@ export function Header({
 	const day = useGameStore((state) => state.day);
 	const currentSaveId = useGameStore((state) => state.currentSaveId);
 	const userTeamId = useGameStore((state) => state.userTeamId);
+	const currentDate = useGameStore((state) => state.currentDate);
 
 	const liveMatch = useLiveMatchStore((state) => state.liveMatch);
 	const isLiveFinished = liveMatch && (liveMatch as any).currentMinute >= 90;
@@ -40,12 +41,8 @@ export function Header({
 	useEffect(() => {
 		const checkMatch = async () => {
 			if (currentSaveId && userTeamId) {
-				const hasMatch = await MatchService.hasUserMatchToday(
-					currentSaveId,
-					day,
-					userTeamId,
-				);
-				setHasMatchToday(hasMatch);
+				const match = await MatchService.getUserMatchForDay(currentSaveId, userTeamId, day);
+				setHasMatchToday(!!match);
 			}
 		};
 		checkMatch();

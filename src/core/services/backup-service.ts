@@ -8,51 +8,49 @@ import { CloudService } from "@/core/services/cloud-service";
  * afin d'éviter les QuotaExceededError du LocalStorage.
  */
 export const BackupService = {
-	async performAutoBackup(saveId: number) {
-		if (!saveId) return;
-		
-		try {
-			const json = await exportSaveToJSON(saveId);
+    async performAutoBackup(saveId: number) {
+        if (!saveId) return;
+        // 1. Sauvegarde locale via Web Worker
+        try {
+            // @ts-ignore
+            const worker = new Worker(new URL('./backup.worker.ts', import.meta.url), { type: 'module' });
+            worker.postMessage({ saveId });
+            worker.onmessage = (event) => {
+                if (event.data.success) {
+                    console.log(`[BackupWorker] Auto-sauvegarde locale (IndexedDB) effectuée pour le slot ${saveId}`);
+                } else {
+                    console.error('[BackupWorker] Erreur sauvegarde locale', event.data.error);
+                }
+                worker.terminate();
+            };
+            worker.onerror = (err) => {
+                console.error('[BackupWorker] Erreur Web Worker', err);
+                worker.terminate();
+            };
+        } catch (e) {
+            console.error('[BackupWorker] Impossible de lancer le worker', e);
+        }
 
-			// 1. Sauvegarde Locale persistante avec Dexie
-            try {
-                // Supprimer les anciens backups pour ce slot pour ne garder que le dernier
-                // On peut décider d'en garder plus, mais pour l'instant un seul suffit pour l'auto-backup
-                await db.backups.where("saveId").equals(saveId).delete();
-
-                await db.backups.add({
-                    saveId: saveId,
-                    timestamp: Date.now(),
-                    data: json
-                });
-                
-			    console.log(`[Backup] Auto-sauvegarde locale (IndexedDB) effectuée pour le slot ${saveId}`);
-                
-                // Nettoyage de l'ancien LocalStorage si présent (migration)
-                localStorage.removeItem(`fm1863_backup_slot_${saveId}`);
-
-            } catch (storageError) {
-                 console.error("[Backup] Erreur lors de la sauvegarde locale Dexie", storageError);
+        // 2. Sauvegarde Cloud (si connecté) — toujours sur le thread principal
+        try {
+            const json = await exportSaveToJSON(saveId);
+            if (CloudService.getCurrentUser()) {
+                const gameState = await db.gameState.where("saveId").equals(saveId).first();
+                if (gameState && gameState.userTeamId) {
+                    const team = await db.teams.get(gameState.userTeamId);
+                    if (team) {
+                        await CloudService.uploadSave(saveId, json, {
+                            clubName: team.name,
+                            season: gameState.season,
+                            day: gameState.day
+                        });
+                    }
+                }
             }
-
-			// 2. Sauvegarde Cloud (si connecté)
-			if (CloudService.getCurrentUser()) {
-				const gameState = await db.gameState.where("saveId").equals(saveId).first();
-				if (gameState && gameState.userTeamId) {
-					const team = await db.teams.get(gameState.userTeamId);
-					if (team) {
-						await CloudService.uploadSave(saveId, json, {
-							clubName: team.name,
-							season: gameState.season,
-							day: gameState.day
-						});
-					}
-				}
-			}
-		} catch (e) {
-			console.warn("[Backup] Échec de l'auto-sauvegarde", e);
-		}
-	},
+        } catch (e) {
+            console.warn("[Backup] Échec de l'auto-sauvegarde cloud", e);
+        }
+    },
 
     /**
      * Nettoie les anciens backups obsolètes du LocalStorage (migration)

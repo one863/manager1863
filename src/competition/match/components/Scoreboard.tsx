@@ -1,4 +1,4 @@
-import type { Team } from "@/core/types";
+import type { Team } from "@/core/db/db";
 import { type Signal } from "@preact/signals";
 import { TeamCrest, getTeamColors } from "@/ui/components/Common/TeamCrest";
 
@@ -18,23 +18,31 @@ interface ScoreboardProps {
     possession: Signal<number[]>;
     isFinished: boolean;
     stoppageTime: Signal<number>;
-    onFinalize?: () => void;
 }
 
+/**
+ * Composant Scoreboard réactif.
+ * Affiche le score, le chrono, les buteurs et la barre de possession en temps réel.
+ */
 export default function Scoreboard({
     homeTeam, awayTeam, homeScore, awayScore, minute, homeScorers, awayScorers,
     possession, isFinished, stoppageTime
 }: ScoreboardProps) {
 
-    // Sécurité : Si les données d'équipe ne sont pas encore là
-    if (!homeTeam || !awayTeam) return <div className="h-[115px] bg-white animate-pulse" />;
+    // Sécurité : Si les données d'équipe ne sont pas encore chargées
+    if (!homeTeam || !awayTeam) {
+        return <div className="h-[115px] bg-white animate-pulse border-b border-gray-100" />;
+    }
 
     const homeColors = getTeamColors(homeTeam);
     const awayColors = getTeamColors(awayTeam);
 
-    // Formatage des buteurs (nom + minutes, dédoublonné)
+    /**
+     * Formate la liste des buteurs pour un affichage compact : "Nom (12', 45')"
+     */
     const formatScorers = (scorersList: Scorer[] | undefined) => {
-        if (!scorersList || !Array.isArray(scorersList)) return "";
+        if (!scorersList || !Array.isArray(scorersList) || scorersList.length === 0) return "";
+        
         const map = new Map<string, number[]>();
         scorersList.forEach(s => {
             if (s && s.name) {
@@ -42,6 +50,7 @@ export default function Scoreboard({
                 map.get(s.name)!.push(s.minute);
             }
         });
+
         return Array.from(map.entries())
             .map(([name, mins]) => `${name} (${mins.sort((a, b) => a - b).join("', ") + "'"})`)
             .join(" • ");
@@ -52,11 +61,11 @@ export default function Scoreboard({
             {/* Barre de possession (Barre supérieure) */}
             <div className="absolute top-0 inset-x-0 h-1 flex overflow-hidden bg-gray-100">
                 <div
-                    className="h-full bg-blue-500 transition-all duration-1000"
+                    className="h-full bg-blue-600 transition-all duration-1000 ease-in-out"
                     style={{ width: `${(possession?.value?.[0] ?? 50)}%` }}
                 />
                 <div
-                    className="h-full bg-orange-500 transition-all duration-1000"
+                    className="h-full bg-orange-500 transition-all duration-1000 ease-in-out"
                     style={{ width: `${(possession?.value?.[1] ?? 50)}%` }}
                 />
             </div>
@@ -75,7 +84,7 @@ export default function Scoreboard({
                             </span>
                         </div>
                         <div className="min-h-8 w-full">
-                            <p className="text-[10px] font-black text-emerald-600/70 text-left leading-tight break-words">
+                            <p className="text-[10px] font-bold text-emerald-600/80 text-left leading-tight break-words">
                                 {formatScorers(homeScorers?.value)}
                             </p>
                         </div>
@@ -85,22 +94,27 @@ export default function Scoreboard({
                     <div className="flex flex-col items-center justify-center px-4 shrink-0 min-w-[90px] pt-1">
                         <div className="flex items-center gap-2 transition-all duration-300 text-gray-900">
                             <span className="text-3xl font-black tabular-nums leading-none">
-                                {homeScore?.value ?? 0}
+                                {homeScore.value}
                             </span>
                             <span className="text-gray-200 font-bold text-xl leading-none">:</span>
                             <span className="text-3xl font-black tabular-nums leading-none">
-                                {awayScore?.value ?? 0}
+                                {awayScore.value}
                             </span>
                         </div>
+                        
                         <div className="mt-1.5 flex flex-col items-center gap-1">
                             {!isFinished ? (
-                                <span className="text-[11px] font-black text-slate-600 tabular-nums bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                                    {minute?.value ?? 0}'
-                                    {(minute?.value ?? 0) >= 45 && (stoppageTime?.value ?? 0) > 0 ? `+${stoppageTime.value}` : ""}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[11px] font-black text-slate-600 tabular-nums bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                                        {minute.value}'
+                                        {stoppageTime.value > 0 && (
+                                            <span className="text-emerald-600 ml-0.5">+{stoppageTime.value}</span>
+                                        )}
+                                    </span>
+                                </div>
                             ) : (
                                 <span className="text-[9px] font-black text-white bg-gray-900 px-3 py-1 rounded-full uppercase tracking-widest">
-                                    FIN
+                                    FINI
                                 </span>
                             )}
                         </div>
@@ -117,7 +131,7 @@ export default function Scoreboard({
                             </div>
                         </div>
                         <div className="min-h-8 w-full">
-                            <p className="text-[10px] font-black text-emerald-600/70 text-right leading-tight break-words">
+                            <p className="text-[10px] font-bold text-emerald-600/80 text-right leading-tight break-words">
                                 {formatScorers(awayScorers?.value)}
                             </p>
                         </div>

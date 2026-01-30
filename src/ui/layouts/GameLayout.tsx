@@ -78,27 +78,33 @@ export default function GameLayout({ onQuit }: { onQuit: () => void }) {
 		executeContinue();
 	};
 
+	const ADVANCE_TIMEOUT = 45000; // Timeout ajustable (ms)
 	const executeContinue = async () => {
 		setSaveStatus("saving");
-        
-        const watchdog = setTimeout(() => {
-            setSaveStatus("idle");
-            console.error("WATCHDOG: Advance date too long, unlocking UI");
-        }, 30000);
 
+		const watchdog = setTimeout(() => {
+			setSaveStatus("idle");
+			console.error("WATCHDOG: Advance date too long, unlocking UI");
+		}, ADVANCE_TIMEOUT);
+
+		console.time('Simulate');
 		try {
 			await advanceDate();
-			
-			if (useLiveMatchStore.getState().liveMatch) {
+			const liveMatch = useLiveMatchStore.getState().liveMatch;
+			if (liveMatch && liveMatch.matchId !== null && liveMatch.matchId !== undefined) {
 				setCurrentView("live-match");
 			} else {
+				if (liveMatch && (liveMatch.matchId === null || liveMatch.matchId === undefined)) {
+					console.warn("Aucun match utilisateur à jouer aujourd'hui, passage direct au dashboard.");
+				}
 				setCurrentView("dashboard");
 			}
 		} catch (error) {
 			console.error("Simulation error:", error);
 			setSaveStatus("error");
 		} finally {
-            clearTimeout(watchdog);
+			console.timeEnd('Simulate');
+			clearTimeout(watchdog);
 			setSaveStatus("idle");
 		}
 	};

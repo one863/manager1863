@@ -3,7 +3,7 @@ import type { Signal } from "@preact/signals";
 
 interface MatchControlsProps {
     isPaused: Signal<boolean>;
-    isFinished: boolean; // Reçu depuis MatchLive (isActuallyFinished)
+    isFinished: boolean; // État de fin de match
     onGoToStart: () => void;
     onStepBack: () => void;
     onStepForward: () => void;
@@ -12,6 +12,10 @@ interface MatchControlsProps {
     disableStepBack?: boolean;
 }
 
+/**
+ * Panneau de contrôle du lecteur de match.
+ * Gère la navigation temporelle (lecture, pause, avance rapide).
+ */
 export default function MatchControls({
     isPaused,
     isFinished,
@@ -23,7 +27,7 @@ export default function MatchControls({
     disableStepBack = false
 }: MatchControlsProps) {
     
-    // Styles réutilisables
+    // Styles de base pour les boutons
     const buttonBase = "w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-all duration-200 disabled:opacity-20 disabled:pointer-events-none";
     const buttonSecondary = `${buttonBase} bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm`;
     const buttonPrimary = `${buttonBase} bg-slate-900 shadow-lg hover:bg-slate-800`;
@@ -32,7 +36,7 @@ export default function MatchControls({
         <div className="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur-xl border-t border-slate-200 p-4 flex items-center justify-between z-[100] shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
             
             <div className="flex items-center gap-1.5">
-                {/* Revenir au début */}
+                {/* Revenir au début du match */}
                 <button 
                     onClick={onGoToStart} 
                     className={buttonSecondary} 
@@ -42,7 +46,7 @@ export default function MatchControls({
                     <RotateCcw size={18} />
                 </button>
 
-                {/* Reculer d'un log */}
+                {/* Reculer d'une action */}
                 <button 
                     onClick={onStepBack} 
                     className={buttonSecondary} 
@@ -52,10 +56,11 @@ export default function MatchControls({
                     <StepBack size={20} />
                 </button>
 
-                {/* Play / Pause */}
+                {/* Bouton central Play / Pause */}
                 <button 
                     onClick={() => { if (!isFinished) isPaused.value = !isPaused.value; }} 
-                    className={`${buttonPrimary} ${isFinished ? 'opacity-30' : ''}`}
+                    className={`${buttonPrimary} ${isFinished ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    title={isPaused.value ? "Reprendre" : "Pause"}
                 >
                     {isPaused.value ? (
                         <Play size={20} className="text-white fill-white ml-0.5" />
@@ -64,7 +69,7 @@ export default function MatchControls({
                     )}
                 </button>
 
-                {/* Avancer d'un log */}
+                {/* Avancer d'une action */}
                 <button 
                     onClick={onStepForward} 
                     className={buttonSecondary}
@@ -74,7 +79,7 @@ export default function MatchControls({
                     <StepForward size={20} />
                 </button>
 
-                {/* Sauter à la fin */}
+                {/* Aller directement à la fin (Skip) */}
                 <button 
                     onClick={onSkip} 
                     className={buttonSecondary}
@@ -85,7 +90,7 @@ export default function MatchControls({
                 </button>
             </div>
 
-            {/* BOUTON DE SORTIE : Apparaît uniquement à la fin */}
+            {/* Bouton de finalisation : Apparaît avec une animation quand le match est fini */}
             {isFinished && (
                 <button 
                     onClick={(e) => {

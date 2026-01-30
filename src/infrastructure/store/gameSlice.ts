@@ -3,6 +3,27 @@ import { repairSaveData as runDataMigrations } from "@/core/db/migrations/data-m
 import { BackupService } from "@/core/services/backup-service";
 import { ClubService } from "@/club/club-service";
 import { MatchService } from "@/competition/match/match-service";
+
+// Utilitaire pour lancer la simulation de journée dans un Web Worker
+function simulateDayByDayInWorker(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
+    return new Promise((resolve, reject) => {
+        // @ts-ignore
+        const worker = new Worker(new URL("../../competition/match/match-simulation.worker.ts", import.meta.url), { type: "module" });
+        worker.postMessage({ saveId, day, userTeamId, date });
+        worker.onmessage = (event) => {
+            if (event.data.success) {
+                resolve(event.data.result);
+            } else {
+                reject(event.data.error);
+            }
+            worker.terminate();
+        };
+        worker.onerror = (err) => {
+            reject(err);
+            worker.terminate();
+        };
+    });
+}
 import { NewsService } from "@/news/service/news-service";
 import { TrainingService } from "@/squad/training/training-service";
 import { create } from "zustand";
@@ -113,22 +134,36 @@ export const useGameStore = create<GameState>((set, get) => ({
             const nextDate = new Date(currentDate);
             nextDate.setDate(nextDate.getDate() + 1);
 
-            const pendingUserMatch = await MatchService.simulateDayByDay(currentSaveId, day, userTeamId, currentDate);
+            console.time('SimulateDayByDay');
+            const pendingUserMatch = await simulateDayByDayInWorker(currentSaveId, day, userTeamId, currentDate);
+            console.timeEnd('SimulateDayByDay');
+            console.log('[advanceDate] Résultat simulateDayByDay (worker):', pendingUserMatch);
 
-            await Promise.all([
-                ClubService.processDailyUpdates(userTeamId, currentSaveId, nextDay, nextDate),
-                TrainingService.processDailyUpdates(userTeamId, currentSaveId, nextDay, nextDate),
-                NewsService.processDailyNews(currentSaveId, nextDay, nextDate, userTeamId),
-            ]);
+            console.time('DailyUpdates');
+            try {
+                await Promise.all([
+                    ClubService.processDailyUpdates(userTeamId, currentSaveId, nextDay, nextDate),
+                    TrainingService.processDailyUpdates(userTeamId, currentSaveId, nextDay, nextDate),
+                    NewsService.processDailyNews(currentSaveId, nextDay, nextDate, userTeamId),
+                ]);
+            } catch (err) {
+                console.error('[advanceDate] Erreur lors des DailyUpdates', err);
+            }
+            console.timeEnd('DailyUpdates');
 
             // Nettoyage périodique des données volumineuses (tous les 7 jours)
             if (day % 7 === 0) {
+                console.time('CleanupOldNews');
                 await NewsService.cleanupOldNews(currentSaveId, season);
+                console.timeEnd('CleanupOldNews');
+                console.time('CleanupOldUserMatchLogs');
                 // Nettoyer les logs des anciens matchs utilisateur (garder seulement les 3 derniers jours)
                 await MatchService.cleanupOldUserMatchLogs(currentSaveId, userTeamId, day);
+                console.timeEnd('CleanupOldUserMatchLogs');
             }
 
-            if (pendingUserMatch) {
+            if (pendingUserMatch && pendingUserMatch.matchId !== null && pendingUserMatch.matchId !== undefined) {
+                console.log('[advanceDate][USER_MATCH] Objet reçu:', pendingUserMatch, 'isProcessing:', get().isProcessing);
                 await useLiveMatchStore.getState().initializeLiveMatch(
                     pendingUserMatch.matchId, 
                     pendingUserMatch.homeTeam, 
@@ -138,6 +173,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                     pendingUserMatch.result, 
                     currentSaveId
                 );
+                // Ajout d'un log et d'un flag pour forcer la transition UI
+                console.log('[advanceDate] Match utilisateur détecté, bascule vers MatchLive', { matchId: pendingUserMatch.matchId });
+                set({ isProcessing: false }); // Désactive immédiatement le flag pour ne pas bloquer l'affichage
+                // Si besoin, déclencher ici un callback ou un event pour forcer la navigation UI
             } else {
                 const userTeam = await db.teams.get(userTeamId);
                 if (userTeam) {

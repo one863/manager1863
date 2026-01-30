@@ -24,8 +24,28 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id'];
 
-const cleanText = (text?: string) => text?.replace(/undefined|Collectif/g, "L'équipe") || '...';
-
+/**
+ * Nettoie le texte narratif en remplaçant les placeholders par les noms des joueurs.
+ */
+const cleanText = (text?: string, drawnToken?: any) => {
+    if (!text) return '...';
+    
+    // Correction des placeholders génériques
+    let result = text.replace(/undefined|Collectif/g, "L'équipe");
+    
+    // Injection des noms de joueurs réels (p1 = principal, p2 = secondaire)
+    if (drawnToken) {
+        if (drawnToken.playerName) {
+            result = result.replace(/\{p1\}/g, drawnToken.playerName);
+        }
+        if (drawnToken.secondaryPlayerName) {
+            result = result.replace(/\{p2\}/g, drawnToken.secondaryPlayerName);
+        }
+    }
+    
+    // Nettoyage final des balises restantes si le moteur n'a pas pu les remplir
+    return result.replace(/\{p1\}|\{p2\}/g, "un joueur");
+};
 
 export default function MatchLive({ onShowReport }: { onShowReport?: (id: number) => void }) {
     const finalizeLiveMatch = useGameStore((s) => s.finalizeLiveMatch);
@@ -40,30 +60,30 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
     const currentLogIndex = useSignal(0);
     const [activeTab, setActiveTab] = useState<TabId>("live");
 
-    // 1. CHARGEMENT INITIAL ROBUSTE + LOGS DEBUG
+    // 1. CHARGEMENT INITIAL (Logique consolidée)
     useEffect(() => {
-        if (!currentSaveId) return;
-        if (liveMatch && liveMatch.matchId) return;
-        loadLiveMatchFromDb(currentSaveId);
-    }, [currentSaveId]);
+        if (!currentSaveId || hasLoaded.current) return;
 
-    useEffect(() => {
-        if (!currentSaveId || (liveMatch && liveMatch.matchId)) return;
-        const timeout = setTimeout(() => {
-            loadLiveMatchFromDb(currentSaveId);
-        }, 1000);
-        return () => clearTimeout(timeout);
-    }, [currentSaveId, liveMatch]);
+        const init = async () => {
+            console.log('[MatchLive] Chargement du match...', currentSaveId);
+            await loadLiveMatchFromDb(currentSaveId);
+            // Initialisation propre : on ne force le début qu'une seule fois
+            if (!hasLoaded.current) {
+                currentMatchTime.value = 0;
+                currentLogIndex.value = 0;
+                isPaused.value = true;
+            }
+            hasLoaded.current = true;
+        };
 
-    useEffect(() => {
-        // ...
-    }, [liveMatch]);
+        init();
+    }, [currentSaveId, loadLiveMatchFromDb]);
 
-    // 2. SYNCHRONISATION INITIALE
+    // 2. SYNCHRONISATION DE L'ÉTAT DU MATCH
     useEffect(() => {
         if (!liveMatch?.result) return;
-        // DEBUG : log du résultat brut reçu du worker
-        console.log('[MatchLive] liveMatch.result', liveMatch.result);
+        
+        // Reprendre là où on s'était arrêté
         currentMatchTime.value = liveMatch.currentTime ?? 0;
         isPaused.value = liveMatch.isPaused ?? true;
         
@@ -74,16 +94,18 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         }
     }, [liveMatch]);
 
-    // 3. HOOK DE STATS
+    // 3. HOOK DE STATS DYNAMIQUES
     const stats = useLiveMatchStats(liveMatch, currentLogIndex, currentMatchTime);
     const { allLogs, maxTime, result, matchId, isFinished } = stats;
 
-    // 4. LOGIQUE DE TEMPS
+    // 4. LOGIQUE DE PROGRESSION DU TEMPS
     useEffect(() => {
+        // L'auto-play ne doit démarrer que si non en pause, non fini, et qu'il y a des logs
         if (isPaused.value || isFinished.value || allLogs.length === 0) return;
 
         const interval = setInterval(() => {
-            if (currentMatchTime.value < maxTime) {
+            // On vérifie à chaque tick que l'on n'est pas repassé en pause
+            if (!isPaused.value && !isFinished.value && currentMatchTime.value < maxTime) {
                 currentMatchTime.value += 1;
                 const nextIdx = allLogs.findLastIndex((l: any) => l.time <= currentMatchTime.value);
                 if (nextIdx !== -1 && nextIdx !== currentLogIndex.value) {
@@ -95,68 +117,63 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         }, 100);
 
         return () => clearInterval(interval);
-    }, [isPaused.value, maxTime, allLogs.length, isFinished.value]);
+    }, [isPaused.value, isFinished.value, allLogs.length]);
 
-    // 5. HANDLERS DE NAVIGATION
+    // 5. NAVIGATION MANUELLE
     const seekToLog = useCallback((index: number) => {
+        // Navigation manuelle : on met en pause et on bloque l'auto-play
+        isPaused.value = true;
         const targetLog = allLogs[index];
         if (targetLog) {
-            isPaused.value = true;
             currentLogIndex.value = index;
             currentMatchTime.value = targetLog.time;
         }
     }, [allLogs]);
 
-   // Dans MatchLive.tsx
-
-const handleFinalize = useCallback(async () => {
-    // ...
-
-    if (!result || !matchId) {
-        console.error("Finalisation impossible : Données manquantes", { result, matchId });
-        return;
-    }
-
-    try {
-        // Vérification que le match existe bien en DB avant finalisation
-        const matchInDb = await import("@/core/db/db").then(m => m.db.matches.get(matchId));
-        if (!matchInDb) {
-            console.error("Finalisation impossible : Match non trouvé en base", { matchId });
-            alert("Erreur : Match non trouvé en base de données.");
+    // 6. FINALISATION DU MATCH
+    const handleFinalize = useCallback(async () => {
+        if (!result || !matchId) {
+            console.error("Données manquantes pour finaliser.");
             return;
         }
-        // 1. Mise à jour de la DB et purge des données de simulation
-        await finalizeLiveMatch(result);
-        // 2. Nettoyage de l'état live pour éviter les boucles au rechargement
-        updateLiveMatchState({ currentTime: 0, isPaused: true }, currentSaveId ?? undefined);
-        // 3. Navigation vers le rapport
-        if (onShowReport) {
-            onShowReport(matchId);
-        } else {
-            window.location.hash = `/match-report/${matchId}`;
+
+        try {
+            // Vérification de sécurité en base
+            const { db } = await import("@/core/db/db");
+            const matchInDb = await db.matches.get(matchId);
+            
+            if (!matchInDb) {
+                alert("Erreur : Match non trouvé en base.");
+                return;
+            }
+
+            await finalizeLiveMatch(result);
+            updateLiveMatchState({ currentTime: 0, isPaused: true }, currentSaveId ?? undefined);
+
+            if (onShowReport) {
+                onShowReport(matchId);
+            } else {
+                window.location.hash = `/match-report/${matchId}`;
+            }
+        } catch (error) {
+            console.error("Erreur finalisation:", error);
+            alert("Erreur lors de la sauvegarde.");
         }
-    } catch (error) {
-        console.error("Erreur lors de la finalisation du match:", error);
-        alert("Erreur lors de la sauvegarde du match. Réessayez.");
-    }
-}, [result, matchId, finalizeLiveMatch, onShowReport, updateLiveMatchState, currentSaveId]);
+    }, [result, matchId, finalizeLiveMatch, onShowReport, updateLiveMatchState, currentSaveId]);
 
-
-    if (!currentSaveId || !liveMatch?.result) {
+    if (!liveMatch?.result) {
         return (
             <div className="absolute inset-0 z-[200] flex items-center justify-center bg-slate-50">
                 <Loader2 className="animate-spin text-slate-600" />
-                <span className="ml-2 text-slate-500 text-xs">Chargement du match en cours...</span>
+                <span className="ml-2 text-slate-500 text-xs">Préparation du terrain...</span>
             </div>
         );
     }
 
-    // Condition de fin pour les contrôles (si le temps est fini OU si on est au dernier log)
     const isActuallyFinished = isFinished.value || currentLogIndex.value >= allLogs.length - 1;
 
     return (
         <div className="absolute inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden text-slate-900">
-            {/* Bouton de secours si fini */}
             {isActuallyFinished && (
                 <button
                     onClick={handleFinalize}
@@ -204,32 +221,19 @@ const handleFinalize = useCallback(async () => {
                 <div className="flex-1 overflow-y-auto pb-24">
                     {activeTab === "live" && (
                         <div className="flex flex-col gap-4">
-                            {/* Sac du présent (N) */}
                             <TokenBagDisplay 
-                                title={`Sac actuel (présent) — Log #${stats.currentLog.value ? stats.allLogs.indexOf(stats.currentLog.value) : 0} - #${stats.currentLog.value?.ballPosition ? `${stats.currentLog.value.ballPosition.x},${stats.currentLog.value.ballPosition.y}` : ''}`}
+                                title="Actions possibles (Zone)"
                                 color="blue" 
                                 log={stats.currentLog.value} 
                                 homeTeamId={stats.homeId}
                                 awayTeamId={stats.awayId}
-                                highlightTokenId={null}
-                                drawnTokenId={null}
+                                drawnTokenId={stats.currentLog.value?.drawnToken?.id}
                             />
-                            {/* Sac du passé (N-1) */}
-                            {stats.previousLog.value && (
-                                <TokenBagDisplay 
-                                    title={`Sac précédent (passé) — Log #${stats.previousLog.value ? stats.allLogs.indexOf(stats.previousLog.value) : 0} - #${stats.previousLog.value?.ballPosition ? `${stats.previousLog.value.ballPosition.x},${stats.previousLog.value.ballPosition.y}` : ''}`}
-                                    color="orange" 
-                                    log={stats.previousLog.value} 
-                                    homeTeamId={stats.homeId}
-                                    awayTeamId={stats.awayId}
-                                    highlightTokenId={stats.currentLog.value?.drawnToken?.id || null}
-                                    drawnTokenId={stats.currentLog.value?.drawnToken?.id || null}
-                                />
-                            )}
-                            <div className="p-3 bg-white rounded-xl border border-slate-100 flex items-start gap-3">
-                                <MessageSquare size={14} className="text-slate-400 mt-0.5" />
+                            
+                            <div className="p-3 bg-white rounded-xl border border-slate-100 flex items-start gap-3 shadow-sm">
+                                <MessageSquare size={14} className="text-blue-500 mt-0.5" />
                                 <p className="text-xs text-slate-600 italic leading-relaxed">
-                                    {cleanText(stats.currentLog.value?.text)}
+                                    {cleanText(stats.currentLog.value?.text, stats.currentLog.value?.drawnToken)}
                                 </p>
                             </div>
                         </div>
@@ -254,12 +258,12 @@ const handleFinalize = useCallback(async () => {
     );
 }
 
-function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, highlightTokenId, drawnTokenId }: any) {
-    const bag = log?.bag || log?.tokens || log?.availableTokens || [];
+function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, drawnTokenId }: any) {
+    const bag = log?.bag || [];
     const colorClass = color === 'blue' ? 'text-blue-600 bg-blue-50' : 'text-orange-600 bg-orange-50';
 
     return (
-        <div className="bg-white rounded-2xl p-4 border border-slate-100">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-3">
                 <h3 className={`text-[10px] font-black uppercase flex items-center gap-2 ${colorClass.split(' ')[0]}`}> 
                     <Package size={14} /> {title}
@@ -270,33 +274,23 @@ function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, highlightT
             </div>
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {bag.map((token: any) => {
-                    // Logique de détermination de l'équipe du jeton
-                    let teamId = token.teamId;
-                    if (teamId === undefined || teamId === null || (Number(teamId) !== Number(homeTeamId) && Number(teamId) !== Number(awayTeamId))) {
-                        teamId = log?.possessionTeamId ?? homeTeamId;
-                    }
-
-                    const isHomeToken = Number(teamId) === Number(homeTeamId);
+                    const isHomeToken = Number(token.teamId) === Number(homeTeamId);
                     const isDrawn = drawnTokenId && String(token.id) === String(drawnTokenId);
 
                     return (
                         <div key={token.id} className="relative group">
                             <div 
-                                title={token.type}
+                                title={`${token.type} - ${token.playerName || 'Collectif'}`}
                                 className={`
-                                    w-8 h-8 rounded-lg border-2 flex items-center justify-center 
-                                    text-[8px] font-black shadow-sm transition-all
+                                    px-2 py-1 rounded border text-[8px] font-bold transition-all
                                     ${isHomeToken 
                                         ? 'bg-blue-600 border-blue-400 text-white' 
                                         : 'bg-orange-500 border-orange-300 text-white'}
-                                    ${isDrawn ? 'ring-2 ring-slate-900 ring-offset-1 scale-110 z-10' : 'opacity-80'}
+                                    ${isDrawn ? 'ring-2 ring-slate-900 ring-offset-1 scale-105 z-10' : 'opacity-70'}
                                 `}
                             >
-                                {token.type?.substring(0, 3).toUpperCase() || '?'}
+                                {token.type?.replace('_', ' ')}
                             </div>
-                            {isDrawn && (
-                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse" />
-                            )}
                         </div>
                     );
                 })}
