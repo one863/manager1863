@@ -30,10 +30,9 @@ export default function PitchView({
     const possessionVals = (possession as any)?.value;
 
     // 1. Logique de Possession et Couleurs
-    const teamId = effectiveId ?? log?.possessionTeamId ?? prevLog?.possessionTeamId ?? 
-                   (possessionVals && possessionVals[0] > possessionVals[1] ? homeTeamId : awayTeamId);
-    
-    const isHomePossession = String(teamId) === String(homeTeamId);
+    // Correction : la source de vérité est currentLog.value.possessionTeamId
+    const possessionTeamId = log?.possessionTeamId !== undefined ? Number(log?.possessionTeamId) : undefined;
+    const isHomePossession = possessionTeamId !== undefined && Number(possessionTeamId) === Number(homeTeamId);
     const possessionColor = isHomePossession ? 'bg-blue-500' : 'bg-orange-500';
 
     // 2. Détection du type d'événement
@@ -51,7 +50,10 @@ export default function PitchView({
     // Couleur dynamique du badge selon le token tiré (home/away)
     let badgeColor = 'bg-slate-400 text-white border-slate-300';
     if (isKickOffSituation) {
-        badgeColor = 'bg-slate-900 text-white border-white/50';
+        // Correction : le badge doit suivre la possessionTeamId même au kickoff
+        badgeColor = isHomePossession
+            ? 'bg-blue-600 text-white border-blue-400'
+            : 'bg-orange-500 text-white border-orange-300';
     } else {
         // Couleur du badge = couleur de l'équipe qui a la possession
         badgeColor = isHomePossession
@@ -80,17 +82,13 @@ export default function PitchView({
             <div className="absolute top-1/2 left-[-2px] -translate-y-1/2 w-1 h-[12%] bg-white/90 rounded-sm z-20 shadow-[0_0_8px_white]" />
             <div className="absolute top-1/2 right-[-2px] -translate-y-1/2 w-1 h-[12%] bg-white/90 rounded-sm z-20 shadow-[0_0_8px_white]" />
             
-            {/* Grille de jeu et Ballon */}
+            
             <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-30">
                 {GRID_CELLS.map((_, i) => {
                     const x = i % 6;
-                    // Inversion de l'axe Y pour avoir (0,0) en bas à gauche
                     const y = 4 - Math.floor(i / 6);
                     const inGrid = pos.x >= 0 && pos.x <= 5 && pos.y >= 0 && pos.y <= 4;
-                    // Inversion de l'axe Y pour l'affichage : yAffiche = 4 - pos.y
-                    const yAffiche = 4 - pos.y;
-                    const hasBall = inGrid && pos.x === x && yAffiche === y;
-                    // ...
+                    const hasBall = inGrid && pos.x === x && pos.y === y;
                     return (
                         <div key={i} className="relative flex items-center justify-center border border-white/5">
                             {hasBall && (
@@ -101,22 +99,30 @@ export default function PitchView({
                                     <div className={`w-4 h-4 ${possessionColor} rounded-full border-2 border-white shadow-xl z-30 flex items-center justify-center transition-colors duration-300`}>
                                         <div className="w-1 h-1 bg-white rounded-full animate-pulse" />
                                     </div>
-                                    {/* Badge Action Dynamique */}
-                                    {(showDrawnToken || isKickOffSituation) && (
-                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                            <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase whitespace-nowrap shadow-xl border-2 tracking-tighter ${badgeColor}`}>
-                                                {isKickOffSituation ? "KICKOFF" : tokenLabel}
-                                            </div>
-                                            {/* Petite flèche sous le badge */}
-                                            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-inherit mx-auto" />
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>
                     );
                 })}
             </div>
+            {/* Badge Action Dynamique : toujours au-dessus du terrain */}
+            {(showDrawnToken || isKickOffSituation) && (
+                <div
+                    className="absolute"
+                    style={{
+                        left: `${((pos.x + 0.5) / 6) * 100}%`,
+                        top: `${((4 - pos.y) / 5) * 100}%`,
+                        transform: 'translate(-50%, -100%)',
+                        zIndex: 9999,
+                        pointerEvents: 'none',
+                    }}
+                >
+                    <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase whitespace-nowrap shadow-xl border-2 tracking-tighter ${badgeColor}`}>
+                        {isKickOffSituation ? "KICKOFF" : tokenLabel}
+                    </div>
+                    <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[4px] border-t-inherit mx-auto" />
+                </div>
+            )}
         </div>
     );
 }

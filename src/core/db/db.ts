@@ -37,7 +37,7 @@ export interface MatchLogsEntry {
     matchId: number;
     debugLogs: any[];      // Logs complets avec bag, drawnToken, etc.
     events: any[];         // Événements formatés
-    ballHistory: number[]; // Historique du ballon
+	ballHistory: { x: number; y: number }[]; // Historique du ballon
 }
 
 export interface StaffStats {

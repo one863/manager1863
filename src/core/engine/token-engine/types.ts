@@ -1,3 +1,4 @@
+export type BallPosition = { x: number; y: number };
 
 // Type minimal pour un jeton d'action
 export interface Token {

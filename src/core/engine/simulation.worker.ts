@@ -24,7 +24,9 @@ async function runSimulation(data: any) {
         // 2. Lancement de la simulation avec les paramètres reçus
         const engineResult = engine.simulateMatch(5400, {
             homeName: homeName || "Domicile",
-            awayName: awayName || "Extérieur"
+            awayName: awayName || "Extérieur",
+            homeTeamId: homeTeamId || 1,
+            awayTeamId: awayTeamId || 2
         });
 
         // 3. Extraction et formatage des événements de but

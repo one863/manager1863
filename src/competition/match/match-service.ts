@@ -6,6 +6,7 @@ import { NewsService } from "@/news/service/news-service";
 import i18next from "i18next";
 import { UpdateTeamSchema } from "@/core/domain";
 import { validateOrThrow } from "@/core/validation/zod-utils";
+import type { BallPosition } from "@/core/engine/token-engine/types";
 
 /**
  * Worker dédié à la simulation.
@@ -99,7 +100,7 @@ export const MatchService = {
                 debugLogs: result.debugLogs ?? [],
                 events: result.events || [],
                 // Conversion BallPosition[] -> number[] (stockage limité à l'index du temps)
-                ballHistory: Array.isArray(result.ballHistory) ? result.ballHistory.map(b => b.timestamp) : []
+                ballHistory: Array.isArray(result.ballHistory) ? result.ballHistory : []
             });
 
             return { matchId: userMatch.id!, homeTeam: homeT, awayTeam: awayT, result };

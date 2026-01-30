@@ -253,10 +253,9 @@ const handleFinalize = useCallback(async () => {
 }
 
 function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, highlightTokenId, drawnTokenId }: any) {
-        // Debug : afficher la structure des jetons du sac
-        // ...
     const bag = log?.bag || log?.tokens || log?.availableTokens || [];
     const colorClass = color === 'blue' ? 'text-blue-600 bg-blue-50' : 'text-orange-600 bg-orange-50';
+
     return (
         <div className="bg-white rounded-2xl p-4 border border-slate-100">
             <div className="flex items-center justify-between mb-3">
@@ -269,29 +268,33 @@ function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, highlightT
             </div>
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {bag.map((token: any) => {
-                    // Correction : si le jeton n'a pas de teamId, on lui attribue homeTeamId
+                    // Logique de détermination de l'équipe du jeton
                     let teamId = token.teamId;
-                    if (!teamId || (teamId !== homeTeamId && teamId !== awayTeamId)) {
-                        // Fallback : si le jeton n'a pas d'équipe, on utilise la possession du log
+                    if (teamId === undefined || teamId === null || (Number(teamId) !== Number(homeTeamId) && Number(teamId) !== Number(awayTeamId))) {
                         teamId = log?.possessionTeamId ?? homeTeamId;
                     }
-                    const isHome = String(teamId) === String(homeTeamId);
-                    const isAway = String(teamId) === String(awayTeamId);
-                    const isDrawn = drawnTokenId && token.id === drawnTokenId;
-                    let tokenClass = 'bg-slate-200 text-slate-700 border-slate-300';
-                    if (isDrawn) {
-                        tokenClass = 'bg-green-500 text-white border-green-700 scale-110 shadow-lg';
-                    } else if (isHome) {
-                        tokenClass = 'bg-blue-600 text-white border-blue-400';
-                    } else if (isAway) {
-                        tokenClass = 'bg-orange-500 text-white border-orange-300';
-                    }
+
+                    const isHomeToken = Number(teamId) === Number(homeTeamId);
+                    const isDrawn = drawnTokenId && String(token.id) === String(drawnTokenId);
+
                     return (
-                        <div 
-                            key={token.id}
-                            className={`px-2 py-1 rounded text-[9px] font-bold border transition-all duration-200 ${tokenClass}`}
-                        >
-                            {token.type}
+                        <div key={token.id} className="relative group">
+                            <div 
+                                title={token.type}
+                                className={`
+                                    w-8 h-8 rounded-lg border-2 flex items-center justify-center 
+                                    text-[8px] font-black shadow-sm transition-all
+                                    ${isHomeToken 
+                                        ? 'bg-blue-600 border-blue-400 text-white' 
+                                        : 'bg-orange-500 border-orange-300 text-white'}
+                                    ${isDrawn ? 'ring-2 ring-slate-900 ring-offset-1 scale-110 z-10' : 'opacity-80'}
+                                `}
+                            >
+                                {token.type?.substring(0, 3).toUpperCase() || '?'}
+                            </div>
+                            {isDrawn && (
+                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse" />
+                            )}
                         </div>
                     );
                 })}
