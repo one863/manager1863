@@ -24,17 +24,21 @@ export default function PitchView({
     // Sécurisation : accepte previousLog null/undefined sans erreur ni log
     if (!displayPos || !currentLog) {
         // displayPos et currentLog sont obligatoires
-        console.error('[PitchView] Props manquantes', {
-            displayPos,
-            currentLog
-        });
         return (
             <div className="w-full h-full flex items-center justify-center text-red-600 bg-white/80">
                 <span>Erreur d'affichage du terrain (données manquantes)</span>
             </div>
         );
     }
-
+// === Grille 6x5 ===
+// |     |       |       |       |       |       |       |
+// | :-: | :---: | :---: | :---: | :---: | :---: | :---: |
+// |     | X = 0 | X = 1 | X = 2 | X = 3 | X = 4 | X = 5 |
+// | Y=0 | 0 0   | 1 0   | 2 0   | 3 0   | 4 0   | 5 0   |
+// | Y=1 | 0 1   | 1 1   | 2 1   | 3 1   | 4 1   | 5 1   |
+// | Y=2 | 0 2   | 1 2   | 2 2   | 3 2   | 4 2   | 5 2   |
+// | Y=3 | 0 3   | 1 3   | 2 3   | 3 3   | 4 3   | 5 3   |
+// | Y=4 | 0 4   | 1 4   | 2 4   | 3 4   | 4 4   | 5 4   |
     // Extraction des valeurs
     const pos = displayPos.value ?? { x: 0, y: 0 };
     const log = currentLog.value ?? {};
@@ -47,12 +51,12 @@ export default function PitchView({
     const posColorClass = isHomePossession ? 'bg-blue-600' : 'bg-orange-500';
     const posBorderClass = isHomePossession ? 'border-blue-400' : 'border-orange-300';
 
-    // Badge = type du jeton tiré du sac N-1 (drawnToken du log N), sauf coup d'envoi
+    // Badge = type du jeton tiré du sac courant (drawnToken du log courant), sauf coup d'envoi
     const isKickOff = log?.situation === 'KICK_OFF' || (log?.text && /coup d'envoi/i.test(log.text));
-    const prevDrawnToken = log?.drawnToken; // drawnToken du log N (tiré dans le sac N-1)
+    const currentDrawnToken = log?.drawnToken; // drawnToken du log courant
     const tokenLabel = isKickOff
         ? "COUP D'ENVOI"
-        : (prevDrawnToken?.type?.replace('_', ' ') || "Action");
+        : (currentDrawnToken?.type?.replace('_', ' ') || "Action");
 
     return (
         <div className="relative w-full max-w-2xl mx-auto aspect-[105/68] bg-emerald-600 border-[3px] border-white/40 shadow-2xl overflow-hidden rounded-3xl">
@@ -76,13 +80,14 @@ export default function PitchView({
             <div className="absolute top-1/2 right-[-2px] -translate-y-1/2 w-1 h-[12%] bg-white/90 rounded-sm z-20 shadow-[0_0_8px_white]" />
             
             {/* Grille de positionnement (6x5) */}
+            
             <div className="absolute inset-0 grid grid-cols-6 grid-rows-5 z-30">
                 {GRID_CELLS.map((_, i) => {
                     const x = i % 6;
-                    const y = 4 - Math.floor(i / 6); // Inverse l'axe Y pour que 0 soit en bas
+                    const y = Math.floor(i / 6); // Y=0 en haut, Y=4 en bas
                     const hasBall = pos.x === x && pos.y === y;
 
-                    // Détermine si c'est la ligne supérieure (y=0 dans le système inversé)
+                    // Détermine si c'est la ligne supérieure (y=0)
                     const isTopRow = (y === 0);
                     const badgePositionClass = isTopRow ? 'top-full mt-2' : 'bottom-full mb-2';
                     const arrowClass = isTopRow ? 'border-b-[4px] border-b-white/80' : 'border-t-[4px] border-t-white/80';

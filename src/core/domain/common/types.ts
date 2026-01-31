@@ -9,7 +9,7 @@ export interface Sponsor {
  * Types partagés entre tous les domaines
  */
 
-export type TacticType = "NORMAL" | "POSSESSION" | "COUNTER" | "LONG_BALL" | "PARK_BUS" | "WING_PLAY";
+export type TacticType = "NORMAL" | "POSSESSION" | "COUNTER" | "TRANSVERSAL" | "PARK_BUS" | "WING_PLAY";
 export type StrategyType = "DEFENSIVE" | "BALANCED" | "OFFENSIVE";
 export type StaffRole = "COACH" | "PHYSICAL_TRAINER" | "VIDEO_ANALYST";
 export type NewsCategory = "MATCH" | "TRANSFER" | "CLUB" | "LEAGUE";

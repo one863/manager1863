@@ -15,6 +15,11 @@ const OFF_BUILDUP = [
     { type: 'PASS_BACK', narrativeTemplate: '{p1} temporise en jouant en retrait.' },
     { type: 'PASS_LONG', narrativeTemplate: '{p1} tente une longue ouverture vers l\'avant.' }
 ];
+// === Bundle offensif pour les ailes ===
+const OFF_WING = [
+    { type: 'DRIBBLE', narrativeTemplate: "{p1} déborde sur l'aile." },
+    { type: 'CROSS', narrativeTemplate: "{p1} centre depuis le couloir !" }
+];
 
 const OFF_MIDFIELD = [
     { type: 'PASS_SHORT', narrativeTemplate: '{p1} combine avec une passe courte.' },
@@ -26,7 +31,7 @@ const OFF_MIDFIELD = [
 const OFF_ATTACK = [
     { type: 'DRIBBLE', narrativeTemplate: '{p1} provoque la défense balle au pied.' },
     { type: 'PASS_THROUGH', narrativeTemplate: '{p1} glisse une passe chirurgicale dans la surface.' },
-    { type: 'PASS_EXTRA', narrativeTemplate: '{p1} tente la passe de trop dans la zone de vérité.' },
+    { type: 'PASS_MISS', narrativeTemplate: '{p1} tente la passe de trop dans la zone de vérité.' },
     { type: 'CROSS', narrativeTemplate: '{p1} centre fort devant le but !' },
     { type: 'CUT_INSIDE', narrativeTemplate: '{p1} repique dans l\'axe pour se mettre sur son bon pied.' },
     { type: 'SHOOT_GOAL', narrativeTemplate: '{p1} déclenche une frappe terrible !' },
@@ -38,8 +43,7 @@ const OFF_ATTACK = [
 const OFF_FINISH = [
     { type: 'DRIBBLE', narrativeTemplate: '{p1} tente de déborder dans les derniers mètres.' },
     { type: 'PASS_THROUGH', narrativeTemplate: '{p1} cherche la faille dans la défense.' },
-    { type: 'PASS_EXTRA', narrativeTemplate: '{p1} tente une remise risquée.' },
-    { type: 'CROSS', narrativeTemplate: '{p1} envoie un centre dangereux !' },
+    { type: 'PASS_MISS', narrativeTemplate: '{p1} tente une remise risquée.' },
     { type: 'CUT_INSIDE', narrativeTemplate: '{p1} rentre intérieur pour frapper.' },
     { type: 'SHOOT_GOAL', narrativeTemplate: '{p1} arme une frappe instantanée !' },
     { type: 'SHOOT_SAVED', narrativeTemplate: 'Quel arrêt du portier face à {p1} !' },
@@ -50,7 +54,9 @@ const OFF_FINISH = [
 // === Bundles défensifs avec narrativeTemplate ===
 const DEF_STANDARD = [
     { type: 'TACKLE', narrativeTemplate: '{p1} intervient avec un tacle propre.' },
-    { type: 'INTERCEPT', narrativeTemplate: '{p1} coupe la trajectoire et intercepte.' }
+    { type: 'INTERCEPT', narrativeTemplate: '{p1} coupe la trajectoire et intercepte.' },
+     { type: 'TACKLE', narrativeTemplate: 'Duel gagné par {p1}.' },
+    { type: 'INTERCEPT', narrativeTemplate: '{p1} intercepte la passe.' }
 ];
 
 const DEF_DENSE = [
@@ -60,6 +66,9 @@ const DEF_DENSE = [
 ];
 
 const DEF_LOW_BLOCK = [
+    { type: 'TACKLE', narrativeTemplate: '{p1} s\'interpose avec autorité.' },
+    { type: 'TACKLE', narrativeTemplate: '{p1} s\'interpose avec autorité.' },
+    { type: 'BLOCK_SHOT', narrativeTemplate: '{p1} s\'interpose avec autorité.' },
     { type: 'BLOCK_SHOT', narrativeTemplate: '{p1} fait mur devant sa cage !' },
     { type: 'CLEARANCE', narrativeTemplate: '{p1} dégage le ballon en catastrophe !' }
 ];
@@ -70,20 +79,29 @@ const GK_DISTRIBUTION = [
 ];
 
 // === Grille 6x5 ===
+// |     |       |       |       |       |       |       |
+// | :-: | :---: | :---: | :---: | :---: | :---: | :---: |
+// |     | X = 0 | X = 1 | X = 2 | X = 3 | X = 4 | X = 5 |
+// | Y=0 | 0 0   | 1 0   | 2 0   | 3 0   | 4 0   | 5 0   |
+// | Y=1 | 0 1   | 1 1   | 2 1   | 3 1   | 4 1   | 5 1   |
+// | Y=2 | 0 2   | 1 2   | 2 2   | 3 2   | 4 2   | 5 2   |
+// | Y=3 | 0 3   | 1 3   | 2 3   | 3 3   | 4 3   | 5 3   |
+// | Y=4 | 0 4   | 1 4   | 2 4   | 3 4   | 4 4   | 5 4   |
+
 export const ZONES_CONFIG: Record<string, ZoneDefinitionSplit> = {
     // Colonne 0 : Zone critique Home (Défense basse Home / Attaque Away)
-    '0,0': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_ATTACK, defenseTokensAway: DEF_DENSE },
+        '0,0': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_WING, defenseTokensAway: DEF_DENSE },
     '0,1': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_FINISH, defenseTokensAway: DEF_DENSE },
     '0,2': { offenseTokensHome: GK_DISTRIBUTION, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_FINISH, defenseTokensAway: DEF_DENSE },
     '0,3': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_FINISH, defenseTokensAway: DEF_DENSE },
-    '0,4': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_ATTACK, defenseTokensAway: DEF_DENSE },
+    '0,4': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_LOW_BLOCK, offenseTokensAway: OFF_WING, defenseTokensAway: DEF_DENSE },
 
     // Colonne 1 : Filtre défensif Home
-    '1,0': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_ATTACK, defenseTokensAway: DEF_STANDARD },
+        '1,0': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_WING, defenseTokensAway: DEF_STANDARD },
     '1,1': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_MIDFIELD, defenseTokensAway: DEF_STANDARD },
     '1,2': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_MIDFIELD, defenseTokensAway: DEF_STANDARD },
     '1,3': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_MIDFIELD, defenseTokensAway: DEF_STANDARD },
-    '1,4': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_ATTACK, defenseTokensAway: DEF_STANDARD },
+    '1,4': { offenseTokensHome: OFF_BUILDUP, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_WING, defenseTokensAway: DEF_STANDARD },
 
     // Colonnes 2 & 3 : Milieu de terrain
     '2,0': { offenseTokensHome: OFF_MIDFIELD, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_MIDFIELD, defenseTokensAway: DEF_STANDARD },
@@ -99,18 +117,18 @@ export const ZONES_CONFIG: Record<string, ZoneDefinitionSplit> = {
     '3,4': { offenseTokensHome: OFF_MIDFIELD, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_MIDFIELD, defenseTokensAway: DEF_STANDARD },
 
     // Colonne 4 : Filtre défensif Away
-    '4,0': { offenseTokensHome: OFF_ATTACK, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
+    '4,0': { offenseTokensHome: OFF_WING, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
     '4,1': { offenseTokensHome: OFF_MIDFIELD, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
     '4,2': { offenseTokensHome: OFF_MIDFIELD, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
     '4,3': { offenseTokensHome: OFF_MIDFIELD, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
-    '4,4': { offenseTokensHome: OFF_ATTACK, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
+        '4,4': { offenseTokensHome: OFF_WING, defenseTokensHome: DEF_STANDARD, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_DENSE },
 
     // Colonne 5 : Zone critique Away (Attaque Home / Défense basse Away)
-    '5,0': { offenseTokensHome: OFF_ATTACK, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_LOW_BLOCK },
+    '5,0': { offenseTokensHome: OFF_WING, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_LOW_BLOCK },
     '5,1': { offenseTokensHome: OFF_FINISH, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_LOW_BLOCK },
     '5,2': { offenseTokensHome: OFF_FINISH, defenseTokensHome: DEF_DENSE, offenseTokensAway: GK_DISTRIBUTION, defenseTokensAway: DEF_LOW_BLOCK },
     '5,3': { offenseTokensHome: OFF_FINISH, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_LOW_BLOCK },
-    '5,4': { offenseTokensHome: OFF_ATTACK, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_LOW_BLOCK },
+    '5,4': { offenseTokensHome: OFF_WING, defenseTokensHome: DEF_DENSE, offenseTokensAway: OFF_BUILDUP, defenseTokensAway: DEF_LOW_BLOCK },
 };
 
 export const DEFAULT_ZONE_CONFIG: ZoneDefinitionSplit = {

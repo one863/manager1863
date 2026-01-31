@@ -8,7 +8,7 @@ export const TacticTypeSchema = z.enum([
 	"NORMAL",
 	"POSSESSION",
 	"COUNTER",
-	"LONG_BALL",
+	"TRANSVERSAL",
 	"PARK_BUS",
 	"WING_PLAY",
 ]);

@@ -1,5 +1,5 @@
-import { db, type Player } from "@/core/db/db";
-import type { MatchResult as MatchResultType, MatchEvent, Match } from "@/core/types";
+import { db, type Player, type Match } from "@/core/db/db";
+import type { MatchResult as MatchResultType, MatchEvent } from "@/core/types";
 import { ArrowLeft, Award, Goal, Copy, Check, Terminal, Download } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import PlayerAvatar from "@/squad/components/PlayerAvatar";

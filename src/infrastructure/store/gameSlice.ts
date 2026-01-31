@@ -3,9 +3,24 @@ import { repairSaveData as runDataMigrations } from "@/core/db/migrations/data-m
 import { BackupService } from "@/core/services/backup-service";
 import { ClubService } from "@/club/club-service";
 import { MatchService } from "@/competition/match/match-service";
+import { NewsService } from "@/news/service/news-service";
 
 // Utilitaire pour lancer la simulation de journée dans un Web Worker
-function simulateDayByDayInWorker(saveId: number, day: number, userTeamId: number, date: Date): Promise<any> {
+
+import type { MatchResult } from "@/core/domain/match/types";
+
+// Type réel retourné par simulateDayByDayInWorker
+export interface PendingUserMatch {
+    matchId: number | null;
+    homeTeam: any;
+    awayTeam: any;
+    homePlayers: any[];
+    awayPlayers: any[];
+    result: MatchResult | null;
+}
+
+
+function simulateDayByDayInWorker(saveId: number, day: number, userTeamId: number, date: Date): Promise<PendingUserMatch | null> {
     return new Promise((resolve, reject) => {
         // @ts-ignore
         const worker = new Worker(new URL("../../competition/match/match-simulation.worker.ts", import.meta.url), { type: "module" });
@@ -24,15 +39,13 @@ function simulateDayByDayInWorker(saveId: number, day: number, userTeamId: numbe
         };
     });
 }
-import { NewsService } from "@/news/service/news-service";
 import { TrainingService } from "@/squad/training/training-service";
 import { create } from "zustand";
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
-import type { MatchResult } from "@/core/types";
 
 interface ViewHistory {
     view: string;
-    params?: any;
+    params?: Record<string, unknown>;
 }
 
 interface GameState {
@@ -47,7 +60,7 @@ interface GameState {
 	unreadNewsCount: number;
 	lastUpdate: number;
     navigationHistory: ViewHistory[];
-    uiContext: Record<string, any>;
+    uiContext: Record<string, unknown>;
 
 	initialize: (slotId: number, date: Date, teamId: number, managerName: string, teamName: string) => Promise<void>;
 	loadGame: (slotId: number) => Promise<boolean>;
@@ -59,9 +72,9 @@ interface GameState {
 	refreshUnreadNewsCount: () => Promise<void>;
 	finalizeLiveMatch: (finalResult: MatchResult) => Promise<void>;
 	triggerRefresh: () => void;
-    pushView: (view: string, params?: any) => void;
+    pushView: (view: string, params?: Record<string, unknown>) => void;
     popView: () => ViewHistory | null;
-    setUIContext: (viewKey: string, value: any) => void;
+    setUIContext: (viewKey: string, value: unknown) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -78,8 +91,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     navigationHistory: [],
     uiContext: { squad: 'squad', club: 'finances', transfers: 'players' },
 
-	initialize: async (slotId, date, teamId, _managerName, _teamName) => {
-		useLiveMatchStore.getState().clearLiveMatch(slotId);
+    initialize: async (slotId: number, date: Date, teamId: number, _managerName: string, _teamName: string) => {
+        useLiveMatchStore.getState().clearLiveMatch(slotId);
 		set({
 			currentSaveId: slotId, season: 1, day: 1, currentDate: date, userTeamId: teamId,
 			isProcessing: false, isTampered: false, isGameOver: false, lastUpdate: Date.now(),
@@ -88,7 +101,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 		await get().refreshUnreadNewsCount();
 	},
 
-	loadGame: async (slotId) => {
+
+    loadGame: async (slotId: number) => {
 		if (!slotId) return false;
 		set({ isProcessing: true });
 		try {
@@ -116,19 +130,27 @@ export const useGameStore = create<GameState>((set, get) => ({
 		return false;
 	},
 
-	refreshUnreadNewsCount: async () => {
+    refreshUnreadNewsCount: async (): Promise<void> => {
 		const { currentSaveId, day } = get();
 		if (!currentSaveId) return;
 		const unreadNews = await db.news.where("saveId").equals(currentSaveId).and((n) => !n.isRead).toArray();
-		const visibleUnreadCount = unreadNews.filter((n) => n.day <= day).length;
+        const visibleUnreadCount = unreadNews.filter((n: any) => n.day <= day).length;
 		set({ unreadNewsCount: visibleUnreadCount });
 	},
 
-	advanceDate: async () => {
-		const { currentDate, day, season, userTeamId, currentSaveId, isGameOver } = get();
-		if (currentSaveId === null || userTeamId === null || isGameOver) return;
-		
-		set({ isProcessing: true });
+    advanceDate: async (): Promise<void> => {
+        const { currentDate, day, season, userTeamId: rawUserTeamId, currentSaveId, isGameOver } = get();
+        if (currentSaveId === null || rawUserTeamId === null || isGameOver) return;
+
+        // Correction : forcer le typage et vérifier la validité de userTeamId
+        const userTeamId = Number(rawUserTeamId);
+        if (!Number.isFinite(userTeamId) || userTeamId <= 0) {
+            console.error('[advanceDate] userTeamId invalide:', rawUserTeamId, '(après conversion:', userTeamId, ')');
+            set({ isProcessing: false });
+            return;
+        }
+
+        set({ isProcessing: true });
 		try {
             const nextDay = day + 1;
             const nextDate = new Date(currentDate);
@@ -154,12 +176,18 @@ export const useGameStore = create<GameState>((set, get) => ({
             // Nettoyage périodique des données volumineuses (tous les 7 jours)
             if (day % 7 === 0) {
                 console.time('CleanupOldNews');
-                await NewsService.cleanupOldNews(currentSaveId, season);
-                console.timeEnd('CleanupOldNews');
+                try {
+                    await NewsService.cleanupOldNews(currentSaveId, season);
+                } finally {
+                    console.timeEnd('CleanupOldNews');
+                }
                 console.time('CleanupOldUserMatchLogs');
-                // Nettoyer les logs des anciens matchs utilisateur (garder seulement les 3 derniers jours)
-                await MatchService.cleanupOldUserMatchLogs(currentSaveId, userTeamId, day);
-                console.timeEnd('CleanupOldUserMatchLogs');
+                try {
+                    // Nettoyer les logs des anciens matchs utilisateur (garder seulement les 3 derniers jours)
+                    await MatchService.cleanupOldUserMatchLogs(currentSaveId);
+                } finally {
+                    console.timeEnd('CleanupOldUserMatchLogs');
+                }
             }
 
             if (pendingUserMatch && pendingUserMatch.matchId !== null && pendingUserMatch.matchId !== undefined) {
@@ -179,17 +207,19 @@ export const useGameStore = create<GameState>((set, get) => ({
                 // Si besoin, déclencher ici un callback ou un event pour forcer la navigation UI
             } else {
                 const userTeam = await db.teams.get(userTeamId);
-                if (userTeam) {
-                    const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId);
-                    if (seasonEnded) {
-                        // On affiche le classement final, puis on reset au passage effectif à la nouvelle saison (voir ci-dessous)
-                        await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId, true);
-                        await updateGameState(currentSaveId, userTeamId, 1, season + 1, nextDate);
-                        set({ day: 1, season: season + 1, currentDate: nextDate, lastUpdate: Date.now() });
-                    } else {
-                        await updateGameState(currentSaveId, userTeamId, nextDay, season, nextDate);
-                        set({ day: nextDay, currentDate: nextDate, lastUpdate: Date.now() });
-                    }
+                if (!userTeam) {
+                    console.error('[advanceDate] db.teams.get(userTeamId) a échoué, userTeamId =', userTeamId);
+                    set({ isProcessing: false });
+                    return;
+                }
+                const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId);
+                if (seasonEnded) {
+                    // On affiche le classement final, puis on reset au passage effectif à la nouvelle saison (voir ci-dessous)
+                    await updateGameState(currentSaveId, userTeamId, 1, season + 1, nextDate);
+                    set({ day: 1, season: season + 1, currentDate: nextDate, lastUpdate: Date.now() });
+                } else {
+                    await updateGameState(currentSaveId, userTeamId, nextDay, season, nextDate);
+                    set({ day: nextDay, currentDate: nextDate, lastUpdate: Date.now() });
                 }
             }
             await get().refreshUnreadNewsCount();
@@ -200,7 +230,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 	},
 
-	finalizeLiveMatch: async (finalResult: MatchResult) => {
+    finalizeLiveMatch: async (finalResult: MatchResult): Promise<void> => {
 		const { currentSaveId, userTeamId, day, season, currentDate } = get();
         const liveMatch = useLiveMatchStore.getState().liveMatch;
         
@@ -215,7 +245,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             await db.gameState.where("saveId").equals(currentSaveId).modify({ liveMatch: null });
             useLiveMatchStore.getState().clearLiveMatch(currentSaveId);
             // Purge immédiate des logs des anciens matchs utilisateur
-            await MatchService.cleanupOldUserMatchLogs(currentSaveId, userTeamId, day);
+            await MatchService.cleanupOldUserMatchLogs(currentSaveId);
 
             const nextDay = day + 1;
             const nextDate = new Date(currentDate);
@@ -226,9 +256,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             let finalSeason = season;
 
             if (userTeam) {
-                const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId);
+                const seasonEnded = await MatchService.checkSeasonEnd(currentSaveId);
                 if (seasonEnded) {
-                    await MatchService.checkSeasonEnd(currentSaveId, userTeam.leagueId, true);
                     finalDay = 1; finalSeason = season + 1;
                 }
             }
@@ -247,7 +276,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 	},
 
-    quitGame: () => {
+    quitGame: (): void => {
         const { currentSaveId } = get();
         if (currentSaveId) {
             useLiveMatchStore.getState().clearLiveMatch(currentSaveId);
@@ -265,7 +294,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
     },
 
-	deleteSaveAndQuit: async () => {
+    deleteSaveAndQuit: async (): Promise<void> => {
 		const { currentSaveId } = get();
 		if (currentSaveId) {
 			await db.transaction("rw", [db.players, db.teams, db.matches, db.leagues, db.saveSlots, db.gameState, db.news, db.history, db.backups], async () => {
@@ -284,19 +313,19 @@ export const useGameStore = create<GameState>((set, get) => ({
 		get().quitGame();
 	},
 
-	setProcessing: (status) => set({ isProcessing: status }),
-	setUserTeam: (id) => set({ userTeamId: id }),
-	triggerRefresh: () => set({ lastUpdate: Date.now() }),
+    setProcessing: (status: boolean) => set({ isProcessing: status }),
+    setUserTeam: (id: number) => set({ userTeamId: id }),
+    triggerRefresh: (): void => set({ lastUpdate: Date.now() }),
 
-    pushView: (view, params) => set(state => ({ navigationHistory: [...state.navigationHistory, { view, params }] })),
-    popView: () => {
+    pushView: (view: string, params?: Record<string, unknown>) => set((state: GameState) => ({ navigationHistory: [...state.navigationHistory, { view, params }] })),
+    popView: (): ViewHistory | null => {
         const history = get().navigationHistory;
         if (history.length === 0) return null;
         const last = history[history.length - 1];
         set({ navigationHistory: history.slice(0, -1) });
         return last;
     },
-    setUIContext: (viewKey, value) => set(state => ({ uiContext: { ...state.uiContext, [viewKey]: value } }))
+    setUIContext: (viewKey: string, value: unknown) => set((state: GameState) => ({ uiContext: { ...state.uiContext, [viewKey]: value } }))
 }));
 
 async function updateGameState(saveId: number, teamId: number, day: number, season: number, date: Date) {

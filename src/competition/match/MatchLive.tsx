@@ -30,10 +30,8 @@ type TabId = typeof TABS[number]['id'];
 const cleanText = (text?: string, drawnToken?: any) => {
     if (!text) return '...';
     
-    // Correction des placeholders génériques
     let result = text.replace(/undefined|Collectif/g, "L'équipe");
     
-    // Injection des noms de joueurs réels (p1 = principal, p2 = secondaire)
     if (drawnToken) {
         if (drawnToken.playerName) {
             result = result.replace(/\{p1\}/g, drawnToken.playerName);
@@ -43,74 +41,133 @@ const cleanText = (text?: string, drawnToken?: any) => {
         }
     }
     
-    // Nettoyage final des balises restantes si le moteur n'a pas pu les remplir
     return result.replace(/\{p1\}|\{p2\}/g, "un joueur");
 };
 
 export default function MatchLive({ onShowReport }: { onShowReport?: (id: number) => void }) {
+    // 1. Déclarations des Stores
     const finalizeLiveMatch = useGameStore((s) => s.finalizeLiveMatch);
     const currentSaveId = useGameStore((s) => s.currentSaveId);
     const liveMatch = useLiveMatchStore((s) => s.liveMatch);
     const loadLiveMatchFromDb = useLiveMatchStore((s) => s.loadLiveMatchFromDb);
     const updateLiveMatchState = useLiveMatchStore((s) => s.updateLiveMatchState);
 
-    const hasLoaded = useRef(false);
+    // 2. Variables de configuration (Déclarées tôt pour être accessibles aux hooks)
+    const storageKey = currentSaveId ? `matchlive_${currentSaveId}` : undefined;
+
+    // 3. Signaux et États
+    const hasLoaded = useRef(false); // Réintroduit pour un chargement unique
+    const hasRestored = useRef(false);
     const currentMatchTime = useSignal(0);
     const isPaused = useSignal(true);
     const currentLogIndex = useSignal(0);
     const [activeTab, setActiveTab] = useState<TabId>("live");
 
-    // 1. CHARGEMENT INITIAL (Logique consolidée)
+    // 4. Hook de statistiques dynamiques
+    const stats = useLiveMatchStats(liveMatch, currentLogIndex, currentMatchTime);
+    const { allLogs = [], maxTime = 0, result, matchId, isFinished } = stats || {};
+
+    // --- LOGIQUE DE PERSISTENCE ---
+
+    // Réinitialise le localStorage si le matchId change
     useEffect(() => {
-        if (!currentSaveId || hasLoaded.current) return;
-        // Si le match est déjà chargé en mémoire AVEC les logs, ne rien faire
-        // Correction : On vérifie que les logs sont bien présents pour éviter le bug du "match fini" sur refresh
-        const hasLogs = liveMatch?.result?.debugLogs?.length > 0 || liveMatch?.result?.events?.length > 0;
-        if (liveMatch && liveMatch.matchId && hasLogs) {
-            hasLoaded.current = true;
+        if (!storageKey || !liveMatch?.matchId) return;
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                if (state.matchId && state.matchId !== liveMatch.matchId) {
+                    localStorage.removeItem(storageKey);
+                    // Réinitialiser les signaux à leurs valeurs par défaut pour un nouveau match
+                    currentMatchTime.value = 0;
+                    currentLogIndex.value = 0;
+                    isPaused.value = true;
+                    setActiveTab("live"); // Réinitialiser l'onglet actif également
+                }
+            } catch {
+                localStorage.removeItem(storageKey);
+            }
+        }
+    }, [storageKey, liveMatch?.matchId]);
+
+    // Restauration automatique au montage
+    useEffect(() => {
+        // Ne s'exécute qu'une seule fois après le chargement complet du match pour éviter les cycles
+        if (hasRestored.current || !storageKey || !liveMatch?.result?.debugLogs?.length) {
             return;
         }
+
+        const allLogsLength = liveMatch.result.debugLogs.length;
+        const saved = localStorage.getItem(storageKey);
+
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                // On ne restaure que si les IDs de match correspondent
+                if (state.matchId && state.matchId === liveMatch.matchId) {
+                    if (typeof state.currentMatchTime === 'number') {
+                        currentMatchTime.value = state.currentMatchTime;
+                    }
+                    // Restaurer l'index seulement s'il est valide
+                    if (typeof state.currentLogIndex === 'number' && state.currentLogIndex < allLogsLength) {
+                        currentLogIndex.value = state.currentLogIndex;
+                    } else {
+                        currentLogIndex.value = 0; // Sécurité
+                    }
+                    if (typeof state.isPaused === 'boolean') {
+                        isPaused.value = state.isPaused;
+                    }
+                    if (typeof state.activeTab === 'string') {
+                        setActiveTab(state.activeTab);
+                    }
+                }
+            } catch { /* Laisser les valeurs par défaut en cas d'erreur de parsing */ }
+        }
+        
+        hasRestored.current = true; // Empêche de ré-exécuter
+    }, [liveMatch, storageKey]);
+
+    // Sauvegarde automatique à chaque changement
+    useEffect(() => {
+        if (!storageKey) return;
+        const state = {
+            matchId: liveMatch?.matchId,
+            currentMatchTime: currentMatchTime.value,
+            currentLogIndex: currentLogIndex.value,
+            isPaused: isPaused.value,
+            activeTab,
+        };
+        localStorage.setItem(storageKey, JSON.stringify(state));
+    }, [storageKey, liveMatch?.matchId, currentMatchTime.value, currentLogIndex.value, isPaused.value, activeTab]);
+
+    // --- LOGIQUE DE JEU ---
+
+    // Chargement initial des données depuis la DB
+    useEffect(() => {
+        if (!currentSaveId || hasLoaded.current) return; // Utiliser hasLoaded pour un chargement unique
+
         const init = async () => {
-            console.log('[MatchLive] Chargement du match...', currentSaveId);
-            await loadLiveMatchFromDb(currentSaveId);
-            // Initialisation propre : on ne force le début qu'une seule fois
-            if (!hasLoaded.current) {
-                currentMatchTime.value = 0;
-                currentLogIndex.value = 0;
-                isPaused.value = true;
+            // Vérifie si les données complètes sont déjà dans le store (pour éviter de recharger lors de la navigation)
+            const currentState = useLiveMatchStore.getState().liveMatch;
+            const hasFullLogs = (currentState?.result?.debugLogs?.length ?? 0) > 0;
+            if (currentState?.matchId && hasFullLogs) {
+                hasLoaded.current = true; // Marquer comme chargé si déjà en store
+                return; // Déjà chargé
             }
-            hasLoaded.current = true;
+
+            // Charge depuis la DB (cas d'un rafraîchissement de page)
+            await loadLiveMatchFromDb(currentSaveId);
+            hasLoaded.current = true; // Marquer comme chargé après le fetch
         };
         init();
-    }, [currentSaveId, loadLiveMatchFromDb, liveMatch]);
+    }, [currentSaveId, loadLiveMatchFromDb]); // hasLoaded.current n'est pas une dépendance
 
-    // 2. SYNCHRONISATION DE L'ÉTAT DU MATCH
+    // Progression du temps
     useEffect(() => {
-        if (!liveMatch?.result) return;
-        
-        // Reprendre là où on s'était arrêté
-        currentMatchTime.value = liveMatch.currentTime ?? 0;
-        isPaused.value = liveMatch.isPaused ?? true;
-        
-        const logs = liveMatch.result.debugLogs || liveMatch.result.events || [];
-        if (logs.length > 0) {
-            const idx = Math.max(0, logs.findLastIndex((l: any) => l.time <= currentMatchTime.value));
-            currentLogIndex.value = idx;
-        }
-    }, [liveMatch]);
-
-    // 3. HOOK DE STATS DYNAMIQUES
-    const stats = useLiveMatchStats(liveMatch, currentLogIndex, currentMatchTime);
-    const { allLogs, maxTime, result, matchId, isFinished } = stats;
-
-    // 4. LOGIQUE DE PROGRESSION DU TEMPS
-    useEffect(() => {
-        // L'auto-play ne doit démarrer que si non en pause, non fini, et qu'il y a des logs
-        if (isPaused.value || isFinished.value || allLogs.length === 0) return;
+        if (isPaused.value || isFinished?.value || allLogs.length === 0) return;
 
         const interval = setInterval(() => {
-            // On vérifie à chaque tick que l'on n'est pas repassé en pause
-            if (!isPaused.value && !isFinished.value && currentMatchTime.value < maxTime) {
+            if (!isPaused.value && !isFinished?.value && currentMatchTime.value < maxTime) {
                 currentMatchTime.value += 1;
                 const nextIdx = allLogs.findLastIndex((l: any) => l.time <= currentMatchTime.value);
                 if (nextIdx !== -1 && nextIdx !== currentLogIndex.value) {
@@ -122,11 +179,10 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         }, 100);
 
         return () => clearInterval(interval);
-    }, [isPaused.value, isFinished.value, allLogs.length]);
+    }, [isPaused.value, isFinished?.value, allLogs.length, maxTime]);
 
-    // 5. NAVIGATION MANUELLE
+    // Navigation manuelle
     const seekToLog = useCallback((index: number) => {
-        // Navigation manuelle : on met en pause et on bloque l'auto-play
         isPaused.value = true;
         const targetLog = allLogs[index];
         if (targetLog) {
@@ -135,37 +191,37 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         }
     }, [allLogs]);
 
-    // 6. FINALISATION DU MATCH
+    // Finalisation
     const handleFinalize = useCallback(async () => {
-        if (!result || !matchId) {
-            console.error("Données manquantes pour finaliser.");
-            return;
-        }
+        // Fallback sur liveMatch si result/matchId sont manquants (cas des logs vides)
+        const effectiveResult = result || liveMatch?.result;
+        const effectiveMatchId = matchId || liveMatch?.matchId;
+
+        if (!effectiveResult || !effectiveMatchId) return;
 
         try {
-            // Vérification de sécurité en base
             const { db } = await import("@/core/db/db");
-            const matchInDb = await db.matches.get(matchId);
+            const matchInDb = await db.matches.get(effectiveMatchId);
             
             if (!matchInDb) {
                 alert("Erreur : Match non trouvé en base.");
                 return;
             }
 
-            await finalizeLiveMatch(result);
+            await finalizeLiveMatch(effectiveResult);
             updateLiveMatchState({ currentTime: 0, isPaused: true }, currentSaveId ?? undefined);
 
             if (onShowReport) {
-                onShowReport(matchId);
+                onShowReport(effectiveMatchId);
             } else {
-                window.location.hash = `/match-report/${matchId}`;
+                window.location.hash = `/match-report/${effectiveMatchId}`;
             }
         } catch (error) {
             console.error("Erreur finalisation:", error);
-            alert("Erreur lors de la sauvegarde.");
         }
-    }, [result, matchId, finalizeLiveMatch, onShowReport, updateLiveMatchState, currentSaveId]);
+    }, [result, matchId, liveMatch, finalizeLiveMatch, onShowReport, updateLiveMatchState, currentSaveId]);
 
+    // Écran de chargement
     if (!liveMatch?.result) {
         return (
             <div className="absolute inset-0 z-[200] flex items-center justify-center bg-slate-50">
@@ -175,18 +231,27 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
         );
     }
 
-    const isActuallyFinished = isFinished.value || currentLogIndex.value >= allLogs.length - 1;
+    // Cas où les logs sont vides ou invalides (erreur de sauvegarde ou match corrompu)
+    // On vérifie si le premier log contient bien un 'bag' (structure de log valide)
+    const isCorrupted = allLogs.length === 0;
+
+    if (isCorrupted) {
+        return (
+            <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center bg-slate-50 gap-4">
+                <Package size={48} className="text-slate-300" />
+                <p className="text-slate-500 font-medium">Données de match incomplètes ou corrompues.</p>
+                <p className="text-slate-400 text-xs max-w-xs text-center">Le fichier de logs semble invalide. Cliquez ci-dessous pour voir le résultat.</p>
+                <button onClick={handleFinalize} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold">Voir le résultat</button>
+            </div>
+        );
+    }
+
+    // Sécurisation : le match ne peut être fini que si les logs sont chargés.
+    const isActuallyFinished = allLogs.length > 0 && ((currentLogIndex.value >= allLogs.length - 1) || (isFinished?.value && currentLogIndex.value >= allLogs.length - 1));
 
     return (
         <div className="absolute inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden text-slate-900">
-            {isActuallyFinished && (
-                <button
-                    onClick={handleFinalize}
-                    className="absolute top-3 right-3 z-50 bg-white shadow-xl text-red-600 rounded-full p-2 border border-red-100 hover:scale-110 transition-transform"
-                >
-                    <X size={20} />
-                </button>
-            )}
+            {/* Croix de fermeture supprimée */}
 
             <Scoreboard
                 homeTeam={stats.homeTeam!} awayTeam={stats.awayTeam!}
@@ -226,33 +291,30 @@ export default function MatchLive({ onShowReport }: { onShowReport?: (id: number
                 <div className="flex-1 overflow-y-auto pb-24">
                     {activeTab === "live" && (
                         <div className="flex flex-col gap-4">
-                            {/* Sac N */}
                             <TokenBagDisplay 
-                                title={`Sac (Zone ${typeof stats.currentLog.value?.pos?.x === 'number' && typeof stats.currentLog.value?.pos?.y === 'number' ? `${stats.currentLog.value.pos.x},${stats.currentLog.value.pos.y}` : '-'})`}
+                                title={`Sac (Zone ${stats.currentLog.value?.zone || '-'})`}
                                 color="blue" 
                                 log={stats.currentLog.value} 
                                 homeTeamId={stats.homeId}
                                 awayTeamId={stats.awayId}
                                 drawnTokenId={null}
-                                logIndex={typeof stats.currentLog.value?.logIndex === 'number' ? stats.currentLog.value.logIndex : currentLogIndex.value}
+                                logIndex={stats.currentLog.value?.logIndex ?? currentLogIndex.value}
                                 highlightDrawn={false}
                             />
-                            {/* Commentaire */}
                             <div className="p-3 bg-white rounded-xl border border-slate-100 flex items-start gap-3 shadow-sm">
                                 <MessageSquare size={14} className="text-blue-500 mt-0.5" />
                                 <p className="text-xs text-slate-600 italic leading-relaxed">
                                     {cleanText(stats.currentLog.value?.text, stats.currentLog.value?.drawnToken)}
                                 </p>
                             </div>
-                            {/* Sac N-1 */}
                             <TokenBagDisplay 
-                                title={`Sac (Zone ${typeof stats.previousLog.value?.pos?.x === 'number' && typeof stats.previousLog.value?.pos?.y === 'number' ? `${stats.previousLog.value.pos.x},${stats.previousLog.value.pos.y}` : '-'})`}
+                                title={`Sac (Zone ${stats.previousLog.value?.zone || '-'})`}
                                 color="orange" 
                                 log={stats.previousLog.value} 
                                 homeTeamId={stats.homeId}
                                 awayTeamId={stats.awayId}
                                 drawnTokenId={stats.currentLog.value?.drawnToken?.id}
-                                logIndex={typeof stats.previousLog.value?.logIndex === 'number' ? stats.previousLog.value.logIndex : (typeof currentLogIndex.value === 'number' ? currentLogIndex.value - 1 : '-')}
+                                logIndex={stats.previousLog.value?.logIndex ?? (currentLogIndex.value - 1)}
                                 highlightDrawn={true}
                             />
                         </div>
@@ -298,7 +360,7 @@ function TokenBagDisplay({ title, color, log, homeTeamId, awayTeamId, drawnToken
                     const isDrawn = drawnTokenId && String(token.id) === String(drawnTokenId);
                     let bgClass;
                     if (highlightDrawn && isDrawn) {
-                        bgClass = 'bg-emerald-500 text-white'; // Vert sans bordure
+                        bgClass = 'bg-emerald-500 text-white';
                     } else if (isHomeToken) {
                         bgClass = 'bg-blue-600 border-blue-400 text-white';
                     } else if (isAwayToken) {

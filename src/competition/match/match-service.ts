@@ -38,7 +38,7 @@ export const MatchService = {
          */
         getUserMatchForDay: async (saveId: number, userTeamId: number, day: number) => {
             const matches = await db.matches.where({ saveId, day }).toArray();
-            console.log('[getUserMatchForDay] all matches for day', day, matches.map(m => ({id: m.id, home: m.homeTeamId, away: m.awayTeamId, played: m.played, leagueId: m.leagueId})));
+            // Suppression du log console pour la prod
             return matches.find(m => (m.homeTeamId === userTeamId || m.awayTeamId === userTeamId) && m.leagueId) || null;
         },
     /**
@@ -46,23 +46,27 @@ export const MatchService = {
      * Gère le match utilisateur à part pour permettre le mode "Live".
      */
     simulateDayByDay: async (saveId: number, day: number, userTeamId: number, date: Date): Promise<any> => {
-        console.debug(`[MatchService] Simulation Journée ${day}`);
+        // Vérification stricte des paramètres
+        if (typeof saveId !== 'number' || typeof day !== 'number' || isNaN(saveId) || isNaN(day)) {
+            throw new Error(`[simulateDayByDay] saveId ou day invalide : saveId=${saveId}, day=${day}`);
+        }
 
+        console.debug(`[MatchService] Simulation Journée ${day}`);
 
         // 1. Récupération des données
         let todaysMatches = await db.matches.where("[saveId+day]").equals([saveId, day]).toArray();
-        const allPlayers = await db.players.where("saveId").equals(saveId).toArray();
-
+        // Optimisation : récupération des joueurs par équipe uniquement pour les équipes concernées
+        const teamIds = Array.from(new Set(todaysMatches.flatMap(m => [m.homeTeamId, m.awayTeamId])));
+        const allPlayers = await db.players.where("teamId").anyOf(teamIds).and(p => p.saveId === saveId).toArray();
         // Groupement des joueurs par équipe
         const playersByTeam = allPlayers.reduce((acc, player) => {
             if (!acc[player.teamId]) acc[player.teamId] = [];
-            acc[player.teamId].push(player); 
+            acc[player.teamId].push(player);
             return acc;
         }, {} as Record<number, Player[]>);
 
         // 2. Identification du match utilisateur et des matchs IA
         const userMatch = todaysMatches.find(m => !m.played && (Number(m.homeTeamId) === userTeamId || Number(m.awayTeamId) === userTeamId));
-        console.debug('[simulateDayByDay] userMatch', userMatch);
         const otherMatches = todaysMatches.filter(m => !m.played && m.id !== userMatch?.id);
 
         // 3. Simulation des matchs IA (Batch)
@@ -77,7 +81,6 @@ export const MatchService = {
                     homeName: hT?.name, awayName: aT?.name
                 };
             }));
-            // Correction : on attend bien la fin de la simulation batch IA vs IA
             await MatchService.runBatchSimulation(batchPayload, saveId, date);
         }
 
@@ -87,11 +90,11 @@ export const MatchService = {
             try {
                 const result = await runMatchInWorker({
                     matchId: userMatch.id,
-                    homeTeamId: userMatch.homeTeamId, 
+                    homeTeamId: userMatch.homeTeamId,
                     awayTeamId: userMatch.awayTeamId,
                     homePlayers: playersByTeam[userMatch.homeTeamId] || [],
                     awayPlayers: playersByTeam[userMatch.awayTeamId] || [],
-                    homeName: homeT?.name, 
+                    homeName: homeT?.name,
                     awayName: awayT?.name
                 }, i18next.language);
 
@@ -99,7 +102,7 @@ export const MatchService = {
                 await db.matchLogs.put({
                     saveId,
                     matchId: userMatch.id!,
-                    debugLogs: result.events || [], // On stocke les événements formatés
+                    debugLogs: result.debugLogs || [],
                     events: result.events || [],
                     ballHistory: result.ballHistory || []
                 });
@@ -114,7 +117,6 @@ export const MatchService = {
                 };
             } catch (e) {
                 console.error('[simulateDayByDay] Erreur simulation match utilisateur', e);
-                // On retourne un objet vide pour éviter les nulls
                 return {
                     matchId: userMatch.id!,
                     homeTeam: homeT,
@@ -125,11 +127,6 @@ export const MatchService = {
                 };
             }
         }
-                // Vérification stricte des paramètres
-                if (typeof saveId !== 'number' || typeof day !== 'number' || isNaN(saveId) || isNaN(day)) {
-                    throw new Error(`[simulateDayByDay] saveId ou day invalide : saveId=${saveId}, day=${day}`);
-                }
-                // (suppression de la redéclaration inutile de todaysMatches)
         return {
             matchId: null,
             homeTeam: null,
@@ -228,26 +225,22 @@ export const MatchService = {
      * Cumule les statistiques de match dans le profil permanent des joueurs.
      */
     persistPlayerStats: async (saveId: number, playerStats: Record<number, any>) => {
-        for (const [playerId, stats] of Object.entries(playerStats)) {
+        // Mise à jour individuelle des stats joueurs pour respecter le typage StatMap
+        for (const [playerId, stats] of Object.entries(playerStats as Record<number, Record<string, number>>)) {
             const id = Number(playerId);
             const player = await db.players.get(id);
             if (!player) continue;
-
-            // Sécurité : initialisation de player.stats si absent
             if (!player.stats) {
                 player.stats = { technical: 0, finishing: 0, defense: 0, physical: 0, mental: 0, goalkeeping: 0 };
             }
-
-            // On cumule dans seasonStats (buts, passes, matchs)
             const currentSeason = player.seasonStats || { matches: 0, goals: 0, assists: 0, avgRating: 0, xg: 0, xa: 0, distance: 0, duelsWinRate: 0, passAccuracy: 0 };
             await db.players.update(id, {
                 stats: player.stats,
                 seasonStats: {
                     ...currentSeason,
-                    goals: (currentSeason.goals || 0) + (stats.goals || 0),
-                    assists: (currentSeason.assists || 0) + (stats.assists || 0),
+                    goals: (currentSeason.goals || 0) + (stats["goals"] || 0),
+                    assists: (currentSeason.assists || 0) + (stats["assists"] || 0),
                     matches: (currentSeason.matches || 0) + 1,
-                    // Ajoute d'autres stats si besoin
                 }
             });
         }
@@ -301,7 +294,7 @@ export const MatchService = {
         const idsToDelete = allLogs.map(log => log.id).filter(Boolean);
         if (idsToDelete.length > 0) {
             await db.matchLogs.bulkDelete(idsToDelete);
-            console.debug(`[MatchService] cleanupOldUserMatchLogs: ${idsToDelete.length} logs supprimés pour saveId=${saveId}`);
+            // Suppression du log debug
         }
     },
 };

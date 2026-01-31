@@ -1,9 +1,23 @@
+
 import { useComputed } from "@preact/signals";
 import EventItem from "./EventItem";
-
 import { useLiveMatchStore } from "@/infrastructure/store/liveMatchStore";
-// Importation nommée (doit correspondre au "export function" ci-dessus)
 import { useLiveMatchStats } from "./useLiveMatchStats";
+
+// Copie de la fonction cleanText depuis MatchLive pour un affichage cohérent
+const cleanText = (text?: string, drawnToken?: any) => {
+    if (!text) return '...';
+    let result = text.replace(/undefined|Collectif/g, "L'équipe");
+    if (drawnToken) {
+        if (drawnToken.playerName) {
+            result = result.replace(/\{p1\}/g, drawnToken.playerName);
+        }
+        if (drawnToken.secondaryPlayerName) {
+            result = result.replace(/\{p2\}/g, drawnToken.secondaryPlayerName);
+        }
+    }
+    return result.replace(/\{p1\}|\{p2\}/g, "un joueur");
+};
 
 export default function HighlightsTab({ logs }: { logs: any[] }) {
     const liveMatch = useLiveMatchStore((s) => s.liveMatch);
@@ -18,9 +32,11 @@ export default function HighlightsTab({ logs }: { logs: any[] }) {
     
     const homeId = stats?.homeId;
 
-    // On ne garde que les buts pour les temps forts
+
+
+    // On ne garde que les logs de buts pour les temps forts
     const highlights = useComputed(() =>
-        logs.filter((l: any) => l.type === 'GOAL')
+        logs.filter((l: any) => l.type === 'GOAL' || l.matchEvent?.type === 'GOAL')
     );
 
     if (highlights.value.length === 0) {
@@ -33,13 +49,24 @@ export default function HighlightsTab({ logs }: { logs: any[] }) {
 
     return (
         <div className="space-y-3 py-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {highlights.value.map((event, i) => (
-                <EventItem 
-                    key={`highlight-${event.time}-${i}`} 
-                    event={event} 
-                    homeTeamId={homeId} 
-                />
-            ))}
+            {highlights.value.map((event, i) => {
+                // Utilise la même logique de texte que l'onglet live
+                const description = cleanText(
+                    event.text || event.matchEvent?.text || event.matchEvent?.description || '',
+                    event.drawnToken
+                );
+                const eventWithDescription = {
+                    ...event,
+                    description
+                };
+                return (
+                    <EventItem 
+                        key={`highlight-${event.time}-${i}`} 
+                        event={eventWithDescription} 
+                        homeTeamId={homeId} 
+                    />
+                );
+            })}
         </div>
     );
 }

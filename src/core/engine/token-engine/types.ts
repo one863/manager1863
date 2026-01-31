@@ -31,7 +31,7 @@ export interface Token {
  */
 export interface MatchLog {
   time: number;               // Temps en secondes depuis le début du match
-  type: 'ACTION' | 'GOAL' | 'KICK_OFF' | 'CELEBRATION' | 'PLACEMENT';    // Type d'événement majeur ou spécial
+  type: 'ACTION' | 'GOAL' | 'KICK_OFF' | 'CELEBRATION';    // Type d'événement majeur ou spécial
   text: string;               // Texte final après remplacement des placeholders
   teamId: number;             // Équipe à l'origine de l'action
 
@@ -43,6 +43,8 @@ export interface MatchLog {
   // Données de simulation (Debug/UI)
   bag: Token[];               // État du sac de jetons au moment du tirage
   drawnToken?: Token;         // Le jeton qui a été effectivement tiré (optionnel pour les événements spéciaux)
+  logIndex?: number;          // Index du log dans la séquence du match
+  zone?: string;              // Zone où l'action a été initiée (ex: '2,2')
 
   // Données pour la Persistance et les Stats
   situation?: string;         // Contexte (KICK_OFF, CELEBRATION, etc.)

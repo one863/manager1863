@@ -76,11 +76,15 @@ export function useLiveMatchStats(liveMatch: any, currentLogIndex: any, currentM
         displayPos: useComputed(() => {
             const log = allLogs[getIdx()];
             let pos = log?.ballPosition || (allLogs[0]?.ballPosition) || { x: 2, y: 2 };
-            
+
+            const clampedX = Math.max(0, Math.min(5, Math.round(pos.x)));
+            const clampedY = Math.max(0, Math.min(4, Math.round(pos.y)));
+
             // Clamp pour sécurité (Grille 6x5)
             return {
-                x: Math.max(0, Math.min(5, Math.round(pos.x))),
-                y: Math.max(0, Math.min(4, Math.round(pos.y)))
+                x: clampedX,
+                y: clampedY,
+                badgePlacement: clampedY > 2 ? 'top' : 'bottom'
             };
         }),
 
